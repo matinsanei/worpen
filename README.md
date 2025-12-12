@@ -1,90 +1,87 @@
 # WORPEN // THE DIGITAL NERVOUS SYSTEM
 
 ```text
- __      __  ____  _______   _______   ______  _____  ___   
-|" \    /  \/  " \/    "  \ /"      \ /" _  "\(("   \|"  \  
-\   \  //   \  (:   \___/ |:        |(: ( \___)|.\\   \    | 
- \\  \/.    //  \     \   |_____/   ) \/ \     |: \.   \\  | 
-  \.        //   //  ___  \  //      /  //  \ _  |.  \    \. | 
-   \   \   /    (:  (   ) :)|:  __   \ (:   _) \ |    \    \ | 
-    \__//__\     \__|   |__||__|  \___) \_______) \___|\____\) 
+██     ██  ██████  ██████  ██████  ███████ ███    ██ 
+██     ██ ██    ██ ██   ██ ██   ██ ██      ████   ██ 
+██  █  ██ ██    ██ ██████  ██████  █████   ██ ██  ██ 
+██ ███ ██ ██    ██ ██   ██ ██      ██      ██  ██ ██ 
+ ███ ███   ██████  ██   ██ ██      ███████ ██   ████ 
 ```
 
-> **CODENAME:** THE DIGITAL NERVOUS SYSTEM  
-> **STATUS:** BETA  
-> **CLEARANCE:** LEVEL 5 (GOD MODE)
+> **SYSTEM_STATUS:** `ONLINE`  
+> **ENCRYPTION:** `AES-256-GCM`  
+> **PROTOCOL:** `HIVE_MIND_V2`  
+> **CLEARANCE:** `LEVEL 5 (GOD MODE)`
 
 ---
 
-## 🌌 MISSION: SELF-HEALING INFRASTRUCTURE
+## 🌌 IDENTITY_MATRIX
 
-**Worpen** is a distributed orchestration and **Self-Healing** middleware designed for modern infrastructure. It solves the complexity of managing large fleets and edge devices by introducing a lightweight, intelligent layer that repairs problems automatically.
+**Worpen** is not just a tool; it is a **living layer** for your infrastructure.
 
-**The Philosophy:**
-Legacy tools (Kubernetes) are too heavy for the Edge. Simple scripts (Bash) are too dumb. Worpen is the "Digital Nervous System" that connects, monitors, and heals your fleet with nanosecond efficiency.
+> *"Legacy systems wait for humans to fix them. Worpen fixes itself."*
 
-## 🏗️ SYSTEM ARCHITECTURE [HIVE_MIND]
+We replace the bloat of Kubernetes and the fragility of Bash scripts with a **nanosecond-latency** Rust middleware that turns your disconnected servers into a unified, self-healing organism.
 
-The system operates on a **Hive & Agent** topology, built for speed and resilience.
+---
+
+## 🏗️ SYSTEM ARCHITECTURE [HIVE_TOPOLOGY]
+
+The system operates on a decentralized **Hive & Agent** topology, designed for zero-trust environments and edge computing.
 
 ### 🐝 THE AGENT (The Worker)
-A hyper-lightweight binary (written in **Rust**) installed on target nodes (VPS, Raspberry Pi, Robotics).
-- **Tech:** Rust, Tokio, Bollard.
-- **Access:** Direct Linux Kernel & `docker.sock` access.
-- **Role:** Listens for events, executes strategies locally.
+A hyper-lightweight binary installed on target nodes (VPS, Raspberry Pi, Robotics).
+*   **Core:** Rust 🦀 + Tokio
+*   **Footprint:** < 15MB RAM
+*   **Privileges:** Direct Kernel Ring 0 & `docker.sock` access.
+*   **Directive:** "Observe, Report, Heal."
 
 ### 🧠 THE CORE (The Brain)
-The central server managing thousands of agents.
-- **Tech:** gRPC + mTLS.
-- **Role:** Strategic decision making, mass deployment, telemetry aggregation.
+The central command node managing the fleet.
+*   **Protocol:** gRPC + mTLS (Streaming bidirectional telemetry).
+*   **Role:** Strategic decision making, mass deployment, and pattern recognition.
 
 ### 🖥️ THE COCKPIT (The Interface)
 You are currently viewing the **Cockpit**. A TUI-styled (Text User Interface) web dashboard for high-efficiency monitoring and manual intervention.
 
 ---
 
-## ⚡ MODULES & CAPABILITIES
+## ⚡ ACTIVE MODULES
 
-### 1. FLEET_COMMAND
-Real-time visibility into every node in the mesh.
-- Live CPU/Memory pressure gauges.
-- Instant connection status (Online, Healing, Critical).
-- Remote trigger capabilities (Restart, SSH).
+| MODULE | DESCRIPTION | STATUS |
+| :--- | :--- | :--- |
+| **DASHBOARD** | High-level topology map & telemetry aggregation. | `ONLINE` |
+| **FLEET** | Real-time pressure gauges (CPU/RAM) & remote shell. | `ONLINE` |
+| **DOCKER** | Direct container orchestration via **Bollard** crate. | `STABLE` |
+| **AUTOMATION** | JavaScript/DSL engine for defining self-healing rules. | `BETA` |
 
-### 2. DOCKER_ORCHESTRATION
-Direct control over the container runtime without CLI latency.
-- View real-time container states.
-- Perform lifecycle actions: `STOP`, `START`, `KILL`, `PRUNE`.
-- Powered by the **Bollard** Rust crate for direct API interaction.
+### 🛑 SELF-HEALING SCENARIO EXAMPLE
 
-### 3. AUTOMATION_MATRIX (Self-Healing)
-The core value proposition. Define logic to handle incidents without human intervention.
-- **Trigger:** `CONTAINER_OOM_KILLED`
-- **Action:** `docker.restart(id)` + `notify.slack()`
-- **Result:** System uptime maintained automatically.
+1.  **EVENT:** Service `saleor-api` crashes with exit code `137` (OOM).
+2.  **DETECTION:** Agent captures `docker.die` event in **< 5ms**.
+3.  **ANALYSIS:** Local strategy table checked: `IF exit_code == 137 THEN restart`.
+4.  **ACTION:** Container restarted immediately.
+5.  **REPORT:** Incident logged to Core. **Human intervention: 0**.
 
 ---
 
-## 🎨 AESTHETICS & UX
+## 🚀 INITIALIZATION SEQUENCE
 
-Designed for operators who live in the terminal.
-- **Visual Style:** Retro DOS / Green Phosphor / Cyberpunk.
-- **Effects:** CRT Scanlines, Text Glow, Blinking Cursors.
-- **Font:** `Fira Code` & `VT323`.
-- **Palette:** `#00ff41` (Terminal Green) on `#000000` (Void Black).
-
-## 🚀 INSTALLATION
+Jack into the matrix:
 
 ```bash
-# Clone the neural pathway
+# 1. Clone the neural pathways
 git clone https://github.com/worpen/cockpit.git
 
-# Initialize dependencies
+# 2. Install synaptic relays
 npm install
 
-# Jack into the matrix
+# 3. Ignite the system
 npm start
 ```
 
 ---
-*SYSTEM STATUS: NOMINAL // END OF FILE*
+
+> "The system is self-correcting. We are just the architects."
+
+*WORPEN_OS // END OF FILE*
