@@ -1,0 +1,5 @@
+{
+  "name": "Worpen - Digital Nervous System",
+  "description": "A TUI-styled orchestration and self-healing platform dashboard for Worpen infrastructure.",
+  "requestFramePermissions": []
+}

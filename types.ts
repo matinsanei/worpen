@@ -1,0 +1,59 @@
+export enum AgentStatus {
+  ONLINE = 'ONLINE',
+  OFFLINE = 'OFFLINE',
+  HEALING = 'HEALING',
+  CRITICAL = 'CRITICAL'
+}
+
+export interface Agent {
+  id: string;
+  name: string;
+  ip: string;
+  os: string;
+  version: string;
+  status: AgentStatus;
+  cpuLoad: number;
+  memoryLoad: number;
+  lastSeen: string;
+  uptime: string;
+}
+
+export interface LogEntry {
+  id: string;
+  timestamp: string;
+  level: 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS';
+  source: string;
+  message: string;
+}
+
+export interface Incident {
+  id: string;
+  service: string;
+  node: string;
+  issue: string;
+  action: string;
+  status: 'RESOLVED' | 'PENDING' | 'FAILED';
+  time: string;
+}
+
+export interface Container {
+  id: string;
+  name: string;
+  image: string;
+  state: 'RUNNING' | 'EXITED' | 'RESTARTING';
+  status: string;
+  node: string;
+  ports: string;
+}
+
+export interface AutomationRule {
+  id: string;
+  name: string;
+  triggerEvent: string;
+  targetService: string;
+  script: string;
+  lastRun: string;
+  active: boolean;
+}
+
+export type ViewState = 'DASHBOARD' | 'FLEET' | 'DOCKER' | 'AUTOMATION' | 'INCIDENTS' | 'SETTINGS';
