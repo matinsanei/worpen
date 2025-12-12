@@ -53,11 +53,24 @@ export const DockerView: React.FC = () => {
                   </span>
                 </td>
                 <td className="p-3 text-right">
-                  <div className="flex justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                    <button title="Logs" className="p-1 hover:text-white hover:bg-green-800"><Terminal size={14}/></button>
-                    <button title="Restart" className="p-1 hover:text-blue-400 hover:bg-blue-900/30"><RotateCw size={14}/></button>
-                    <button title="Stop" className="p-1 hover:text-yellow-400 hover:bg-yellow-900/30"><Square size={14}/></button>
-                    <button title="Kill" className="p-1 hover:text-red-500 hover:bg-red-900/30"><Trash2 size={14}/></button>
+                  <div className="flex justify-end gap-2 opacity-80 hover:opacity-100 transition-opacity">
+                    <button className="flex items-center gap-1 px-2 py-1 border border-green-800 text-[10px] hover:bg-green-900 hover:text-green-300 transition-colors">
+                       <Terminal size={10} /> LOGS
+                    </button>
+                    
+                    {container.state !== 'RUNNING' ? (
+                        <button className="flex items-center gap-1 px-2 py-1 border border-green-800 text-[10px] hover:bg-green-900 hover:text-green-400 transition-colors">
+                           <Play size={10} /> START
+                        </button>
+                    ) : (
+                        <button className="flex items-center gap-1 px-2 py-1 border border-yellow-900 text-[10px] text-yellow-600 hover:bg-yellow-900/20 hover:text-yellow-400 transition-colors">
+                           <Square size={10} /> STOP
+                        </button>
+                    )}
+                    
+                    <button className="flex items-center gap-1 px-2 py-1 border border-red-900 text-[10px] text-red-600 hover:bg-red-900/20 hover:text-red-400 transition-colors">
+                       <Trash2 size={10} /> RM
+                    </button>
                   </div>
                 </td>
               </tr>
