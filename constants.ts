@@ -12,7 +12,8 @@ export const MOCK_AGENTS: Agent[] = [
     cpuLoad: 12,
     memoryLoad: 34,
     lastSeen: "0ms ago",
-    uptime: "45d 12h"
+    uptime: "45d 12h",
+    peers: 4
   },
   {
     id: "bee-002",
@@ -24,7 +25,8 @@ export const MOCK_AGENTS: Agent[] = [
     cpuLoad: 89,
     memoryLoad: 92,
     lastSeen: "12ms ago",
-    uptime: "12d 4h"
+    uptime: "12d 4h",
+    peers: 3
   },
   {
     id: "bee-003",
@@ -36,7 +38,8 @@ export const MOCK_AGENTS: Agent[] = [
     cpuLoad: 4,
     memoryLoad: 15,
     lastSeen: "5ms ago",
-    uptime: "201d 1h"
+    uptime: "201d 1h",
+    peers: 2
   },
   {
     id: "bee-004",
@@ -48,7 +51,8 @@ export const MOCK_AGENTS: Agent[] = [
     cpuLoad: 0,
     memoryLoad: 0,
     lastSeen: "4h ago",
-    uptime: "0"
+    uptime: "0",
+    peers: 0
   },
   {
     id: "bee-005",
@@ -60,7 +64,8 @@ export const MOCK_AGENTS: Agent[] = [
     cpuLoad: 45,
     memoryLoad: 78,
     lastSeen: "1ms ago",
-    uptime: "5d 22h"
+    uptime: "5d 22h",
+    peers: 4
   }
 ];
 
@@ -71,6 +76,23 @@ export const MOCK_LOGS: LogEntry[] = [
   { id: '4', timestamp: '10:42:06', level: 'INFO', source: 'bee-002', message: 'Strategy matched: [Restart_On_Failure].' },
   { id: '5', timestamp: '10:42:07', level: 'SUCCESS', source: 'bee-002', message: 'Container [saleor-api] successfully restarted. PID: 4521.' },
   { id: '6', timestamp: '10:42:15', level: 'INFO', source: 'CORE', message: 'Fleet synchronization complete.' },
+];
+
+export interface GossipLog {
+  id: string;
+  from: string;
+  to: string;
+  type: 'SYNC_RULE' | 'HEARTBEAT' | 'SHARED_LAYER' | 'ALERT';
+  payload: string;
+  latency: string;
+}
+
+export const MOCK_GOSSIP_LOGS: GossipLog[] = [
+  { id: 'g1', from: 'bee-001', to: 'bee-002', type: 'SYNC_RULE', payload: 'rule-01 (OOM_KILL)', latency: '2ms' },
+  { id: 'g2', from: 'bee-003', to: 'bee-005', type: 'HEARTBEAT', payload: 'status: OK', latency: '5ms' },
+  { id: 'g3', from: 'bee-002', to: 'bee-001', type: 'SHARED_LAYER', payload: 'sha256:7a8b...1', latency: '12ms' },
+  { id: 'g4', from: 'bee-005', to: 'bee-002', type: 'SYNC_RULE', payload: 'rule-03 (SCALE)', latency: '3ms' },
+  { id: 'g5', from: 'bee-001', to: 'bee-003', type: 'ALERT', payload: 'WARN: High Load', latency: '4ms' },
 ];
 
 export const MOCK_INCIDENTS: Incident[] = [

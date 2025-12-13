@@ -1,8 +1,9 @@
+
 import React from 'react';
 import { TerminalFrame } from '../components/TerminalFrame';
 import { MOCK_AGENTS } from '../constants';
 import { AgentStatus } from '../types';
-import { Cpu, HardDrive, Terminal } from 'lucide-react';
+import { Cpu, HardDrive, Terminal, Share2 } from 'lucide-react';
 
 export const Fleet: React.FC = () => {
   const getStatusColor = (status: AgentStatus) => {
@@ -67,6 +68,14 @@ export const Fleet: React.FC = () => {
                    <span className="text-xs w-8 text-right">{agent.memoryLoad}%</span>
                 </div>
               </div>
+
+               {/* Mesh/Peer Info */}
+               <div className="flex items-center justify-between text-[10px] text-blue-400 bg-blue-900/10 p-1 border border-blue-900/30 mt-1">
+                   <div className="flex items-center gap-1">
+                       <Share2 size={12}/> <span>MESH_PEERS_CONNECTED</span>
+                   </div>
+                   <span className="font-bold font-mono">{agent.peers} NODES</span>
+               </div>
 
               {/* Quick Actions */}
               <div className="flex gap-2 mt-4 pt-4 border-t border-green-900/50">

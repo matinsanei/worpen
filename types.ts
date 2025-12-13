@@ -17,6 +17,7 @@ export interface Agent {
   memoryLoad: number;
   lastSeen: string;
   uptime: string;
+  peers: number; // Connected nodes in the mesh/side-net
 }
 
 export interface LogEntry {

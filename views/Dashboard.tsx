@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { TerminalFrame } from '../components/TerminalFrame';
 import { LiveLogs } from '../components/LiveLogs';
 import { StatsChart } from '../components/StatsChart';
-import { MOCK_LOGS, MOCK_AGENTS } from '../constants';
+import { MOCK_LOGS, MOCK_AGENTS, MOCK_GOSSIP_LOGS, GossipLog } from '../constants';
 import { AgentStatus } from '../types';
-import { Activity, Server, Zap, ShieldAlert, Cpu, Network } from 'lucide-react';
+import { Activity, Server, Zap, ShieldAlert, Cpu, Network, Share2, Radio, ArrowLeftRight } from 'lucide-react';
 
 // --- Topology Map Component ---
 const TopologyMap = ({ agents }: { agents: typeof MOCK_AGENTS }) => {
@@ -22,6 +23,48 @@ const TopologyMap = ({ agents }: { agents: typeof MOCK_AGENTS }) => {
 
       {/* SVG Map */}
       <svg className="w-full h-full" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet">
+        {/* Core Halo */}
+        <circle cx="200" cy="150" r="130" fill="none" stroke="#00ff41" strokeWidth="0.5" strokeDasharray="2,2" className="opacity-10 animate-[spin_60s_linear_infinite]" />
+        
+        {/* MESH NETWORK CONNECTIONS (Side Net) */}
+        {agents.map((agent, i) => {
+             // Calculate position
+             const count = agents.length;
+             const angle = (i / count) * Math.PI * 2 - Math.PI / 2;
+             const radius = 110;
+             const x = 200 + Math.cos(angle) * radius;
+             const y = 150 + Math.sin(angle) * radius;
+
+             // Calculate next neighbor position for ring mesh
+             const nextAngle = ((i + 1) % count / count) * Math.PI * 2 - Math.PI / 2;
+             const nextX = 200 + Math.cos(nextAngle) * radius;
+             const nextY = 150 + Math.sin(nextAngle) * radius;
+             
+             // Animated Packets on mesh
+             const packetDuration = 2 + Math.random();
+
+             return (
+               <g key={`mesh-${i}`}>
+                   <line 
+                    x1={x} y1={y}
+                    x2={nextX} y2={nextY}
+                    stroke="#3b82f6"
+                    strokeWidth="0.5"
+                    strokeOpacity="0.4"
+                    strokeDasharray="2,2"
+                   />
+                   {/* Moving Packet */}
+                   <circle r="1.5" fill="#3b82f6" opacity="0.8">
+                      <animateMotion 
+                        dur={`${packetDuration}s`} 
+                        repeatCount="indefinite"
+                        path={`M ${x} ${y} L ${nextX} ${nextY}`}
+                      />
+                   </circle>
+               </g>
+             )
+        })}
+
         {/* Center Core */}
         <g transform="translate(200, 150)">
           <circle r="15" fill="#000" stroke="#00ff41" strokeWidth="2" className="animate-pulse" />
@@ -45,7 +88,7 @@ const TopologyMap = ({ agents }: { agents: typeof MOCK_AGENTS }) => {
 
           return (
             <g key={agent.id}>
-              {/* Connection Line */}
+              {/* Core Connection Line */}
               <line 
                 x1="200" y1="150" 
                 x2={x} y2={y} 
@@ -58,6 +101,11 @@ const TopologyMap = ({ agents }: { agents: typeof MOCK_AGENTS }) => {
               {/* Node Dot */}
               <circle cx={x} cy={y} r="6" fill="#000" stroke={color} strokeWidth="2" />
               
+              {/* Side Net Activity Indicator (Blue Dot) */}
+              {!isOffline && (
+                 <circle cx={x + 8} cy={y - 8} r="1.5" fill="#3b82f6" className="animate-ping" />
+              )}
+              
               {/* Node Label */}
               <text x={x} y={y + 15} textAnchor="middle" fill={color} fontSize="6" fontFamily="monospace" className="uppercase">
                 {agent.name.split('-').pop()}
@@ -68,6 +116,34 @@ const TopologyMap = ({ agents }: { agents: typeof MOCK_AGENTS }) => {
       </svg>
     </div>
   );
+};
+
+// --- Gossip Log Component ---
+const GossipStream = ({ logs }: { logs: GossipLog[] }) => {
+    return (
+        <TerminalFrame title="GOSSIP_PROTOCOL [SIDE_NET]" className="h-full">
+            <div className="flex flex-col gap-2 font-mono text-[10px] md:text-xs">
+                {logs.map((log) => (
+                    <div key={log.id} className="flex flex-col bg-blue-900/10 border-l-2 border-blue-500 p-2">
+                        <div className="flex justify-between items-center text-blue-300 mb-1">
+                            <span className="flex items-center gap-1">
+                                <ArrowLeftRight size={10} /> 
+                                {log.from.split('-')[1]} -> {log.to.split('-')[1]}
+                            </span>
+                            <span className="text-gray-500">{log.latency}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="font-bold text-white">{log.type}</span>
+                            <span className="text-gray-400">{log.payload}</span>
+                        </div>
+                    </div>
+                ))}
+                <div className="text-center text-blue-500 animate-pulse text-[10px] mt-2">
+                    /// LISTENING TO ENCRYPTED P2P TRAFFIC...
+                </div>
+            </div>
+        </TerminalFrame>
+    );
 };
 
 export const Dashboard: React.FC = () => {
@@ -103,7 +179,6 @@ export const Dashboard: React.FC = () => {
   }, []);
 
   const onlineCount = MOCK_AGENTS.filter(a => a.status === AgentStatus.ONLINE).length;
-  const healingCount = MOCK_AGENTS.filter(a => a.status === AgentStatus.HEALING).length;
   const criticalCount = MOCK_AGENTS.filter(a => a.status === AgentStatus.OFFLINE || a.status === AgentStatus.CRITICAL).length;
 
   return (
@@ -136,13 +211,14 @@ export const Dashboard: React.FC = () => {
           </div>
         </TerminalFrame>
         
-        <TerminalFrame title="HEALING_OPS" className="h-24" flashing={healingCount > 0}>
+        {/* NEW KPI: MESH / SIDE NET */}
+        <TerminalFrame title="SIDE_NET_MESH" className="h-24">
           <div className="flex items-center justify-between h-full px-2">
              <div className="flex flex-col">
-              <span className={`text-3xl font-bold font-mono ${healingCount > 0 ? 'text-yellow-400' : 'text-gray-600'}`}>{healingCount}</span>
-              <span className="text-[10px] text-yellow-700">AUTO-FIX</span>
+              <span className="text-3xl font-bold font-mono text-blue-400">ACTIVE</span>
+              <span className="text-[10px] text-blue-700">GOSSIP PROTOCOL</span>
              </div>
-            <Activity className={`w-8 h-8 ${healingCount > 0 ? 'text-yellow-500 animate-pulse' : 'text-gray-800'}`} />
+            <Share2 className="w-8 h-8 text-blue-800 animate-pulse" />
           </div>
         </TerminalFrame>
 
@@ -174,8 +250,16 @@ export const Dashboard: React.FC = () => {
         <div className="lg:col-span-2 flex flex-col gap-4 min-h-0">
           
           {/* Map Section */}
-          <TerminalFrame title="CLUSTER_TOPOLOGY" className="flex-grow min-h-[300px]">
+          <TerminalFrame title="CLUSTER_TOPOLOGY + MESH OVERLAY" className="flex-grow min-h-[300px]">
              <TopologyMap agents={MOCK_AGENTS} />
+             <div className="absolute bottom-2 right-2 flex flex-col items-end gap-1 pointer-events-none">
+                <div className="flex items-center gap-1">
+                   <div className="w-2 h-0.5 bg-green-500"></div> <span className="text-[9px] text-green-500">CORE_LINK</span>
+                </div>
+                <div className="flex items-center gap-1">
+                   <div className="w-2 h-0.5 bg-blue-500 border border-blue-500 border-dashed"></div> <span className="text-[9px] text-blue-500">SIDE_MESH</span>
+                </div>
+             </div>
           </TerminalFrame>
           
           {/* Charts Row */}
@@ -203,9 +287,17 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Col: Logs */}
-        <div className="lg:col-span-1 min-h-[400px] lg:min-h-0 flex flex-col">
-          <LiveLogs logs={MOCK_LOGS} />
+        {/* Right Col: Logs & Gossip */}
+        <div className="lg:col-span-1 min-h-[400px] lg:min-h-0 flex flex-col gap-4">
+           {/* Top Half: Gossip Stream */}
+           <div className="flex-1 min-h-0">
+              <GossipStream logs={MOCK_GOSSIP_LOGS} />
+           </div>
+           
+           {/* Bottom Half: System Logs */}
+           <div className="flex-1 min-h-0">
+              <LiveLogs logs={MOCK_LOGS} />
+           </div>
         </div>
       </div>
     </div>
