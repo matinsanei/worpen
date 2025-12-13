@@ -5,7 +5,8 @@ import { Fleet } from './views/Fleet';
 import { DockerView } from './views/DockerView';
 import { AutomationView } from './views/AutomationView';
 import { SettingsView } from './views/SettingsView';
-import { LayoutGrid, Server, AlertTriangle, Settings, Power, Box, Bot, Shield, User, Globe, Activity } from 'lucide-react';
+import { DependencyView } from './views/DependencyView';
+import { LayoutGrid, Server, AlertTriangle, Settings, Power, Box, Bot, Shield, User, Globe, Activity, Layers } from 'lucide-react';
 import { MOCK_INCIDENTS, MOCK_AGENTS } from './constants';
 import { TerminalFrame } from './components/TerminalFrame';
 
@@ -61,6 +62,7 @@ const App: React.FC = () => {
       case 'FLEET': return <Fleet />;
       case 'DOCKER': return <DockerView />;
       case 'AUTOMATION': return <AutomationView />;
+      case 'DEPENDENCY': return <DependencyView />;
       case 'INCIDENTS': return <IncidentsView />;
       case 'SETTINGS': return <SettingsView />;
       default: return <div className="p-10 text-center animate-pulse">MODULE UNDER CONSTRUCTION...</div>;
@@ -170,6 +172,7 @@ const App: React.FC = () => {
               <NavGroup label="ORCHESTRATION">
                 <NavItem view="DOCKER" icon={Box} label="DOCKER CONTAINERS" />
                 <NavItem view="AUTOMATION" icon={Bot} label="AUTO-HEALING" />
+                <NavItem view="DEPENDENCY" icon={Layers} label="ARTIFACT NEXUS" />
               </NavGroup>
 
               <NavGroup label="SYSTEM">

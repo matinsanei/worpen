@@ -1,3 +1,4 @@
+
 export enum AgentStatus {
   ONLINE = 'ONLINE',
   OFFLINE = 'OFFLINE',
@@ -56,4 +57,20 @@ export interface AutomationRule {
   active: boolean;
 }
 
-export type ViewState = 'DASHBOARD' | 'FLEET' | 'DOCKER' | 'AUTOMATION' | 'INCIDENTS' | 'SETTINGS';
+export interface DockerLayer {
+  hash: string;
+  instruction: string;
+  size: string;
+  isShared: boolean;
+  status: 'CACHED' | 'DOWNLOADING' | 'REDUNDANT';
+}
+
+export interface ImageManifest {
+  id: string;
+  name: string;
+  tag: string;
+  totalSize: string;
+  layers: DockerLayer[];
+}
+
+export type ViewState = 'DASHBOARD' | 'FLEET' | 'DOCKER' | 'AUTOMATION' | 'INCIDENTS' | 'SETTINGS' | 'DEPENDENCY';

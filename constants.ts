@@ -1,4 +1,5 @@
-import { Agent, AgentStatus, Incident, LogEntry, Container, AutomationRule } from "./types";
+
+import { Agent, AgentStatus, Incident, LogEntry, Container, AutomationRule, ImageManifest } from "./types";
 
 export const MOCK_AGENTS: Agent[] = [
   {
@@ -128,5 +129,35 @@ if (metrics.avg_response_time > 500) {
      docker.scale(service, current + 1);
   }
 }`
+  }
+];
+
+export const MOCK_IMAGES: ImageManifest[] = [
+  {
+    id: "img-001",
+    name: "frontend-dashboard",
+    tag: "v3.2.1",
+    totalSize: "145MB",
+    layers: [
+      { hash: "sha256:7a8b...1", instruction: "FROM node:18-alpine", size: "40MB", isShared: true, status: 'CACHED' },
+      { hash: "sha256:8c9d...2", instruction: "WORKDIR /app", size: "0B", isShared: true, status: 'CACHED' },
+      { hash: "sha256:9d0e...3", instruction: "COPY package.json .", size: "2KB", isShared: true, status: 'CACHED' },
+      { hash: "sha256:ae1f...4", instruction: "RUN npm install", size: "85MB", isShared: false, status: 'REDUNDANT' },
+      { hash: "sha256:bf2a...5", instruction: "COPY . .", size: "15MB", isShared: false, status: 'DOWNLOADING' },
+      { hash: "sha256:c34b...6", instruction: "RUN npm run build", size: "5MB", isShared: false, status: 'DOWNLOADING' }
+    ]
+  },
+  {
+    id: "img-002",
+    name: "backend-api",
+    tag: "v3.2.1",
+    totalSize: "180MB",
+    layers: [
+      { hash: "sha256:7a8b...1", instruction: "FROM node:18-alpine", size: "40MB", isShared: true, status: 'CACHED' },
+      { hash: "sha256:8c9d...2", instruction: "WORKDIR /app", size: "0B", isShared: true, status: 'CACHED' },
+      { hash: "sha256:1a2b...9", instruction: "COPY package.json .", size: "2KB", isShared: true, status: 'CACHED' },
+      { hash: "sha256:ae1f...4", instruction: "RUN npm install", size: "85MB", isShared: false, status: 'REDUNDANT' },
+      { hash: "sha256:ef56...8", instruction: "COPY src/ .", size: "55MB", isShared: false, status: 'DOWNLOADING' }
+    ]
   }
 ];
