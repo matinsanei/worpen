@@ -73,4 +73,22 @@ export interface ImageManifest {
   layers: DockerLayer[];
 }
 
-export type ViewState = 'DASHBOARD' | 'FLEET' | 'DOCKER' | 'AUTOMATION' | 'INCIDENTS' | 'SETTINGS' | 'DEPENDENCY';
+export interface PipelineStage {
+  id: string;
+  name: string;
+  status: 'SUCCESS' | 'FAILED' | 'RUNNING' | 'PENDING';
+  duration: string;
+}
+
+export interface Pipeline {
+  id: string;
+  name: string;
+  branch: string;
+  commit: string;
+  author: string;
+  status: 'SUCCESS' | 'FAILED' | 'RUNNING' | 'PENDING';
+  lastRun: string;
+  stages: PipelineStage[];
+}
+
+export type ViewState = 'DASHBOARD' | 'FLEET' | 'DOCKER' | 'AUTOMATION' | 'INCIDENTS' | 'SETTINGS' | 'DEPENDENCY' | 'CICD';

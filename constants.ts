@@ -1,5 +1,5 @@
 
-import { Agent, AgentStatus, Incident, LogEntry, Container, AutomationRule, ImageManifest } from "./types";
+import { Agent, AgentStatus, Incident, LogEntry, Container, AutomationRule, ImageManifest, Pipeline } from "./types";
 
 export const MOCK_AGENTS: Agent[] = [
   {
@@ -158,6 +158,53 @@ export const MOCK_IMAGES: ImageManifest[] = [
       { hash: "sha256:1a2b...9", instruction: "COPY package.json .", size: "2KB", isShared: true, status: 'CACHED' },
       { hash: "sha256:ae1f...4", instruction: "RUN npm install", size: "85MB", isShared: false, status: 'REDUNDANT' },
       { hash: "sha256:ef56...8", instruction: "COPY src/ .", size: "55MB", isShared: false, status: 'DOWNLOADING' }
+    ]
+  }
+];
+
+export const MOCK_PIPELINES: Pipeline[] = [
+  {
+    id: "pipe-001",
+    name: "production-deploy",
+    branch: "main",
+    commit: "7f8a91b (fix: hotfix payment gateway)",
+    author: "dev_ops_Lead",
+    status: "SUCCESS",
+    lastRun: "2 hours ago",
+    stages: [
+      { id: "s1", name: "BUILD", status: "SUCCESS", duration: "45s" },
+      { id: "s2", name: "TEST", status: "SUCCESS", duration: "1m 20s" },
+      { id: "s3", name: "SCAN", status: "SUCCESS", duration: "30s" },
+      { id: "s4", name: "DEPLOY", status: "SUCCESS", duration: "15s" }
+    ]
+  },
+  {
+    id: "pipe-002",
+    name: "staging-integration",
+    branch: "develop",
+    commit: "3c4d5e6 (feat: new dashboard widgets)",
+    author: "frontend_ninja",
+    status: "FAILED",
+    lastRun: "5 mins ago",
+    stages: [
+      { id: "s1", name: "BUILD", status: "SUCCESS", duration: "42s" },
+      { id: "s2", name: "TEST", status: "FAILED", duration: "3s" },
+      { id: "s3", name: "SCAN", status: "PENDING", duration: "-" },
+      { id: "s4", name: "DEPLOY", status: "PENDING", duration: "-" }
+    ]
+  },
+  {
+    id: "pipe-003",
+    name: "nightly-cleanup",
+    branch: "cron/nightly",
+    commit: "system_trigger",
+    author: "SYSTEM",
+    status: "RUNNING",
+    lastRun: "Running...",
+    stages: [
+      { id: "s1", name: "PRUNE", status: "SUCCESS", duration: "10s" },
+      { id: "s2", name: "BACKUP", status: "RUNNING", duration: "12s..." },
+      { id: "s3", name: "NOTIFY", status: "PENDING", duration: "-" }
     ]
   }
 ];
