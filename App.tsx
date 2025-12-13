@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { ViewState } from './types';
+import { ViewState, AgentStatus } from './types';
 import { Dashboard } from './views/Dashboard';
 import { Fleet } from './views/Fleet';
 import { DockerView } from './views/DockerView';
 import { AutomationView } from './views/AutomationView';
 import { SettingsView } from './views/SettingsView';
 import { LayoutGrid, Server, AlertTriangle, Settings, Power, Box, Bot, Shield, User, Globe, Activity } from 'lucide-react';
-import { MOCK_INCIDENTS } from './constants';
+import { MOCK_INCIDENTS, MOCK_AGENTS } from './constants';
 import { TerminalFrame } from './components/TerminalFrame';
 
 const IncidentsView: React.FC = () => (
@@ -96,6 +96,24 @@ const App: React.FC = () => {
     </button>
   );
 
+  // Health Calculation Logic
+  const criticalCount = MOCK_AGENTS.filter(a => a.status === AgentStatus.OFFLINE || a.status === AgentStatus.CRITICAL).length;
+  const healingCount = MOCK_AGENTS.filter(a => a.status === AgentStatus.HEALING).length;
+  
+  let healthIndicatorClass = "bg-green-500 shadow-[0_0_5px_#22c55e]";
+  let healthTextClass = "text-green-400";
+  let healthValue = "98.4%";
+
+  if (criticalCount > 0) {
+    healthIndicatorClass = "bg-red-500 shadow-[0_0_5px_#ef4444]";
+    healthTextClass = "text-red-500";
+    healthValue = "WARNING";
+  } else if (healingCount > 0) {
+    healthIndicatorClass = "bg-yellow-500 shadow-[0_0_5px_#eab308]";
+    healthTextClass = "text-yellow-400";
+    healthValue = "HEALING";
+  }
+
   return (
     <div className="flex flex-col h-screen w-full bg-black text-green-500 overflow-hidden">
       
@@ -110,8 +128,9 @@ const App: React.FC = () => {
         {/* Top Stats */}
         <div className="hidden lg:flex items-center gap-8 text-[10px] font-mono text-gray-500">
            <div className="flex items-center gap-2">
-             <Activity size={12} className="text-green-600"/>
-             <span>CLUSTER_HEALTH: <span className="text-green-400">98.4%</span></span>
+             <div className={`w-2 h-2 rounded-full animate-pulse ${healthIndicatorClass}`}></div>
+             <Activity size={12} className={healthTextClass}/>
+             <span>CLUSTER_HEALTH: <span className={healthTextClass}>{healthValue}</span></span>
            </div>
            <div className="flex items-center gap-2">
              <Globe size={12} className="text-blue-600"/>
