@@ -1,15 +1,35 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { TerminalFrame } from '../components/TerminalFrame';
-import { StatsChart } from '../components/StatsChart';
-import { MOCK_LOGS, MOCK_AGENTS } from '../constants';
-import { AgentStatus } from '../types';
 import { 
-  Activity, Server, Zap, ShieldCheck, 
-  Cpu, Network, Globe, Clock, ArrowUpRight 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine 
+} from 'recharts';
+import { MOCK_LOGS } from '../constants';
+import { 
+  Server, Zap, ShieldCheck, 
+  Cpu, Network, Globe, Clock, ArrowUpRight,
+  Database, Lock, Wifi, HardDrive, AlertCircle
 } from 'lucide-react';
 
-const KPICard = ({ title, value, label, icon: Icon, trend, color = "green" }: any) => (
+const STATIC_CHART_DATA = [
+  { time: '00:00', load: 24, predicted: 20 },
+  { time: '02:00', load: 18, predicted: 18 },
+  { time: '04:00', load: 15, predicted: 15 },
+  { time: '06:00', load: 32, predicted: 30 },
+  { time: '08:00', load: 65, predicted: 60 },
+  { time: '10:00', load: 88, predicted: 85 },
+  { time: '11:00', load: 95, predicted: 92 },
+  { time: '12:00', load: 92, predicted: 90 },
+  { time: '13:00', load: 85, predicted: 88 },
+  { time: '14:00', load: 78, predicted: 80 },
+  { time: '16:00', load: 70, predicted: 75 },
+  { time: '18:00', load: 96, predicted: 85 },
+  { time: '20:00', load: 70, predicted: 75 },
+  { time: '22:00', load: 45, predicted: 40 },
+  { time: '23:59', load: 30, predicted: 30 },
+];
+
+const KPICard = ({ title, value, icon: Icon, trend, color = "green" }: any) => (
   <div className="relative overflow-hidden rounded-sm bg-[#0a0a0a] border border-white/5 p-5 group hover:border-green-500/20 transition-all">
     <div className="flex justify-between items-start mb-4">
        <div className={`p-2 rounded-md bg-${color}-500/10 text-${color}-500`}>
@@ -29,69 +49,52 @@ const KPICard = ({ title, value, label, icon: Icon, trend, color = "green" }: an
   </div>
 );
 
-const TopologyVis = () => {
+const ServiceHealthMatrix = () => {
+  const services = [
+    { name: 'AUTH_GATEWAY', status: 'OPERATIONAL', lat: '12ms', load: 45, icon: Lock },
+    { name: 'CORE_DB_SHARD_01', status: 'OPERATIONAL', lat: '4ms', load: 78, icon: Database },
+    { name: 'EDGE_ROUTER_EU', status: 'DEGRADED', lat: '145ms', load: 92, icon: Globe },
+    { name: 'STORAGE_BLOB_S3', status: 'OPERATIONAL', lat: '24ms', load: 12, icon: HardDrive },
+    { name: 'MSG_QUEUE_KAFKA', status: 'OPERATIONAL', lat: '8ms', load: 33, icon: Wifi },
+  ];
+
   return (
-    <div className="w-full h-full relative flex items-center justify-center overflow-hidden">
-       {/* Background Radar */}
-       <div className="absolute inset-0 border-[0.5px] border-green-900/30 rounded-full scale-[1.5] opacity-20"></div>
-       <div className="absolute inset-0 border-[0.5px] border-green-900/30 rounded-full scale-[1] opacity-20"></div>
-       <div className="absolute inset-0 border-[0.5px] border-green-900/30 rounded-full scale-[0.5] opacity-20"></div>
-       
-       {/* Rotating Elements */}
-       <div className="absolute w-[300px] h-[300px] border border-green-500/10 rounded-full animate-[spin_10s_linear_infinite]"></div>
-       <div className="absolute w-[200px] h-[200px] border border-dashed border-green-500/20 rounded-full animate-[spin_15s_linear_infinite_reverse]"></div>
-
-       {/* Nodes */}
-       {MOCK_AGENTS.map((agent, i) => {
-          const angle = (i / MOCK_AGENTS.length) * 2 * Math.PI;
-          const r = 100;
-          const x = Math.cos(angle) * r;
-          const y = Math.sin(angle) * r;
-          const isOnline = agent.status === AgentStatus.ONLINE;
+    <div className="h-full flex flex-col gap-2 p-2 overflow-y-auto">
+      {services.map((svc, i) => (
+        <div key={i} className="flex items-center justify-between p-3 bg-white/5 border border-white/5 hover:border-green-500/30 transition-all group rounded-sm">
+          <div className="flex items-center gap-3">
+             <div className={`p-2 rounded bg-black border border-white/10 ${svc.status === 'DEGRADED' ? 'text-yellow-500' : 'text-green-500'}`}>
+                <svc.icon size={14} />
+             </div>
+             <div>
+                <div className="text-xs font-bold text-gray-200 group-hover:text-white">{svc.name}</div>
+                <div className="text-[10px] text-gray-500 font-mono flex items-center gap-2">
+                   <span className={svc.status === 'OPERATIONAL' ? 'text-green-600' : 'text-yellow-600'}>{svc.status}</span>
+                   <span className="text-gray-700">|</span>
+                   <span>{svc.lat}</span>
+                </div>
+             </div>
+          </div>
           
-          return (
-            <div 
-              key={agent.id}
-              className="absolute w-3 h-3 -ml-1.5 -mt-1.5 rounded-full shadow-[0_0_10px_rgba(0,0,0,0.8)] z-10 transition-transform hover:scale-150 cursor-pointer"
-              style={{ 
-                 transform: `translate(${x}px, ${y}px)`,
-                 backgroundColor: isOnline ? '#00ff41' : '#ef4444'
-              }}
-              title={agent.name}
-            >
-               <div className={`absolute inset-0 rounded-full ${isOnline ? 'animate-ping bg-green-500' : ''} opacity-50`}></div>
-            </div>
-          )
-       })}
-
-       {/* Core */}
-       <div className="relative z-20 w-12 h-12 bg-black border border-green-500 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(0,255,65,0.2)]">
-          <Globe className="text-green-500 animate-pulse" size={20} />
-       </div>
+          <div className="w-24 flex flex-col gap-1 items-end">
+             <span className="text-[10px] font-mono text-gray-400">{svc.load}% LOAD</span>
+             <div className="w-full h-1 bg-gray-800 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full ${svc.load > 90 ? 'bg-red-500' : svc.load > 70 ? 'bg-yellow-500' : 'bg-green-500'}`} 
+                  style={{ width: `${svc.load}%` }}
+                ></div>
+             </div>
+          </div>
+        </div>
+      ))}
+      <div className="mt-auto pt-2 border-t border-white/5 text-[10px] text-gray-500 text-center font-mono">
+        <span className="animate-pulse text-green-500">●</span> REAL-TIME MESH SYNC ACTIVE
+      </div>
     </div>
   );
 };
 
 export const Dashboard: React.FC = () => {
-  const [data, setData] = useState<any[]>([]);
-
-  useEffect(() => {
-    const points = Array.from({ length: 20 }, (_, i) => ({
-      time: i,
-      value: Math.floor(Math.random() * 40) + 40
-    }));
-    setData(points);
-    
-    const int = setInterval(() => {
-      setData(prev => {
-        const next = [...prev.slice(1)];
-        next.push({ time: prev[prev.length - 1].time + 1, value: Math.floor(Math.random() * 40) + 40 });
-        return next;
-      });
-    }, 1000);
-    return () => clearInterval(int);
-  }, []);
-
   return (
     <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
       
@@ -128,15 +131,63 @@ export const Dashboard: React.FC = () => {
          <div className="lg:col-span-2 h-full flex flex-col gap-6">
             <TerminalFrame title="Cluster Load Distribution" className="flex-1">
                <div className="h-full w-full p-2">
-                  <StatsChart data={data} dataKey="value" color="#00ff41" />
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={STATIC_CHART_DATA}>
+                      <defs>
+                        <linearGradient id="colorLoad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#00ff41" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#00ff41" stopOpacity={0}/>
+                        </linearGradient>
+                        <linearGradient id="colorPred" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+                      <XAxis dataKey="time" stroke="#666" fontSize={10} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#666" fontSize={10} tickLine={false} axisLine={false} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#09090b', border: '1px solid #333', borderRadius: '4px' }}
+                        itemStyle={{ fontSize: '12px' }}
+                        labelStyle={{ color: '#999', marginBottom: '5px' }}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="predicted" 
+                        stroke="#3b82f6" 
+                        strokeDasharray="5 5" 
+                        strokeWidth={2}
+                        fillOpacity={1} 
+                        fill="url(#colorPred)" 
+                        name="AI Prediction"
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="load" 
+                        stroke="#00ff41" 
+                        strokeWidth={2}
+                        fillOpacity={1} 
+                        fill="url(#colorLoad)" 
+                        name="Actual Load"
+                      />
+                      <ReferenceLine x="18:00" stroke="red" strokeDasharray="3 3" label={{ position: 'top', value: 'SPIKE DETECTED', fill: 'red', fontSize: 10 }} />
+                    </AreaChart>
+                  </ResponsiveContainer>
                </div>
             </TerminalFrame>
             
             <div className="h-1/3 grid grid-cols-2 gap-4">
                <TerminalFrame title="Network I/O" noPadding>
-                  <div className="h-full flex items-center justify-center text-gray-600 text-xs">
-                     <Network size={32} className="mb-2 opacity-20" />
-                     {/* Placeholder for sparkline */}
+                  <div className="h-full flex flex-col items-center justify-center text-gray-600 gap-2 p-4">
+                     <div className="flex items-end gap-1 w-full h-16 justify-between px-4">
+                        {[40, 60, 45, 70, 30, 55, 65, 40, 80, 50].map((h, i) => (
+                           <div key={i} className="w-1.5 bg-green-500/20 hover:bg-green-500 transition-colors rounded-sm" style={{ height: `${h}%` }}></div>
+                        ))}
+                     </div>
+                     <div className="flex justify-between w-full px-4 text-xs">
+                        <span className="text-gray-500">RX: <span className="text-white">4.2 GB/s</span></span>
+                        <span className="text-gray-500">TX: <span className="text-white">1.8 GB/s</span></span>
+                     </div>
                   </div>
                </TerminalFrame>
                <TerminalFrame title="Storage Pools" noPadding>
@@ -158,10 +209,11 @@ export const Dashboard: React.FC = () => {
             </div>
          </div>
 
-         {/* Topology & Feed */}
+         {/* Right Column */}
          <div className="lg:col-span-1 flex flex-col gap-6">
-            <TerminalFrame title="Hive Topology" className="h-[250px]" noPadding>
-               <TopologyVis />
+            {/* Replaced Topology with Service Matrix */}
+            <TerminalFrame title="Service Mesh Status" className="h-[250px]" noPadding>
+               <ServiceHealthMatrix />
             </TerminalFrame>
 
             <TerminalFrame title="System Events" className="flex-1" noPadding>
