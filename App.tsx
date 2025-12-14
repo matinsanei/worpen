@@ -8,7 +8,7 @@ import { AutomationView } from './views/AutomationView';
 import { SettingsView } from './views/SettingsView';
 import { DependencyView } from './views/DependencyView';
 import { CicdView } from './views/CicdView';
-import { LayoutGrid, Server, AlertTriangle, Settings, Power, Box, Bot, Shield, User, Globe, Activity, Layers, GitBranch } from 'lucide-react';
+import { LayoutGrid, Server, AlertTriangle, Settings, Power, Box, Bot, Shield, User, Globe, Activity, Layers, GitBranch, Hexagon } from 'lucide-react';
 import { MOCK_INCIDENTS, MOCK_AGENTS } from './constants';
 import { TerminalFrame } from './components/TerminalFrame';
 
@@ -123,11 +123,27 @@ const App: React.FC = () => {
     <div className="flex flex-col h-screen w-full bg-black text-green-500 overflow-hidden">
       
       {/* Top Bar */}
-      <header className="h-10 border-b border-green-900 bg-[#050505] flex items-center justify-between px-4 z-10 relative">
-        <div className="flex items-center gap-3">
-          <Shield className="w-5 h-5 text-green-500" />
-          <span className="font-bold text-lg tracking-[0.2em] text-white glow-text">WORPEN</span>
-          <span className="px-1 bg-green-900 text-[9px] text-green-200 border border-green-700">BETA</span>
+      <header className="h-16 border-b border-green-900 bg-[#050505] flex items-center justify-between px-6 z-10 relative shadow-[0_4px_20px_rgba(0,255,65,0.05)]">
+        <div className="flex items-center gap-4 group select-none cursor-pointer">
+          
+          {/* 3D Rotating Logo Container */}
+          <div className="relative w-10 h-10 perspective-500">
+             <div className="absolute inset-0 bg-green-500/20 rounded-md blur-md animate-pulse"></div>
+             <div className="w-full h-full bg-green-900/10 border border-green-500/50 flex items-center justify-center relative z-10 transform transition-transform duration-700 group-hover:rotate-[180deg] group-hover:scale-110 shadow-[0_0_10px_rgba(0,255,65,0.2)]">
+                <Hexagon className="text-green-400 fill-green-900/50" size={24} strokeWidth={2} />
+             </div>
+             {/* Decorative bits */}
+             <div className="absolute -top-1 -right-1 w-2 h-2 border-t border-r border-green-500"></div>
+             <div className="absolute -bottom-1 -left-1 w-2 h-2 border-b border-l border-green-500"></div>
+          </div>
+
+          <div className="flex flex-col">
+            <span className="glitch-logo text-3xl font-black tracking-[0.2em] leading-none text-white italic" data-text="WORPEN">WORPEN</span>
+            <div className="flex items-center gap-2 mt-1">
+               <span className="h-[1px] w-4 bg-green-600"></span>
+               <span className="text-[9px] text-green-500 font-mono tracking-[0.3em] uppercase">DIGITAL NERVOUS SYSTEM</span>
+            </div>
+          </div>
         </div>
         
         {/* Top Stats */}
