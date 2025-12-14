@@ -14,11 +14,25 @@
         --terminal-bg: #0d1117;
         --terminal-dim: #008f11;
       }
+      
+      /* Enforce rigid scrolling behavior (no bounce/elasticity) */
+      html, body {
+        overscroll-behavior: none;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      /* Apply to all scrollable elements */
+      * {
+        overscroll-behavior: none;
+        scrollbar-width: thin;
+        scrollbar-color: #004400 #001100;
+      }
+
       body {
         background-color: #000;
         color: var(--terminal-green);
         font-family: 'Fira Code', monospace;
-        overflow: hidden;
       }
       
       /* CRT Scanline Effect */
@@ -48,7 +62,7 @@
         box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
       }
 
-      /* Custom Scrollbar */
+      /* Custom Scrollbar Webkit */
       ::-webkit-scrollbar {
         width: 8px;
         height: 8px;
@@ -58,9 +72,13 @@
       }
       ::-webkit-scrollbar-thumb {
         background: #004400; 
+        border: 1px solid #000;
       }
       ::-webkit-scrollbar-thumb:hover {
         background: #006600; 
+      }
+      ::-webkit-scrollbar-corner {
+        background: #001100;
       }
 
       .blink {

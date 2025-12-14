@@ -5,7 +5,12 @@ import { MOCK_PIPELINES } from '../constants';
 import { Pipeline, PipelineStage } from '../types';
 import { GitBranch, PlayCircle, Clock, CheckCircle, XCircle, Loader2, ArrowRight, Terminal } from 'lucide-react';
 
-const StageNode = ({ stage, isLast }: { stage: PipelineStage, isLast: boolean }) => {
+interface StageNodeProps {
+  stage: PipelineStage;
+  isLast: boolean;
+}
+
+const StageNode: React.FC<StageNodeProps> = ({ stage, isLast }) => {
   const getStatusColor = (s: string) => {
     switch(s) {
       case 'SUCCESS': return 'border-green-500 text-green-400 bg-green-900/20';

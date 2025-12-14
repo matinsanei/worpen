@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ViewState, AgentStatus } from './types';
 import { Dashboard } from './views/Dashboard';
@@ -46,6 +47,17 @@ const IncidentsView: React.FC = () => (
   </div>
 );
 
+const NavGroup: React.FC<React.PropsWithChildren<{ label: string }>> = ({ label, children }) => (
+  <div className="mb-6">
+    <h3 className="text-[10px] text-gray-600 font-bold mb-2 px-4 uppercase tracking-widest border-b border-gray-900 pb-1">
+      // {label}
+    </h3>
+    <div className="flex flex-col gap-1">
+      {children}
+    </div>
+  </div>
+);
+
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('DASHBOARD');
   const [time, setTime] = useState(new Date().toLocaleTimeString());
@@ -71,18 +83,7 @@ const App: React.FC = () => {
     }
   };
 
-  const NavGroup = ({ label, children }: { label: string, children: React.ReactNode }) => (
-    <div className="mb-6">
-      <h3 className="text-[10px] text-gray-600 font-bold mb-2 px-4 uppercase tracking-widest border-b border-gray-900 pb-1">
-        // {label}
-      </h3>
-      <div className="flex flex-col gap-1">
-        {children}
-      </div>
-    </div>
-  );
-
-  const NavItem = ({ view, icon: Icon, label, alert }: { view: ViewState, icon: any, label: string, alert?: boolean }) => (
+  const NavItem: React.FC<{ view: ViewState, icon: any, label: string, alert?: boolean }> = ({ view, icon: Icon, label, alert }) => (
     <button 
       onClick={() => setCurrentView(view)}
       className={`group flex items-center gap-3 w-full px-4 py-2 transition-all relative
