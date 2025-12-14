@@ -19,9 +19,15 @@ The backend follows a modular **Clean Architecture** approach using Rust workspa
 
 ```mermaid
 graph TD
-    API[🔌 API LAYER] --> Core[🧠 CORE DOMAIN]
-    API --> Infra[🏗️ INFRA LAYER]
-    Infra --> Core
+    API[🔌 API LAYER] --> Service[⚙️ SERVICE LAYER]
+    Service --> Core[🧠 CORE DOMAIN]
+    Service --> Repo[🗄️ REPOSITORY PORT]
+    
+    subgraph INFRA [🏗️ INFRA LAYER]
+        Sqlite[💾 SQLITE ADAPTER] -- implements --> Repo
+    end
+    
+    API --> Sqlite
     
     subgraph SHARED [📦 SHARED RESOURCES]
         Proto[📝 PROTO DEFS]
@@ -31,6 +37,12 @@ graph TD
     Core -.-> Proto
     Infra -.-> Proto
 ```
+
+### Key Components
+
+*   **Service Layer (`AgentService`)**: Encapsulates business logic, ensuring the API doesn't talk directly to the database.
+*   **Repository Pattern**: Abstracts data storage. We switched from Memory to **SQLite** without touching Core logic.
+*   **Database**: Uses `sqlx` with automatic migrations on startup (`worpen.db`).
 
 ---
 

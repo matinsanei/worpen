@@ -1,6 +1,6 @@
 use axum::{routing::{get, post}, Router};
 use std::net::SocketAddr;
-use infra::adapters::InMemoryAgentRepository;
+use infra::{adapters::SqliteAgentRepository, initialize_db};
 use core::services::AgentService;
 use state::AppState;
 
@@ -11,8 +11,14 @@ mod handlers;
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
-
-    let repo = std::sync::Arc::new(InMemoryAgentRepository::new());
+    
+    // Ensure DATABASE_URL is set
+    let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:worpen.db?mode=rwc".to_string());
+    
+    // Initialize DB and run migrations
+    let pool = initialize_db(&database_url).await.expect("Failed to initialize database");
+    
+    let repo = std::sync::Arc::new(SqliteAgentRepository::new(pool));
     let service = std::sync::Arc::new(AgentService::new(repo));
     
     let state = AppState {
