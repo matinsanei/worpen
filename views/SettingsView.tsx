@@ -1,8 +1,11 @@
+
 import React, { useState } from 'react';
 import { TerminalFrame } from '../components/TerminalFrame';
 import { Save, Shield, Globe, Key, Plus, X, Settings, Bell, Hash } from 'lucide-react';
+import { useNotifications } from '../components/NotificationSystem';
 
 export const SettingsView: React.FC = () => {
+  const { addNotification } = useNotifications();
   const [envVars, setEnvVars] = useState([
     { key: 'RUST_LOG', value: 'info' },
     { key: 'HIVE_REGION', value: 'eu-west-1' },
@@ -17,11 +20,17 @@ export const SettingsView: React.FC = () => {
       setEnvVars([...envVars, { key: newKey, value: newValue }]);
       setNewKey('');
       setNewValue('');
+      addNotification('SUCCESS', 'ENV_VAR_ADDED', `Variable ${newKey} injected into pool.`);
     }
   };
 
   const removeEnv = (index: number) => {
     setEnvVars(envVars.filter((_, i) => i !== index));
+    addNotification('INFO', 'ENV_VAR_REMOVED', 'Environment variable removed.');
+  };
+
+  const handleCommit = () => {
+      addNotification('SUCCESS', 'SYSTEM_COMMIT', 'Configuration successfully propagated to fleet.', 3000);
   };
 
   return (
@@ -35,7 +44,10 @@ export const SettingsView: React.FC = () => {
            </h1>
            <p className="text-xs text-green-600">CORE SETTINGS // GLOBAL ENV // SECURITY</p>
         </div>
-        <button className="px-4 py-1 bg-green-900 border border-green-500 text-white text-xs hover:bg-green-700 flex items-center gap-2 font-bold animate-pulse">
+        <button 
+          onClick={handleCommit}
+          className="px-4 py-1 bg-green-900 border border-green-500 text-white text-xs hover:bg-green-700 flex items-center gap-2 font-bold animate-pulse transition-all"
+        >
            <Save size={14} /> COMMIT_CHANGES
         </button>
       </div>
@@ -57,7 +69,12 @@ export const SettingsView: React.FC = () => {
                     defaultValue="grpc.core.worpen.io:50051" 
                     className="flex-1 bg-black border border-green-800 text-green-300 p-2 text-xs font-mono focus:border-green-500 outline-none"
                   />
-                  <button className="px-3 bg-gray-900 border border-gray-700 text-green-500 text-xs hover:text-white hover:border-white hover:bg-green-900">PING</button>
+                  <button 
+                    onClick={() => addNotification('INFO', 'PING_SENT', 'Latency: 14ms')}
+                    className="px-3 bg-gray-900 border border-gray-700 text-green-500 text-xs hover:text-white hover:border-white hover:bg-green-900"
+                  >
+                    PING
+                  </button>
                 </div>
               </div>
 

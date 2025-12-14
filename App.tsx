@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { TerminalFrame } from './components/TerminalFrame';
 import { MOCK_INCIDENTS } from './constants';
+import { NotificationProvider, useNotifications } from './components/NotificationSystem';
 
 const IncidentsView: React.FC = () => (
   <div className="h-full p-6">
@@ -51,10 +52,38 @@ const IncidentsView: React.FC = () => (
   </div>
 );
 
-const App: React.FC = () => {
+const HeaderNotifications = () => {
+  const { notifications, clearAll } = useNotifications();
+  const hasNotifications = notifications.length > 0;
+
+  return (
+    <button 
+      onClick={hasNotifications ? clearAll : undefined}
+      className="text-gray-500 hover:text-white transition-colors relative group"
+      title={hasNotifications ? "Clear notifications" : "No notifications"}
+    >
+        <Bell size={20} className={hasNotifications ? "text-green-400 animate-pulse" : ""} />
+        {hasNotifications && (
+          <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-red-500 text-[8px] text-white font-bold">
+            {notifications.length}
+          </span>
+        )}
+    </button>
+  );
+};
+
+const AppContent: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('DASHBOARD');
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [scrolled, setScrolled] = useState(false);
+  
+  // Inject startup notification
+  const { addNotification } = useNotifications();
+  useEffect(() => {
+    // Simulate system boot notification
+    setTimeout(() => {
+        addNotification('INFO', 'SYSTEM_INIT', 'Worpen OS v2.4 initialized. All systems nominal.', 4000);
+    }, 1000);
+  }, [addNotification]);
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
@@ -184,10 +213,7 @@ const App: React.FC = () => {
               </div>
 
               {/* Actions */}
-              <button className="text-gray-500 hover:text-white transition-colors relative">
-                 <Bell size={20} />
-                 <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
+              <HeaderNotifications />
               
               <div className="h-6 w-[1px] bg-white/10 mx-2"></div>
               
@@ -212,6 +238,14 @@ const App: React.FC = () => {
         </main>
       </div>
     </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <NotificationProvider>
+      <AppContent />
+    </NotificationProvider>
   );
 };
 
