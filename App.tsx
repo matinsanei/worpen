@@ -11,11 +11,13 @@ import { CicdView } from './views/CicdView';
 import { 
   LayoutGrid, Server, AlertTriangle, Settings, Power, 
   Box, Bot, Layers, GitBranch, Hexagon, Command, 
-  Bell, Search, Menu, X, ChevronRight, User
+  Bell, Search, Menu, X, ChevronRight, User,
+  PanelRight
 } from 'lucide-react';
 import { TerminalFrame } from './components/TerminalFrame';
 import { MOCK_INCIDENTS } from './constants';
 import { NotificationProvider, useNotifications } from './components/NotificationSystem';
+import { RightSidebar } from './components/RightSidebar';
 
 const IncidentsView: React.FC = () => (
   <div className="h-full p-6">
@@ -75,6 +77,7 @@ const HeaderNotifications = () => {
 const AppContent: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('DASHBOARD');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   
   // Inject startup notification
   const { addNotification } = useNotifications();
@@ -86,6 +89,7 @@ const AppContent: React.FC = () => {
   }, [addNotification]);
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
+  const toggleRightSidebar = () => setRightSidebarOpen(!rightSidebarOpen);
 
   const NavItem = ({ view, icon: Icon, label, alert }: { view: ViewState, icon: any, label: string, alert?: boolean }) => {
     const active = currentView === view;
@@ -123,12 +127,12 @@ const AppContent: React.FC = () => {
   );
 
   return (
-    <div className="flex h-screen w-full bg-[#030303] text-gray-200 selection:bg-green-500/30">
+    <div className="flex h-screen w-full bg-[#030303] text-gray-200 selection:bg-green-500/30 overflow-hidden">
       
-      {/* SIDEBAR */}
+      {/* LEFT SIDEBAR */}
       <aside 
         className={`
-          flex flex-col border-r border-white/5 bg-[#050505] transition-all duration-300 relative z-20
+          flex flex-col border-r border-white/5 bg-[#050505] transition-all duration-300 relative z-20 flex-shrink-0
           ${sidebarOpen ? 'w-64' : 'w-16'}
         `}
       >
@@ -187,7 +191,7 @@ const AppContent: React.FC = () => {
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#111_1px,transparent_1px),linear-gradient(to_bottom,#111_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20 pointer-events-none"></div>
 
         {/* HEADER */}
-        <header className="h-16 flex items-center justify-between px-6 border-b border-white/5 bg-[#030303]/80 backdrop-blur-sm sticky top-0 z-10">
+        <header className="h-16 flex items-center justify-between px-6 border-b border-white/5 bg-[#030303]/80 backdrop-blur-sm sticky top-0 z-10 flex-shrink-0">
            <div className="flex items-center gap-4">
               <button onClick={toggleSidebar} className="text-gray-500 hover:text-white transition-colors">
                  {sidebarOpen ? <Menu size={20} /> : <ChevronRight size={20} />}
@@ -215,6 +219,14 @@ const AppContent: React.FC = () => {
               {/* Actions */}
               <HeaderNotifications />
               
+              <button 
+                onClick={toggleRightSidebar}
+                className={`transition-colors ${rightSidebarOpen ? 'text-green-400' : 'text-gray-500 hover:text-white'}`}
+                title="Toggle Command Center"
+              >
+                <PanelRight size={20} />
+              </button>
+
               <div className="h-6 w-[1px] bg-white/10 mx-2"></div>
               
               <button className="text-red-500 hover:bg-red-500/10 p-2 rounded-md transition-colors">
@@ -237,6 +249,9 @@ const AppContent: React.FC = () => {
           </div>
         </main>
       </div>
+
+      {/* RIGHT SIDEBAR */}
+      <RightSidebar isOpen={rightSidebarOpen} onClose={() => setRightSidebarOpen(false)} />
     </div>
   );
 };
