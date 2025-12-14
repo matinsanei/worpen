@@ -5,4 +5,6 @@ edition = "2021"
 
 [dependencies]
 core = { path = "../core" }
+dashmap = "6.1.0"
 tokio = { version = "1.0", features = ["full"] }
+uuid = "1.19.0"
