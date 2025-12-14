@@ -3,144 +3,87 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WORPEN // COCKPIT</title>
+    <title>WORPEN // ENTERPRISE</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&family=VT323&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
       :root {
-        --terminal-green: #00ff41;
-        --terminal-bg: #0d1117;
-        --terminal-dim: #008f11;
+        --primary: #00ff41;
+        --bg-deep: #030303;
+        --bg-panel: #0a0a0a;
+        --border-dim: rgba(0, 255, 65, 0.15);
+        --border-glow: rgba(0, 255, 65, 0.4);
       }
       
-      /* Enforce rigid scrolling behavior (no bounce/elasticity) */
       html, body {
-        overscroll-behavior: none;
         height: 100%;
         overflow: hidden;
+        background-color: var(--bg-deep);
+        color: #e5e5e5;
+        font-family: 'Inter', sans-serif; /* UI Font */
       }
-
-      /* Apply to all scrollable elements */
-      * {
-        overscroll-behavior: none;
-        scrollbar-width: thin;
-        scrollbar-color: #004400 #001100;
-      }
-
-      body {
-        background-color: #000;
-        color: var(--terminal-green);
+      
+      .font-mono {
         font-family: 'Fira Code', monospace;
       }
-      
-      /* CRT Scanline Effect */
-      .scanlines {
-        background: linear-gradient(
-          to bottom,
-          rgba(255,255,255,0),
-          rgba(255,255,255,0) 50%,
-          rgba(0,0,0,0.2) 50%,
-          rgba(0,0,0,0.2)
-        );
-        background-size: 100% 4px;
-        position: fixed;
-        top: 0;
-        right: 0;
-        bottom: 0;
-        left: 0;
-        z-index: 50;
-        pointer-events: none;
-      }
-      
-      .glow-text {
-        text-shadow: 0 0 5px rgba(0, 255, 65, 0.5);
-      }
 
-      .glow-box {
-        box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
-      }
-
-      /* Cyberpunk Glitch Logo Styles */
-      .glitch-logo {
-        position: relative;
-        z-index: 1;
-        text-shadow: 
-           3px 3px 0px #003300, 
-           -1px -1px 0 #00ff41; 
-      }
-
-      .glitch-logo::before,
-      .glitch-logo::after {
-        content: attr(data-text);
+      /* Subtle Scanline */
+      .scanlines::before {
+        content: " ";
+        display: block;
         position: absolute;
         top: 0;
         left: 0;
-        opacity: 0.8;
+        bottom: 0;
+        right: 0;
+        background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+        background-size: 100% 3px;
+        z-index: 9999;
+        pointer-events: none;
+        opacity: 0.3;
       }
 
-      .glitch-logo::before {
-        animation: glitch-color-1 3s infinite linear alternate-reverse;
-        color: #0ff;
-        z-index: -1;
-        left: -2px;
-        clip-path: inset(0 0 0 0);
-      }
-
-      .glitch-logo::after {
-        animation: glitch-color-2 2.5s infinite linear alternate-reverse;
-        color: #f0f;
-        z-index: -2;
-        left: 2px;
-        clip-path: inset(0 0 0 0);
-      }
-
-      @keyframes glitch-color-1 {
-        0% { clip-path: inset(20% 0 80% 0); transform: translate(-2px, 1px); }
-        20% { clip-path: inset(60% 0 10% 0); transform: translate(2px, -1px); }
-        40% { clip-path: inset(40% 0 50% 0); transform: translate(-2px, 2px); }
-        60% { clip-path: inset(80% 0 5% 0); transform: translate(2px, -2px); }
-        80% { clip-path: inset(10% 0 60% 0); transform: translate(-1px, 1px); }
-        100% { clip-path: inset(30% 0 30% 0); transform: translate(1px, -1px); }
-      }
-
-      @keyframes glitch-color-2 {
-        0% { clip-path: inset(10% 0 60% 0); transform: translate(2px, -1px); }
-        20% { clip-path: inset(80% 0 5% 0); transform: translate(-2px, 2px); }
-        40% { clip-path: inset(30% 0 20% 0); transform: translate(2px, 1px); }
-        60% { clip-path: inset(10% 0 80% 0); transform: translate(-1px, -2px); }
-        80% { clip-path: inset(50% 0 30% 0); transform: translate(1px, 2px); }
-        100% { clip-path: inset(20% 0 70% 0); transform: translate(-2px, 1px); }
-      }
-
-      /* Custom Scrollbar Webkit */
+      /* Premium Scrollbar */
       ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
+        width: 6px;
+        height: 6px;
       }
       ::-webkit-scrollbar-track {
-        background: #001100; 
+        background: #000; 
       }
       ::-webkit-scrollbar-thumb {
-        background: #004400; 
-        border: 1px solid #000;
+        background: #1a1a1a; 
+        border-radius: 3px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #006600; 
-      }
-      ::-webkit-scrollbar-corner {
-        background: #001100;
+        background: #00ff41; 
       }
 
-      .blink {
-        animation: blinker 1s linear infinite;
+      /* Utilities */
+      .glass-panel {
+        background: rgba(10, 10, 10, 0.7);
+        backdrop-filter: blur(8px);
+        border: 1px solid var(--border-dim);
+      }
+      
+      .text-glow {
+        text-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
       }
 
-      @keyframes blinker {
-        50% {
-          opacity: 0;
-        }
+      .border-gradient {
+        border-image: linear-gradient(to bottom right, #00ff41, transparent) 1;
+      }
+      
+      /* Animation */
+      @keyframes float {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-5px); }
+        100% { transform: translateY(0px); }
+      }
+      .animate-float {
+        animation: float 4s ease-in-out infinite;
       }
     </style>
   <script type="importmap">
@@ -157,6 +100,6 @@
 </head>
   <body>
     <div id="root"></div>
-    <div class="scanlines"></div>
+    <div class="scanlines pointer-events-none fixed inset-0"></div>
   </body>
 </html>

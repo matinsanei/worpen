@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ViewState, AgentStatus } from './types';
+import { ViewState } from './types';
 import { Dashboard } from './views/Dashboard';
 import { Fleet } from './views/Fleet';
 import { DockerView } from './views/DockerView';
@@ -8,227 +8,208 @@ import { AutomationView } from './views/AutomationView';
 import { SettingsView } from './views/SettingsView';
 import { DependencyView } from './views/DependencyView';
 import { CicdView } from './views/CicdView';
-import { LayoutGrid, Server, AlertTriangle, Settings, Power, Box, Bot, Shield, User, Globe, Activity, Layers, GitBranch, Hexagon } from 'lucide-react';
-import { MOCK_INCIDENTS, MOCK_AGENTS } from './constants';
+import { 
+  LayoutGrid, Server, AlertTriangle, Settings, Power, 
+  Box, Bot, Layers, GitBranch, Hexagon, Command, 
+  Bell, Search, Menu, X, ChevronRight, User
+} from 'lucide-react';
 import { TerminalFrame } from './components/TerminalFrame';
+import { MOCK_INCIDENTS } from './constants';
 
 const IncidentsView: React.FC = () => (
-  <div className="h-full p-2">
-    <TerminalFrame title="INCIDENT_LOGS [SELF_HEALING_EVENTS]">
-      <table className="w-full text-left text-xs md:text-sm border-collapse">
-        <thead>
-          <tr className="border-b-2 border-green-700 text-green-300 uppercase">
-            <th className="p-2">Time</th>
-            <th className="p-2">Service</th>
-            <th className="p-2">Node</th>
-            <th className="p-2">Issue</th>
-            <th className="p-2">Auto-Action</th>
-            <th className="p-2">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {MOCK_INCIDENTS.map((inc) => (
-            <tr key={inc.id} className="border-b border-green-900/30 hover:bg-green-900/20 font-mono">
-              <td className="p-2">{inc.time}</td>
-              <td className="p-2">{inc.service}</td>
-              <td className="p-2 text-gray-400">{inc.node}</td>
-              <td className="p-2 text-yellow-400">{inc.issue}</td>
-              <td className="p-2 text-blue-400">[{inc.action}]</td>
-              <td className="p-2">
-                 <span className={`px-1 ${inc.status === 'RESOLVED' ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
-                   {inc.status}
-                 </span>
-              </td>
+  <div className="h-full p-6">
+    <TerminalFrame title="INCIDENT LOGS" className="h-full">
+      <div className="overflow-auto h-full">
+        <table className="w-full text-left text-sm border-collapse">
+          <thead className="bg-white/5 font-mono text-xs text-gray-400">
+            <tr>
+              <th className="p-4 font-normal">TIME</th>
+              <th className="p-4 font-normal">SERVICE</th>
+              <th className="p-4 font-normal">NODE</th>
+              <th className="p-4 font-normal">ISSUE</th>
+              <th className="p-4 font-normal">STATUS</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="text-gray-300 font-mono text-xs">
+            {MOCK_INCIDENTS.map((inc) => (
+              <tr key={inc.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                <td className="p-4 text-gray-500">{inc.time}</td>
+                <td className="p-4">{inc.service}</td>
+                <td className="p-4 text-gray-500">{inc.node}</td>
+                <td className="p-4 text-yellow-500">{inc.issue}</td>
+                <td className="p-4">
+                  <span className={`px-2 py-1 rounded text-[10px] ${inc.status === 'RESOLVED' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+                    {inc.status}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </TerminalFrame>
-  </div>
-);
-
-const NavGroup: React.FC<React.PropsWithChildren<{ label: string }>> = ({ label, children }) => (
-  <div className="mb-6">
-    <h3 className="text-[10px] text-gray-600 font-bold mb-2 px-4 uppercase tracking-widest border-b border-gray-900 pb-1">
-      // {label}
-    </h3>
-    <div className="flex flex-col gap-1">
-      {children}
-    </div>
   </div>
 );
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('DASHBOARD');
-  const [time, setTime] = useState(new Date().toLocaleTimeString());
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [scrolled, setScrolled] = useState(false);
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTime(new Date().toLocaleTimeString());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
-  const renderView = () => {
-    switch(currentView) {
-      case 'DASHBOARD': return <Dashboard />;
-      case 'FLEET': return <Fleet />;
-      case 'DOCKER': return <DockerView />;
-      case 'AUTOMATION': return <AutomationView />;
-      case 'DEPENDENCY': return <DependencyView />;
-      case 'CICD': return <CicdView />;
-      case 'INCIDENTS': return <IncidentsView />;
-      case 'SETTINGS': return <SettingsView />;
-      default: return <div className="p-10 text-center animate-pulse">MODULE UNDER CONSTRUCTION...</div>;
-    }
+  const NavItem = ({ view, icon: Icon, label, alert }: { view: ViewState, icon: any, label: string, alert?: boolean }) => {
+    const active = currentView === view;
+    return (
+      <button 
+        onClick={() => setCurrentView(view)}
+        className={`
+          w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-200 group
+          ${active ? 'bg-green-500/10 text-green-400' : 'text-gray-400 hover:text-white hover:bg-white/5'}
+        `}
+      >
+        <Icon size={18} className={`transition-colors ${active ? 'text-green-400' : 'text-gray-500 group-hover:text-white'}`} />
+        {sidebarOpen && (
+          <span className="text-sm font-medium tracking-wide flex-1 text-left">{label}</span>
+        )}
+        {sidebarOpen && alert && (
+          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_5px_rgba(239,68,68,0.5)]"></span>
+        )}
+        {!sidebarOpen && active && (
+           <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-green-500"></div>
+        )}
+      </button>
+    );
   };
 
-  const NavItem: React.FC<{ view: ViewState, icon: any, label: string, alert?: boolean }> = ({ view, icon: Icon, label, alert }) => (
-    <button 
-      onClick={() => setCurrentView(view)}
-      className={`group flex items-center gap-3 w-full px-4 py-2 transition-all relative
-        ${currentView === view 
-          ? 'bg-green-900/30 text-green-100' 
-          : 'text-gray-400 hover:text-green-300 hover:bg-green-900/10'
-        }`}
-    >
-      {currentView === view && (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-green-500 shadow-[0_0_10px_#00ff00]"></div>
+  const NavGroup = ({ label, children }: { label: string, children?: React.ReactNode }) => (
+    <div className="mb-6">
+      {sidebarOpen && (
+        <h3 className="text-[10px] font-mono text-gray-600 uppercase tracking-widest px-3 mb-2">{label}</h3>
       )}
-      <Icon size={16} className={`group-hover:text-green-400 ${currentView === view ? 'text-green-400' : ''}`} />
-      <span className="text-xs font-medium tracking-wider">{label}</span>
-      {alert && <span className="ml-auto w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>}
-    </button>
+      <div className="space-y-0.5">
+        {children}
+      </div>
+    </div>
   );
 
-  // Health Calculation Logic
-  const criticalCount = MOCK_AGENTS.filter(a => a.status === AgentStatus.OFFLINE || a.status === AgentStatus.CRITICAL).length;
-  const healingCount = MOCK_AGENTS.filter(a => a.status === AgentStatus.HEALING).length;
-  
-  let healthIndicatorClass = "bg-green-500 shadow-[0_0_5px_#22c55e]";
-  let healthTextClass = "text-green-400";
-  let healthValue = "98.4%";
-
-  if (criticalCount > 0) {
-    healthIndicatorClass = "bg-red-500 shadow-[0_0_5px_#ef4444]";
-    healthTextClass = "text-red-500";
-    healthValue = "WARNING";
-  } else if (healingCount > 0) {
-    healthIndicatorClass = "bg-yellow-500 shadow-[0_0_5px_#eab308]";
-    healthTextClass = "text-yellow-400";
-    healthValue = "HEALING";
-  }
-
   return (
-    <div className="flex flex-col h-screen w-full bg-black text-green-500 overflow-hidden">
+    <div className="flex h-screen w-full bg-[#030303] text-gray-200 selection:bg-green-500/30">
       
-      {/* Top Bar */}
-      <header className="h-16 border-b border-green-900 bg-[#050505] flex items-center justify-between px-6 z-10 relative shadow-[0_4px_20px_rgba(0,255,65,0.05)]">
-        <div className="flex items-center gap-4 group select-none cursor-pointer">
-          
-          {/* 3D Rotating Logo Container */}
-          <div className="relative w-10 h-10 perspective-500">
-             <div className="absolute inset-0 bg-green-500/20 rounded-md blur-md animate-pulse"></div>
-             <div className="w-full h-full bg-green-900/10 border border-green-500/50 flex items-center justify-center relative z-10 transform transition-transform duration-700 group-hover:rotate-[180deg] group-hover:scale-110 shadow-[0_0_10px_rgba(0,255,65,0.2)]">
-                <Hexagon className="text-green-400 fill-green-900/50" size={24} strokeWidth={2} />
+      {/* SIDEBAR */}
+      <aside 
+        className={`
+          flex flex-col border-r border-white/5 bg-[#050505] transition-all duration-300 relative z-20
+          ${sidebarOpen ? 'w-64' : 'w-16'}
+        `}
+      >
+        {/* Brand */}
+        <div className="h-16 flex items-center px-4 border-b border-white/5">
+          <div className="flex items-center gap-3 text-green-500">
+            <Hexagon size={28} strokeWidth={1.5} className="fill-green-500/10" />
+            {sidebarOpen && (
+              <div className="flex flex-col">
+                <span className="font-bold text-lg tracking-tight text-white leading-none">WORPEN</span>
+                <span className="text-[9px] text-gray-500 font-mono tracking-widest">OS v2.4</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <div className="flex-1 overflow-y-auto py-6 px-3 custom-scrollbar">
+          <NavGroup label="Overview">
+            <NavItem view="DASHBOARD" icon={LayoutGrid} label="Dashboard" />
+            <NavItem view="FLEET" icon={Server} label="Fleet Nodes" />
+          </NavGroup>
+
+          <NavGroup label="Orchestration">
+            <NavItem view="DOCKER" icon={Box} label="Containers" />
+            <NavItem view="AUTOMATION" icon={Bot} label="Auto-Healing" />
+            <NavItem view="DEPENDENCY" icon={Layers} label="Artifacts" />
+            <NavItem view="CICD" icon={GitBranch} label="Pipeline" />
+          </NavGroup>
+
+          <NavGroup label="System">
+            <NavItem view="INCIDENTS" icon={AlertTriangle} label="Incidents" alert={true} />
+            <NavItem view="SETTINGS" icon={Settings} label="Settings" />
+          </NavGroup>
+        </div>
+
+        {/* User Footer */}
+        <div className="p-3 border-t border-white/5">
+          <button className={`w-full flex items-center gap-3 p-2 rounded-md hover:bg-white/5 transition-colors ${!sidebarOpen ? 'justify-center' : ''}`}>
+             <div className="w-8 h-8 rounded bg-gradient-to-tr from-green-900 to-black border border-green-800 flex items-center justify-center text-green-500 font-bold text-xs">
+                OP
              </div>
-             {/* Decorative bits */}
-             <div className="absolute -top-1 -right-1 w-2 h-2 border-t border-r border-green-500"></div>
-             <div className="absolute -bottom-1 -left-1 w-2 h-2 border-b border-l border-green-500"></div>
-          </div>
-
-          <div className="flex flex-col">
-            <span className="glitch-logo text-3xl font-black tracking-[0.2em] leading-none text-white italic" data-text="WORPEN">WORPEN</span>
-            <div className="flex items-center gap-2 mt-1">
-               <span className="h-[1px] w-4 bg-green-600"></span>
-               <span className="text-[9px] text-green-500 font-mono tracking-[0.3em] uppercase">DIGITAL NERVOUS SYSTEM</span>
-            </div>
-          </div>
+             {sidebarOpen && (
+               <div className="text-left overflow-hidden">
+                 <div className="text-xs font-medium text-white truncate">Operator_Root</div>
+                 <div className="text-[10px] text-gray-500 truncate">Sec_Level: 5</div>
+               </div>
+             )}
+          </button>
         </div>
-        
-        {/* Top Stats */}
-        <div className="hidden lg:flex items-center gap-8 text-[10px] font-mono text-gray-500">
-           <div className="flex items-center gap-2">
-             <div className={`w-2 h-2 rounded-full animate-pulse ${healthIndicatorClass}`}></div>
-             <Activity size={12} className={healthTextClass}/>
-             <span>CLUSTER_HEALTH: <span className={healthTextClass}>{healthValue}</span></span>
-           </div>
-           <div className="flex items-center gap-2">
-             <Globe size={12} className="text-blue-600"/>
-             <span>REGION: <span className="text-blue-400">EU-WEST-1</span></span>
-           </div>
-           <div className="text-green-300 border-l border-green-900 pl-4">{time}</div>
-        </div>
-      </header>
+      </aside>
 
-      <div className="flex flex-1 overflow-hidden relative z-0">
-        
-        {/* ENHANCED SIDEBAR */}
-        <aside className="w-16 md:w-64 border-r border-green-900 flex flex-col bg-[#020202] relative">
-           {/* Scanline overlay for sidebar only */}
-           <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] z-0 opacity-20 bg-[length:100%_2px,3px_100%]"></div>
+      {/* MAIN CONTENT */}
+      <div className="flex-1 flex flex-col min-w-0 bg-black relative">
+        {/* Background Grid */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#111_1px,transparent_1px),linear-gradient(to_bottom,#111_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20 pointer-events-none"></div>
 
-           {/* User Profile Block */}
-           <div className="p-4 border-b border-green-900/50 mb-2 relative z-10">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-900/20 border border-green-700 flex items-center justify-center">
-                   <User className="text-green-500" size={20} />
-                </div>
-                <div className="hidden md:block">
-                  <div className="text-xs font-bold text-white">OPERATOR_ROOT</div>
-                  <div className="text-[9px] text-gray-500">SEC_LEVEL: <span className="text-red-500">5 (GOD)</span></div>
-                </div>
+        {/* HEADER */}
+        <header className="h-16 flex items-center justify-between px-6 border-b border-white/5 bg-[#030303]/80 backdrop-blur-sm sticky top-0 z-10">
+           <div className="flex items-center gap-4">
+              <button onClick={toggleSidebar} className="text-gray-500 hover:text-white transition-colors">
+                 {sidebarOpen ? <Menu size={20} /> : <ChevronRight size={20} />}
+              </button>
+              
+              {/* Breadcrumbs */}
+              <div className="hidden md:flex items-center gap-2 text-sm text-gray-500 font-mono">
+                 <span>worpen</span>
+                 <span className="text-gray-700">/</span>
+                 <span className="text-green-500">{currentView.toLowerCase()}</span>
               </div>
            </div>
 
-           {/* Navigation Links */}
-           <div className="flex-1 py-4 overflow-y-auto relative z-10 scrollbar-hide">
-              <NavGroup label="MONITORING">
-                <NavItem view="DASHBOARD" icon={LayoutGrid} label="COCKPIT" />
-                <NavItem view="FLEET" icon={Server} label="FLEET NODES" />
-              </NavGroup>
-
-              <NavGroup label="ORCHESTRATION">
-                <NavItem view="DOCKER" icon={Box} label="DOCKER CONTAINERS" />
-                <NavItem view="AUTOMATION" icon={Bot} label="AUTO-HEALING" />
-                <NavItem view="DEPENDENCY" icon={Layers} label="ARTIFACT NEXUS" />
-                <NavItem view="CICD" icon={GitBranch} label="PIPELINE RUNNER" />
-              </NavGroup>
-
-              <NavGroup label="SYSTEM">
-                <NavItem view="INCIDENTS" icon={AlertTriangle} label="INCIDENT LOGS" alert={true} />
-                <NavItem view="SETTINGS" icon={Settings} label="CONFIG" />
-              </NavGroup>
-           </div>
-           
-           {/* Bottom Actions */}
-           <div className="p-4 border-t border-green-900 relative z-10">
-              <div className="mb-4 text-[9px] font-mono text-gray-600 space-y-1 hidden md:block">
-                <div className="flex justify-between"><span>PING:</span> <span className="text-green-600">4ms</span></div>
-                <div className="flex justify-between"><span>PKT_LOSS:</span> <span className="text-green-600">0%</span></div>
+           <div className="flex items-center gap-4">
+              {/* Global Search Mockup */}
+              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded border border-white/10 text-gray-500 w-64">
+                 <Search size={14} />
+                 <span className="text-xs">Search resources...</span>
+                 <div className="ml-auto flex gap-1">
+                    <span className="text-[10px] border border-white/10 px-1 rounded bg-black">⌘</span>
+                    <span className="text-[10px] border border-white/10 px-1 rounded bg-black">K</span>
+                 </div>
               </div>
-              <button className="flex items-center justify-center gap-3 text-red-500 hover:text-white hover:bg-red-600 w-full p-2 border border-red-900/30 transition-colors">
-                 <Power size={14} />
-                 <span className="hidden md:inline font-bold text-xs">TERMINATE SESSION</span>
+
+              {/* Actions */}
+              <button className="text-gray-500 hover:text-white transition-colors relative">
+                 <Bell size={20} />
+                 <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+              </button>
+              
+              <div className="h-6 w-[1px] bg-white/10 mx-2"></div>
+              
+              <button className="text-red-500 hover:bg-red-500/10 p-2 rounded-md transition-colors">
+                 <Power size={20} />
               </button>
            </div>
-        </aside>
+        </header>
 
-        {/* Main Content */}
-        <main className="flex-1 overflow-hidden bg-black relative">
-          {/* Background Grid */}
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f1510_1px,transparent_1px),linear-gradient(to_bottom,#0f1510_1px,transparent_1px)] bg-[size:40px_40px] opacity-20 pointer-events-none"></div>
-          
-          <div className="h-full overflow-y-auto p-4 md:p-6 custom-scrollbar relative z-10">
-            {renderView()}
+        {/* VIEWPORT */}
+        <main className="flex-1 overflow-y-auto custom-scrollbar relative">
+          <div className="h-full">
+            {currentView === 'DASHBOARD' && <Dashboard />}
+            {currentView === 'FLEET' && <Fleet />}
+            {currentView === 'DOCKER' && <DockerView />}
+            {currentView === 'AUTOMATION' && <AutomationView />}
+            {currentView === 'DEPENDENCY' && <DependencyView />}
+            {currentView === 'CICD' && <CicdView />}
+            {currentView === 'INCIDENTS' && <IncidentsView />}
+            {currentView === 'SETTINGS' && <SettingsView />}
           </div>
         </main>
-      </div>
-      
-      {/* Footer / Status Line */}
-      <div className="h-6 bg-green-900/20 border-t border-green-900 flex items-center justify-between px-4 text-[9px] font-mono text-gray-500">
-        <div>SYSTEM STATUS: <span className="text-green-500">OPTIMAL</span></div>
-        <div>WORPEN_OS v2.4.0-rc1</div>
       </div>
     </div>
   );
