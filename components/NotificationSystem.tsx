@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { X, CheckCircle, AlertTriangle, Info, AlertOctagon, Bell } from 'lucide-react';
 
 export type NotificationType = 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR';
@@ -64,12 +64,12 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   return (
     <NotificationContext.Provider value={{ notifications, addNotification, removeNotification, clearAll }}>
       {children}
-      
-      {/* Toast Container - Fixed Top Right */}
-      <div className="fixed top-20 right-6 z-50 flex flex-col gap-3 w-80 md:w-96 pointer-events-none">
+
+      {/* Toast Container - Bottom Right - Minimalist Terminal Style */}
+      <div className="fixed bottom-10 right-8 z-50 flex flex-col gap-2 w-80 pointer-events-none">
         {notifications.map((n) => (
-          <div key={n.id} className="pointer-events-auto animate-slide-in-right">
-             <Toast notification={n} onClose={() => removeNotification(n.id)} />
+          <div key={n.id} className="pointer-events-auto">
+            <Toast notification={n} onClose={() => removeNotification(n.id)} />
           </div>
         ))}
       </div>
@@ -78,29 +78,31 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 };
 
 const Toast: React.FC<{ notification: Notification; onClose: () => void }> = ({ notification, onClose }) => {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const styles = {
     INFO: {
-      border: 'border-blue-500',
-      bg: 'bg-blue-950/90',
-      text: 'text-blue-400',
+      border: 'border-l-blue-500',
+      text: 'text-blue-500',
       icon: Info
     },
     SUCCESS: {
-      border: 'border-green-500',
-      bg: 'bg-green-950/90',
-      text: 'text-green-400',
+      border: 'border-l-green-500',
+      text: 'text-green-500',
       icon: CheckCircle
     },
     WARNING: {
-      border: 'border-yellow-500',
-      bg: 'bg-yellow-950/90',
-      text: 'text-yellow-400',
+      border: 'border-l-yellow-500',
+      text: 'text-yellow-500',
       icon: AlertTriangle
     },
     ERROR: {
-      border: 'border-red-500',
-      bg: 'bg-red-950/90',
-      text: 'text-red-400',
+      border: 'border-l-red-500',
+      text: 'text-red-500',
       icon: AlertOctagon
     }
   };
@@ -110,37 +112,28 @@ const Toast: React.FC<{ notification: Notification; onClose: () => void }> = ({ 
 
   return (
     <div className={`
-      relative overflow-hidden rounded-sm 
-      border-l-4 ${style.border} 
-      bg-[#0a0a0a] border-y border-r border-white/10
-      shadow-[0_0_15px_rgba(0,0,0,0.5)] 
-      backdrop-blur-md
-      group
+      relative overflow-hidden bg-[#0a0a0a] border border-white/10 border-l-2 ${style.border}
+      shadow-lg shadow-black/50 transition-all duration-300 ease-out
+      ${mounted ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-8'}
     `}>
-      {/* Scanline overlay */}
-      <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-20 pointer-events-none"></div>
-      
-      <div className="flex p-4 gap-3 relative z-10">
-        <div className={`mt-1 ${style.text}`}>
-          <Icon size={18} />
+      <div className="flex items-start p-3 gap-3">
+        <div className={`mt-0.5 ${style.text}`}>
+          <Icon size={16} />
         </div>
+
         <div className="flex-1 min-w-0">
-          <div className="flex justify-between items-start">
-            <h4 className={`text-xs font-bold font-mono tracking-wider mb-1 ${style.text}`}>
-              {notification.title}
-            </h4>
-            <button 
-              onClick={onClose}
-              className="text-gray-500 hover:text-white transition-colors"
-            >
-              <X size={14} />
+          <div className="flex justify-between items-start mb-1">
+            <span className={`text-xs font-bold font-mono ${style.text}`}>{notification.title}</span>
+            <button onClick={onClose} className="text-gray-600 hover:text-white transition-colors">
+              <X size={12} />
             </button>
           </div>
-          <p className="text-xs text-gray-300 leading-relaxed font-sans">
+          <p className="text-xs text-gray-400 font-mono leading-relaxed">
             {notification.message}
           </p>
-          <div className="mt-2 text-[9px] text-gray-600 font-mono text-right">
-             {new Date(notification.timestamp).toLocaleTimeString()}
+          <div className="mt-2 pt-2 border-t border-white/5 flex justify-between items-center text-[9px] text-gray-600 font-mono">
+            <span>#{notification.id.toUpperCase()}</span>
+            <span>{new Date(notification.timestamp).toLocaleTimeString([], { hour12: false })}</span>
           </div>
         </div>
       </div>
