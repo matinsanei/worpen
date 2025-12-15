@@ -2,7 +2,7 @@
 import React from 'react';
 import {
     LayoutGrid, Server, AlertTriangle, Settings,
-    Box, Bot, Layers, GitBranch, Hexagon
+    Box, Bot, Layers, GitBranch, Hexagon, Zap
 } from 'lucide-react';
 import { ViewState } from '../types';
 
@@ -21,13 +21,13 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ isOpen, currentView, o
             <button
                 onClick={() => onNavigate(view)}
                 className={`
-          w-full flex items-center px-3 py-2 rounded-md transition-all duration-300 group relative overflow-hidden
+          w-full flex items-center px-3 py-2 rounded-lg transition-all duration-300 group relative overflow-hidden
           ${active ? 'bg-green-500/10 text-green-400' : 'text-gray-400 hover:text-white hover:bg-white/5'}
         `}
                 title={!isOpen ? label : ''}
             >
-                {/* Active Indicator Line */}
-                <div className={`absolute left-0 top-0 bottom-0 w-[3px] bg-green-500 transition-all duration-300 ${active ? 'opacity-100' : 'opacity-0'}`}></div>
+                {/* Active Indicator - Floating Pill */}
+                <div className={`absolute left-1 top-1/2 -translate-y-1/2 w-1 h-5 bg-green-500 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.5)] transition-all duration-300 ${active ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`}></div>
 
                 {/* Icon - Fixed Width */}
                 <div className="min-w-[20px] flex justify-center z-10">
@@ -72,38 +72,42 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ isOpen, currentView, o
     return (
         <aside
             className={`
-        flex flex-col border-r border-white/5 bg-[#050505] transition-[width] duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] relative z-20 flex-shrink-0 group/sidebar overflow-hidden
+        flex flex-col border-r border-white/5 bg-[#050505] transition-width duration-300 ease-in-out relative z-20 flex-shrink-0 group/sidebar overflow-hidden will-change-[width]
         ${isOpen ? 'w-64' : 'w-20'}
       `}
         >
-            {/* AKA 'Namaz' (Strip/Spine) - The glowing green spine */}
+            {/* AKA 'Namaz' (Strip/Spine) - Simplified */}
             <div className={`
         absolute left-0 top-0 bottom-0 w-[2px] bg-gradient-to-b from-transparent via-green-500 to-transparent z-50
-        transition-all duration-500
-        ${isOpen ? 'opacity-20 blur-[1px]' : 'opacity-100 blur-[2px] shadow-[0_0_15px_rgba(0,255,65,0.6)]'}
+        transition-opacity duration-300
+        ${isOpen ? 'opacity-30' : 'opacity-100 shadow-[0_0_10px_rgba(0,255,65,0.4)]'}
       `}></div>
 
-            {/* Background Matrix/Noise when collapsed */}
-            {!isOpen && (
-                <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 mix-blend-overlay pointer-events-none"></div>
-            )}
+            {/* Brand - Premium SaaS Style */}
+            <div className="h-16 flex items-center px-4 border-b border-white/5 relative flex-shrink-0 group/brand">
 
-            {/* Brand */}
-            <div className="h-16 flex items-center px-6 border-b border-white/5 relative overflow-hidden flex-shrink-0">
-                {/* Glow */}
-                <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-green-500/50 to-transparent"></div>
+                {/* Subtle top ambient light */}
+                <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-50"></div>
 
-                <div className="flex items-center gap-3 text-green-500 relative z-10 w-full">
-                    <div className="relative min-w-[28px]">
-                        <Hexagon size={28} strokeWidth={1.5} className={`fill-green-500/10 text-green-500 transition-all duration-500 ${!isOpen && 'animate-pulse drop-shadow-[0_0_8px_rgba(0,255,65,0.5)]'}`} />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="w-1 h-1 bg-green-400 rounded-full animate-ping"></div>
+                <div className="flex items-center gap-3 relative z-10 w-full overflow-hidden">
+                    {/* Logo - Minimalist & Geometric */}
+                    <div className="relative w-8 h-8 flex items-center justify-center flex-shrink-0">
+                        {/* Soft back glow */}
+                        <div className="absolute inset-0 bg-green-500/10 rounded-lg blur-sm transition-opacity group-hover/brand:bg-green-500/20"></div>
+
+                        {/* Icon Container */}
+                        <div className="relative z-10 w-8 h-8 rounded-lg bg-gradient-to-b from-white/10 to-white/0 border border-white/10 flex items-center justify-center shadow-inner">
+                            <Hexagon size={18} className="text-white drop-shadow-sm" strokeWidth={2} />
                         </div>
                     </div>
 
-                    <div className={`flex flex-col overflow-hidden whitespace-nowrap transition-all duration-300 ease-out ${isOpen ? 'opacity-100 translate-x-0 w-32' : 'opacity-0 -translate-x-4 w-0'}`}>
-                        <span className="font-bold text-lg tracking-tight text-white leading-none font-display">WORPEN</span>
-                        <span className="text-[9px] text-gray-500 font-mono tracking-widest">OS v2.4 // ENT</span>
+                    {/* Typography - Clean & Modern */}
+                    <div className={`flex flex-col whitespace-nowrap transition-all duration-300 origin-left ${isOpen ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-2 w-0'}`}>
+                        <div className="flex items-center gap-2">
+                            <span className="font-semibold text-sm text-gray-100 tracking-tight font-sans">Worpen</span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]"></span>
+                        </div>
+                        <span className="text-[10px] text-gray-500 font-medium tracking-wide">Workspace</span>
                     </div>
                 </div>
             </div>
@@ -140,7 +144,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ isOpen, currentView, o
                         </div>
                     </div>
 
-                    <div className={`text-left overflow-hidden whitespace-nowrap transition-all duration-300 ease-out ${isOpen ? 'w-32 opacity-100 translate-x-0' : 'w-0 opacity-0 -translate-x-2'}`}>
+                    <div className={`text-left overflow-hidden whitespace-nowrap transition-opacity duration-300 ${isOpen ? 'w-auto opacity-100' : 'w-0 opacity-0'}`}>
                         <div className="text-xs font-medium text-white truncate group-hover:text-green-400 transition-colors">Operator_Root</div>
                         <div className="text-[10px] text-gray-500 truncate font-mono">Sec_Level: 5</div>
                     </div>

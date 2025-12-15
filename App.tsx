@@ -1,5 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
+import { AnimatePresence } from 'framer-motion';
+import { PageTransition } from './components/PageTransition';
 import { ViewState } from './types';
 import { Dashboard } from './views/Dashboard';
 import { Fleet } from './views/Fleet';
@@ -92,6 +94,11 @@ const AppContent: React.FC = () => {
 
       <CommandPalette isOpen={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} />
 
+      {/* FIXED BACKGROUND LAYER - Decoupled from layout resizing */}
+      <div className="fixed inset-0 bg-[#030303] z-0"></div>
+      <div className="fixed inset-0 bg-[linear-gradient(to_right,#111_1px,transparent_1px),linear-gradient(to_bottom,#111_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20 pointer-events-none z-0"></div>
+      <div className="fixed inset-0 bg-[radial-gradient(circle_at_center,rgba(0,255,65,0.03),transparent_70%)] pointer-events-none z-0"></div>
+
       {/* LEFT SIDEBAR */}
       <LeftSidebar
         isOpen={sidebarOpen}
@@ -100,10 +107,7 @@ const AppContent: React.FC = () => {
       />
 
       {/* MAIN CONTENT */}
-      <div className="flex-1 flex flex-col min-w-0 bg-black relative">
-        {/* Background Grid */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#111_1px,transparent_1px),linear-gradient(to_bottom,#111_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20 pointer-events-none"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,255,65,0.03),transparent_70%)] pointer-events-none"></div>
+      <div className="flex-1 flex flex-col min-w-0 bg-transparent relative z-10">
 
         {/* HEADER */}
         <header className="h-16 flex items-center justify-between px-6 border-b border-white/5 bg-[#030303]/80 backdrop-blur-sm sticky top-0 z-10 flex-shrink-0">
@@ -153,17 +157,19 @@ const AppContent: React.FC = () => {
         </header>
 
         {/* VIEWPORT */}
-        <main className="flex-1 overflow-y-auto custom-scrollbar relative p-1">
-          <div className="h-full">
-            {currentView === 'DASHBOARD' && <Dashboard />}
-            {currentView === 'FLEET' && <Fleet />}
-            {currentView === 'DOCKER' && <DockerView />}
-            {currentView === 'AUTOMATION' && <AutomationView />}
-            {currentView === 'DEPENDENCY' && <DependencyView />}
-            {currentView === 'CICD' && <CicdView />}
-            {currentView === 'INCIDENTS' && <IncidentsView />}
-            {currentView === 'SETTINGS' && <SettingsView />}
-          </div>
+        <main className="flex-1 overflow-y-auto custom-scrollbar relative p-1 overflow-x-hidden">
+          <AnimatePresence mode="wait">
+            <PageTransition key={currentView} className="h-full">
+              {currentView === 'DASHBOARD' && <Dashboard />}
+              {currentView === 'FLEET' && <Fleet />}
+              {currentView === 'DOCKER' && <DockerView />}
+              {currentView === 'AUTOMATION' && <AutomationView />}
+              {currentView === 'DEPENDENCY' && <DependencyView />}
+              {currentView === 'CICD' && <CicdView />}
+              {currentView === 'INCIDENTS' && <IncidentsView />}
+              {currentView === 'SETTINGS' && <SettingsView />}
+            </PageTransition>
+          </AnimatePresence>
         </main>
 
         {/* STATUS BAR */}
