@@ -7,7 +7,7 @@ edition = "2021"
 core = { path = "../core" }
 infra = { path = "../infra" }
 proto = { path = "../proto" }
-axum = "0.7"
+axum = { version = "0.7", features = ["ws"] }
 tokio = { version = "1.0", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
@@ -16,3 +16,7 @@ tower-http = { version = "0.5", features = ["cors", "trace"] }
 uuid = { version = "1.19.0", features = ["serde"] }
 serde_json = "1.0.145"
 sqlx = { version = "0.8.6", features = ["sqlite", "runtime-tokio", "macros", "chrono", "uuid"] }
+utoipa = { version = "5", features = ["axum_extras", "uuid"] }
+utoipa-swagger-ui = { version = "8", features = ["axum"] }
+dashmap = "6.1.0"
+futures = "0.3.31"

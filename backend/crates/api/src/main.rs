@@ -7,6 +7,11 @@ use state::AppState;
 mod state;
 mod dtos;
 mod handlers;
+mod apidoc;
+
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
+use apidoc::ApiDoc;
 
 #[tokio::main]
 async fn main() {
@@ -20,16 +25,20 @@ async fn main() {
     
     let repo = std::sync::Arc::new(SqliteAgentRepository::new(pool));
     let service = std::sync::Arc::new(AgentService::new(repo));
+    let connected_agents = std::sync::Arc::new(dashmap::DashMap::new());
     
     let state = AppState {
         agent_service: service,
+        connected_agents,
     };
 
     let app = Router::new()
-        .route("/", get(root))
-        .route("/health", get(health_check))
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
+        .route("/", get(handlers::root))
+        .route("/health", get(handlers::health_check))
         .route("/agents/register", post(handlers::register_agent))
         .route("/telemetry", post(handlers::receive_telemetry))
+        .route("/ws", get(handlers::ws_handler))
         .with_state(state);
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
@@ -39,10 +48,4 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn root() -> &'static str {
-    "Hello, World!"
-}
 
-async fn health_check() -> &'static str {
-    "OK"
-}
