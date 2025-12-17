@@ -58,6 +58,20 @@ This specification correlates directly with the Frontend Views and Mock Data (`c
 | `GET` | `/api/v1/dashboard/services` | Service Health Matrix (Status, Latency, Load). | - |
 | `GET` | `/api/v1/dashboard/load` | Cluster Load Distribution (Predicted vs Actual). | `?range=24h` |
 
+### 0. 🚀 Dynamic Routes (JSON-Driven API Engine)
+| METHOD | ROUTE | DESC | PAYLOAD / PARAMS |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/dynamic-routes` | List all registered dynamic routes. | - |
+| `POST` | `/api/v1/dynamic-routes` | Register a new JSON-driven API route. | `{ name, path, method, logic, parameters }` |
+| `DELETE` | `/api/v1/dynamic-routes/{id}` | Delete a registered route. | - |
+| `POST` | `/api/v1/dynamic-routes/test` | Test a route with mock payload. | `{ route_id, test_payload, test_params }` |
+| `ANY` | `/api/custom/*` | Execute user-defined dynamic routes. | Varies per route definition |
+
+**Logic Operations Supported (11 ops):**
+- `return`, `set_var`, `get_var`, `query_db`, `http_request`
+- `if` (conditional), `for_each` (iteration), `transform` (data mapping)
+- `log`, `sleep`, `error` (control flow)
+
 ### 2. 🐝 Fleet (Agents)
 | METHOD | ROUTE | DESC | PAYLOAD / PARAMS |
 | :--- | :--- | :--- | :--- |
@@ -108,6 +122,9 @@ This specification correlates directly with the Frontend Views and Mock Data (`c
 [![Rust](https://img.shields.io/badge/RUST-1.75+-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
 [![Axum](https://img.shields.io/badge/FRAMEWORK-AXUM-red?style=for-the-badge&logo=rust)](https://github.com/tokio-rs/axum)
 [![Tokio](https://img.shields.io/badge/RUNTIME-TOKIO-blue?style=for-the-badge&logo=rust)](https://tokio.rs/)
+[![SQLite](https://img.shields.io/badge/DATABASE-SQLITE-green?style=for-the-badge&logo=sqlite)](https://www.sqlite.org/)
+
+**Active Routes:** 7+ | **Dynamic API Engine:** ONLINE | **Response Time:** <4ms
 
 ---
 
@@ -158,8 +175,49 @@ Execute the comprehensive test suite:
 cargo test --workspace
 ```
 
+### Database Migrations
+Migrations run automatically on startup. Manual migration:
+
+```bash
+sqlx migrate run --database-url sqlite:worpen.db
+```
+
+---
+
+## 🚀 𝐃𝐘𝐍𝐀𝐌𝐈𝐂_𝐑𝐎𝐔𝐓𝐄𝐒_𝐐𝐔𝐈𝐂𝐊_𝐒𝐓𝐀𝐑𝐓
+
+Create APIs without writing code - just JSON definitions!
+
+**Example:** Simple Echo API
+```json
+{
+  "name": "Echo API",
+  "path": "/api/custom/echo",
+  "method": "POST",
+  "logic": [{
+    "return": { "value": { "message": "{{input}}" } }
+  }]
+}
+```
+
+**Register via API:**
+```bash
+curl -X POST http://127.0.0.1:3000/api/v1/dynamic-routes \
+  -H "Content-Type: application/json" \
+  -d @route-definition.json
+```
+
+**Test the route:**
+```bash
+curl -X POST http://127.0.0.1:3000/api/custom/echo \
+  -H "Content-Type: application/json" \
+  -d '{"input": "Hello World"}'
+```
+
+See [`examples/`](../examples/) directory for more route templates (games, calculator, DB queries).
+
 ---
 
 <div align="center">
-  <sub>Authorized Personnel Only. Worpen Corp.</sub>
+  <sub>Authorized Personnel Only. Worpen Corp. 2024-2025</sub>
 </div>

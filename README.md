@@ -70,6 +70,7 @@ graph TD
 | **HIVE** | `🐝` | Rust agents deployed on edge nodes (15MB RAM). | `ONLINE` |
 | **NEXUS** | `🕸️` | Artifact & Layer Deduplication Engine. | `STABLE` |
 | **SENTINEL** | `🛡️` | Self-Healing Automation Matrix (JS Engine). | `BETA` |
+| **DYNAMIC ROUTES** | `🚀` | JSON-Driven API Engine (Build APIs without code). | `ONLINE` |
 
 ---
 
@@ -92,21 +93,49 @@ graph TD
 
 To jack into the matrix, execute the following commands in your terminal:
 
+### 🧠 Backend (Rust Core Brain)
 ```bash
-# 1. Clone the neural pathways
-root@local:~# git clone https://github.com/worpen/cockpit.git
+# 1. Navigate to backend
+cd backend
 
-# 2. Enter the construct
-root@local:~# cd cockpit
+# 2. Run the Core Brain API
+cargo run -p api
 
-# 3. Install synaptic relays
-root@local:~/cockpit# npm install
-
-# 4. Ignite the system
-root@local:~/cockpit# npm start
+# System will be online at: http://127.0.0.1:3000
 ```
 
-> **WARNING:** Ensure you have `Node.js v18+` and a valid `API_KEY` in your environment variables before initiating the link.
+### 🖥️ Frontend (Cockpit UI)
+```bash
+# 1. Install dependencies (100% local, no CDN)
+npm install
+
+# 2. Start Vite dev server
+npm run dev
+
+# Cockpit will be online at: http://localhost:3000
+```
+
+> **SYSTEM REQUIREMENTS:** 
+> - Rust 1.75+ (Backend)
+> - Node.js v18+ (Frontend)
+> - All dependencies are **self-contained** - no external CDN calls
+
+---
+
+## 🎨 𝐅𝐑𝐎𝐍𝐓𝐄𝐍𝐃_𝐓𝐄𝐂𝐇_𝐒𝐓𝐀𝐂𝐊
+
+| COMPONENT | VERSION | DESCRIPTION |
+| :--- | :--- | :--- |
+| **React** | `19.2.3` | Declarative UI framework |
+| **Vite** | `6.2.0` | Lightning-fast dev server & build tool |
+| **TypeScript** | `5.8.2` | Type-safe JavaScript superset |
+| **Tailwind CSS** | `3.4.17` | Utility-first CSS (local, no CDN) |
+| **Recharts** | `3.5.1` | Composable chart library |
+| **Framer Motion** | `12.23.26` | Production-ready animations |
+| **Lucide React** | `0.561.0` | Beautiful icon system |
+
+**Fonts:** Inter & Fira Code (self-hosted, 1.7MB TTF files)  
+**CDN Dependencies:** ZERO - Fully self-contained build
 
 ---
 
@@ -119,9 +148,9 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting and encryption standa
 
 ## 📜 𝐋𝐈𝐂𝐄𝐍𝐒𝐄
 
-Copyright (c) 2024 **Worpen Corp**.
+Copyright (c) 2024-2025 **Worpen Corp**.
 Released under the **MIT License**. See [LICENSE](LICENSE) for details.
 
 <div align="center">
-  <sub>Designed for the Post-Cloud Era.</sub>
+  <sub>Designed for the Post-Cloud Era. Built with Rust & React.</sub>
 </div>
