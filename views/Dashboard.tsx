@@ -1,6 +1,6 @@
 
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { TerminalFrame } from '../components/TerminalFrame';
 import {
    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine
@@ -11,6 +11,7 @@ import {
    Cpu, Globe, Clock, ArrowUpRight,
    Database, Lock, Wifi, HardDrive
 } from 'lucide-react';
+import { dashboardApi } from '../api';
 
 const STATIC_CHART_DATA = [
    { time: '00:00', load: 24, predicted: 20 },
@@ -93,6 +94,26 @@ const ServiceHealthMatrix = () => {
 };
 
 export const Dashboard: React.FC = () => {
+   const [stats, setStats] = useState<any>(null);
+   const [loading, setLoading] = useState(true);
+
+   useEffect(() => {
+      const fetchStats = async () => {
+         try {
+            const data = await dashboardApi.getStats();
+            setStats(data);
+         } catch (error) {
+            console.error('Failed to fetch stats:', error);
+         } finally {
+            setLoading(false);
+         }
+      };
+
+      fetchStats();
+      const interval = setInterval(fetchStats, 5000); // Refresh every 5 seconds
+      return () => clearInterval(interval);
+   }, []);
+
    return (
       <div className="p-6 space-y-6 max-w-[1800px] mx-auto pb-20">
 
@@ -103,7 +124,7 @@ export const Dashboard: React.FC = () => {
                <div className="flex items-center gap-6 text-sm text-gray-500 font-mono">
                   <span className="flex items-center gap-2">
                      <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                     GRID: ONLINE
+                     GRID: {loading ? 'CONNECTING...' : 'ONLINE'}
                   </span>
                   <span className="flex items-center gap-2">
                      <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
@@ -125,10 +146,32 @@ export const Dashboard: React.FC = () => {
 
          {/* KPI Grid */}
          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            <KPICard title="Active Nodes" value="05" icon={Server} trend="+2 New" color="blue" />
-            <KPICard title="Throughput" value="1.2k/s" icon={Zap} trend="+12%" color="yellow" />
-            <KPICard title="Avg Load" value="42%" icon={Cpu} color="purple" />
-            <KPICard title="Security Score" value="98%" icon={ShieldCheck} color="green" />
+            <KPICard 
+               title="Active Nodes" 
+               value={stats?.active_nodes || '...'} 
+               icon={Server} 
+               trend="+2 New" 
+               color="blue" 
+            />
+            <KPICard 
+               title="Throughput" 
+               value={stats?.throughput || '...'} 
+               icon={Zap} 
+               trend="+12%" 
+               color="yellow" 
+            />
+            <KPICard 
+               title="Avg Load" 
+               value={stats?.avg_load || '...'} 
+               icon={Cpu} 
+               color="purple" 
+            />
+            <KPICard 
+               title="Security Score" 
+               value={stats?.security_score || '...'} 
+               icon={ShieldCheck} 
+               color="green" 
+            />
          </div>
 
          {/* Middle Section: Services, Resources, Events */}

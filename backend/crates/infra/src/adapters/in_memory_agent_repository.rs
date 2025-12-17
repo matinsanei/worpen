@@ -36,6 +36,14 @@ impl AgentRepository for InMemoryAgentRepository {
         })
     }
 
+    fn find_all(&self) -> Pin<Box<dyn Future<Output = Result<Vec<Agent>, String>> + Send>> {
+        let agents = self.agents.clone();
+        Box::pin(async move {
+            let all_agents: Vec<Agent> = agents.iter().map(|entry| entry.value().clone()).collect();
+            Ok(all_agents)
+        })
+    }
+
     fn delete(&self, id: Uuid) -> Pin<Box<dyn Future<Output = Result<(), String>> + Send>> {
         let agents = self.agents.clone();
         Box::pin(async move {

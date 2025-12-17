@@ -101,6 +101,46 @@ impl AgentRepository for SqliteAgentRepository {
         })
     }
 
+    fn find_all(&self) -> Pin<Box<dyn Future<Output = Result<Vec<Agent>, String>> + Send>> {
+        let pool = self.pool.clone();
+        Box::pin(async move {
+            let rows = sqlx::query("SELECT * FROM agents")
+                .fetch_all(&pool)
+                .await
+                .map_err(|e| e.to_string())?;
+
+            let mut agents_list = Vec::new();
+            for row in rows {
+                let status_str: String = row.try_get("status").map_err(|e| e.to_string())?;
+                let status = match status_str.as_str() {
+                    "Online" => AgentStatus::Online,
+                    "Busy" => AgentStatus::Busy,
+                    "Error" => AgentStatus::Error,
+                    _ => AgentStatus::Offline,
+                };
+                
+                let id_str: String = row.try_get("id").map_err(|e| e.to_string())?;
+                let id = Uuid::from_str(&id_str).map_err(|e| e.to_string())?;
+
+                let metadata_val: serde_json::Value = row.try_get("metadata").map_err(|e| e.to_string())?;
+                let metadata = serde_json::from_value(metadata_val).map_err(|e| e.to_string())?;
+                
+                let last_heartbeat: DateTime<Utc> = row.try_get("last_heartbeat").map_err(|e| e.to_string())?;
+
+                agents_list.push(Agent {
+                    id,
+                    hostname: row.try_get("hostname").map_err(|e| e.to_string())?,
+                    ip_address: row.try_get("ip_address").map_err(|e| e.to_string())?,
+                    status,
+                    last_heartbeat,
+                    version: row.try_get("version").map_err(|e| e.to_string())?,
+                    metadata,
+                });
+            }
+            Ok(agents_list)
+        })
+    }
+
     fn delete(&self, id: Uuid) -> Pin<Box<dyn Future<Output = Result<(), String>> + Send>> {
         let pool = self.pool.clone();
         Box::pin(async move {

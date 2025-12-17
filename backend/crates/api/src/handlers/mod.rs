@@ -3,7 +3,24 @@ use crate::state::AppState;
 use crate::dtos::RegisterAgentRequest;
 
 pub mod ws;
+pub mod dashboard;
+pub mod docker;
+pub mod incident;
+pub mod automation;
+pub mod pipelines;
+pub mod fleet;
+pub mod logs;
+pub mod terminal;
+
 pub use ws::ws_handler;
+pub use dashboard::*;
+pub use docker::*;
+pub use incident::*;
+pub use automation::*;
+pub use pipelines::*;
+pub use fleet::*;
+pub use logs::*;
+pub use terminal::*;
 
 /// Register a new agent in the Hive
 #[utoipa::path(

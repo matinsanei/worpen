@@ -28,4 +28,17 @@ impl AgentService {
             Err("Agent not found".to_string())
         }
     }
+
+    pub async fn list_agents(&self) -> Result<Vec<Agent>, String> {
+        self.repository.find_all().await
+    }
+
+    pub async fn get_agent(&self, agent_id: Uuid) -> Result<Option<Agent>, String> {
+        self.repository.find_by_id(agent_id).await
+    }
+
+    pub async fn sync_agents(&self) -> Result<(), String> {
+        // Placeholder for sync logic - could trigger mesh sync signal
+        Ok(())
+    }
 }

@@ -46,6 +46,63 @@ graph TD
 
 ---
 
+## 📡 𝐀𝐏𝐈_𝐒𝐏𝐄𝐂𝐈𝐅𝐈𝐂𝐀𝐓𝐈𝐎𝐍
+
+This specification correlates directly with the Frontend Views and Mock Data (`constants.ts`).
+
+### 1. 📊 Dashboard & Telemetry
+| METHOD | ROUTE | DESC | PAYLOAD / PARAMS |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/dashboard/stats` | Aggregated KPIs (Nodes, Throughput, Load, Security). | - |
+| `GET` | `/api/v1/dashboard/network` | Historical network traffic data (Inbound/Outbound). | `?range=1h` |
+| `GET` | `/api/v1/dashboard/services` | Service Health Matrix (Status, Latency, Load). | - |
+| `GET` | `/api/v1/dashboard/load` | Cluster Load Distribution (Predicted vs Actual). | `?range=24h` |
+
+### 2. 🐝 Fleet (Agents)
+| METHOD | ROUTE | DESC | PAYLOAD / PARAMS |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/agents` | List all connected agents/nodes. | `?status=ONLINE` |
+| `GET` | `/api/v1/agents/{id}` | Detailed telemetry for a specific agent. | - |
+| `POST` | `/api/v1/agents/sync` | Force a synchronization signal across the mesh. | `{ target: "all" }` |
+| `POST` | `/api/v1/internal/heartbeat` | **[INTERNAL]** Agent pulse check-in. | `{ id, cpu, ram, status }` |
+
+### 3. 📦 Docker & Orchestration
+| METHOD | ROUTE | DESC | PAYLOAD / PARAMS |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/containers` | List all containers across the fleet. | `?node=bee-001` |
+| `GET` | `/api/v1/containers/{id}/logs` | Stream stdout/stderr from a container. | `?tail=100` |
+| `POST` | `/api/v1/containers/{id}/start` | Start a stopped container. | - |
+| `POST` | `/api/v1/containers/{id}/stop` | Stop a running container. | - |
+| `POST` | `/api/v1/containers/{id}/restart` | Restart a container (commonly used by Auto-Healer). | - |
+| `DELETE`| `/api/v1/containers/{id}` | Remove a container. | `?force=true` |
+| `POST` | `/api/v1/docker/prune` | System Prune (Remove unused images/networks). | `{ all: true }` |
+| `GET` | `/api/v1/images` | List cached container images and layers. | - |
+| `POST` | `/api/v1/images/pull` | Pull a new image tag. | `{ image: "repo/name:tag" }` |
+
+### 4. 🤖 Automation (Self-Healing)
+| METHOD | ROUTE | DESC | PAYLOAD / PARAMS |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/automation/rules` | List all active healing strategies. | - |
+| `GET` | `/api/v1/automation/rules/{id}` | Get specific rule script. | - |
+| `POST` | `/api/v1/automation/rules` | Create a new automation strategy. | `{ name, trigger, script }` |
+| `PUT` | `/api/v1/automation/rules/{id}` | Update script or toggle active state. | `{ script, active: true }` |
+| `POST` | `/api/v1/automation/dry-run` | Test run a script in a sandbox. | `{ script, mockContext }` |
+
+### 5. 🚨 Incidents & Logs
+| METHOD | ROUTE | DESC | PAYLOAD / PARAMS |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/incidents` | List active and resolved incidents. | `?status=PENDING` |
+| `POST` | `/api/v1/incidents/{id}/resolve` | Mark an incident as resolved. | `{ method: "MANUAL", notes: "..." }` |
+| `GET` | `/api/v1/logs` | Centralized log stream. | `?level=ERROR&source=bee-001` |
+
+### 6. 🏗️ CI/CD Pipelines
+| METHOD | ROUTE | DESC | PAYLOAD / PARAMS |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/pipelines` | List pipeline execution history. | - |
+| `POST` | `/api/v1/pipelines/trigger` | Manually trigger a pipeline. | `{ pipelineId: "pipe-001" }` |
+
+---
+
 ## 🔋 𝐒𝐘𝐒𝐓𝐄𝐌_𝐒𝐓𝐀𝐓𝐔𝐒
 
 [![Rust](https://img.shields.io/badge/RUST-1.75+-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)

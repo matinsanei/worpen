@@ -251,7 +251,9 @@ name = "core"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "proto",
  "serde",
+ "serde_json",
  "uuid",
 ]
 
@@ -900,6 +902,7 @@ dependencies = [
  "chrono",
  "core",
  "dashmap",
+ "proto",
  "serde_json",
  "sqlx",
  "tokio",
@@ -1221,6 +1224,7 @@ name = "proto"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "utoipa",
 ]
 
 [[package]]

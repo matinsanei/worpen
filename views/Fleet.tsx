@@ -1,26 +1,87 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { TerminalFrame } from '../components/TerminalFrame';
+import { InteractiveTerminal } from '../components/InteractiveTerminal';
 import { MOCK_AGENTS } from '../constants';
 import { AgentStatus } from '../types';
-import { Cpu, HardDrive, Terminal, MoreHorizontal, Power, RefreshCw, Signal } from 'lucide-react';
+import { Cpu, HardDrive, Terminal, MoreHorizontal, Power, RefreshCw, Signal, Code } from 'lucide-react';
+import { agentsApi } from '../api';
 
 export const Fleet: React.FC = () => {
+  const [agents, setAgents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTerminal, setActiveTerminal] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const fetchAgents = async () => {
+      try {
+        const data = await agentsApi.list();
+        setAgents(data as any[]);
+      } catch (error) {
+        console.error('Failed to fetch agents:', error);
+        setAgents(MOCK_AGENTS); // Fallback to mock data
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAgents();
+    const interval = setInterval(fetchAgents, 10000); // Refresh every 10 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleSync = async () => {
+    try {
+      await agentsApi.sync();
+      const data = await agentsApi.list();
+      setAgents(data as any[]);
+    } catch (error) {
+      console.error('Failed to sync agents:', error);
+    }
+  };
+
+  if (activeTerminal) {
+    return (
+      <div className="h-full p-6">
+        <InteractiveTerminal
+          type="agent"
+          targetId={activeTerminal.id}
+          targetName={activeTerminal.name}
+          onClose={() => setActiveTerminal(null)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 max-w-[1600px] mx-auto space-y-6">
       
       <div className="flex items-center justify-between">
          <div>
             <h1 className="text-2xl font-bold text-white">Fleet Management</h1>
-            <p className="text-sm text-gray-500">Manage {MOCK_AGENTS.length} active edge nodes.</p>
+            <p className="text-sm text-gray-500">
+              {loading ? 'Loading...' : `Manage ${agents.length} active edge nodes.`}
+            </p>
          </div>
-         <button className="bg-green-600 hover:bg-green-500 text-white text-sm font-medium px-4 py-2 rounded-md shadow-[0_0_15px_rgba(0,255,65,0.3)] transition-all">
-            Deploy Node
-         </button>
+         <div className="flex gap-2">
+            <button 
+              onClick={handleSync}
+              className="bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-400 text-sm font-medium px-4 py-2 rounded-md transition-all flex items-center gap-2"
+            >
+              <RefreshCw size={14} />
+              Sync Fleet
+            </button>
+            <button className="bg-green-600 hover:bg-green-500 text-white text-sm font-medium px-4 py-2 rounded-md shadow-[0_0_15px_rgba(0,255,65,0.3)] transition-all">
+              Deploy Node
+            </button>
+         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {MOCK_AGENTS.map((agent) => {
+        {agents.map((agent) => {
           const isOnline = agent.status === AgentStatus.ONLINE;
           const isCrit = agent.status === AgentStatus.CRITICAL || agent.status === AgentStatus.OFFLINE;
 
@@ -80,6 +141,13 @@ export const Fleet: React.FC = () => {
                        <span className="flex items-center gap-1"><Signal size={12}/> {agent.peers} peers</span>
                     </div>
                     <div className="flex gap-1">
+                       <button 
+                          onClick={() => setActiveTerminal({ id: agent.id, name: agent.name })}
+                          className="p-1.5 hover:bg-green-500/20 rounded text-gray-400 hover:text-green-500 transition-colors" 
+                          title="Open Shell"
+                       >
+                          <Code size={14} />
+                       </button>
                        <button className="p-1.5 hover:bg-white/10 rounded text-gray-400 hover:text-white" title="Restart">
                           <RefreshCw size={14} />
                        </button>

@@ -1,5 +1,6 @@
 pub mod adapters;
 pub mod db;
+pub mod repositories;
 
 pub use adapters::*;
 pub use db::initialize_db;
