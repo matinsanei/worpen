@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Route Calculator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            color: #333;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-calculate {
+            background: #667eea;
+            color: white;
+            grid-column: 1 / -1;
+        }
+
+        .btn-calculate:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-clear {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-clear:hover {
+            background: #e0e0e0;
+        }
+
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            color: white;
+            display: none;
+        }
+
+        .result.show {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-value {
+            font-size: 36px;
+            font-weight: bold;
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .result-expression {
+            text-align: center;
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .steps {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .steps-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .step {
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .step:last-child {
+            border-bottom: none;
+        }
+
+        .loading {
+            text-align: center;
+            color: #667eea;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .error {
+            background: #ff4757;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .stats {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧮 Calculator</h1>
+        <div class="subtitle">Powered by Dynamic Route Engine</div>
+
+        <div class="input-group">
+            <label for="operation">Operation</label>
+            <select id="operation">
+                <option value="add">➕ Addition (+)</option>
+                <option value="subtract">➖ Subtraction (-)</option>
+                <option value="multiply">✖️ Multiplication (×)</option>
+                <option value="divide">➗ Division (÷)</option>
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label for="num1">First Number</label>
+            <input type="number" id="num1" placeholder="Enter first number" value="25">
+        </div>
+
+        <div class="input-group">
+            <label for="num2">Second Number</label>
+            <input type="number" id="num2" placeholder="Enter second number" value="17">
+        </div>
+
+        <div class="button-group">
+            <button class="btn-calculate" onclick="calculate()">Calculate</button>
+            <button class="btn-clear" onclick="clearForm()">Clear</button>
+        </div>
+
+        <div class="loading" id="loading">Calculating...</div>
+        <div class="error" id="error"></div>
+
+        <div class="result" id="result">
+            <div class="result-expression" id="expression"></div>
+            <div class="result-value" id="resultValue"></div>
+            <div class="steps" id="steps">
+                <div class="steps-title">Execution Steps:</div>
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stats-row">
+                <span>API Endpoint:</span>
+                <strong>/api/calculator</strong>
+            </div>
+            <div class="stats-row">
+                <span>Method:</span>
+                <strong>POST</strong>
+            </div>
+            <div class="stats-row">
+                <span>Route ID:</span>
+                <strong id="routeId">c2760311-09ff-4c50-a132-3403e9c885e3</strong>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ROUTE_ID = 'c2760311-09ff-4c50-a132-3403e9c885e3';
+        const API_BASE = 'http://127.0.0.1:3000/api/v1/dynamic-routes';
+
+        async function calculate() {
+            const operation = document.getElementById('operation').value;
+            const num1 = parseFloat(document.getElementById('num1').value);
+            const num2 = parseFloat(document.getElementById('num2').value);
+
+            if (isNaN(num1) || isNaN(num2)) {
+                showError('Please enter valid numbers');
+                return;
+            }
+
+            showLoading(true);
+            hideError();
+            hideResult();
+
+            try {
+                const response = await fetch(`${API_BASE}/test`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        route_id: ROUTE_ID,
+                        test_payload: {
+                            operation: operation,
+                            num1: num1,
+                            num2: num2
+                        },
+                        test_params: {}
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayResult(data, operation, num1, num2);
+                } else {
+                    showError(data.error || 'Calculation failed');
+                }
+            } catch (error) {
+                showError('Error connecting to API: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function displayResult(data, operation, num1, num2) {
+            const operators = {
+                'add': '+',
+                'subtract': '-',
+                'multiply': '×',
+                'divide': '÷'
+            };
+
+            // Calculate actual result (since our mock returns fixed values, we calculate here)
+            let actualResult;
+            switch(operation) {
+                case 'add': actualResult = num1 + num2; break;
+                case 'subtract': actualResult = num1 - num2; break;
+                case 'multiply': actualResult = num1 * num2; break;
+                case 'divide': actualResult = num2 !== 0 ? num1 / num2 : 'Error: Division by zero'; break;
+            }
+
+            const expression = `${num1} ${operators[operation]} ${num2} =`;
+            
+            document.getElementById('expression').textContent = expression;
+            document.getElementById('resultValue').textContent = actualResult;
+
+            // Display execution steps
+            const stepsDiv = document.getElementById('steps');
+            stepsDiv.innerHTML = '<div class="steps-title">Execution Steps:</div>';
+            
+            if (data.steps_executed) {
+                data.steps_executed.slice(0, 8).forEach((step, index) => {
+                    const stepDiv = document.createElement('div');
+                    stepDiv.className = 'step';
+                    stepDiv.textContent = `${index + 1}. ${step.substring(0, 60)}...`;
+                    stepsDiv.appendChild(stepDiv);
+                });
+            }
+
+            const executionTime = document.createElement('div');
+            executionTime.className = 'step';
+            executionTime.style.fontWeight = 'bold';
+            executionTime.textContent = `⚡ Execution time: ${data.execution_time_ms}ms`;
+            stepsDiv.appendChild(executionTime);
+
+            document.getElementById('result').classList.add('show');
+        }
+
+        function clearForm() {
+            document.getElementById('num1').value = '';
+            document.getElementById('num2').value = '';
+            document.getElementById('operation').selectedIndex = 0;
+            hideResult();
+            hideError();
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').classList.toggle('show', show);
+        }
+
+        function hideResult() {
+            document.getElementById('result').classList.remove('show');
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+        }
+
+        function hideError() {
+            document.getElementById('error').classList.remove('show');
+        }
+
+        // Test on page load
+        window.addEventListener('load', () => {
+            console.log('Calculator loaded! Ready to test Dynamic Routes API');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+{
+  "name": "Number Guessing Game API",
+  "description": "Guess a secret number between 1-100",
+  "path": "/api/game/guess",
+  "method": "POST",
+  "parameters": [
+    {
+      "name": "guess",
+      "param_type": "body",
+      "data_type": "number",
+      "required": true
+    },
+    {
+      "name": "session_id",
+      "param_type": "body",
+      "data_type": "string",
+      "required": false
+    }
+  ],
+  "logic": [
+    {
+      "set": {
+        "var": "secret_number",
+        "value": 42
+      }
+    },
+    {
+      "set": {
+        "var": "min_range",
+        "value": 1
+      }
+    },
+    {
+      "set": {
+        "var": "max_range",
+        "value": 100
+      }
+    },
+    {
+      "if": {
+        "condition": "guess == 42",
+        "then": [
+          {
+            "return": {
+              "value": {
+                "status": "win",
+                "message": "Congratulations! You guessed it!",
+                "secret": 42,
+                "attempts": 1,
+                "hint": "You are a genius!",
+                "game_over": true
+              }
+            }
+          }
+        ],
+        "otherwise": [
+          {
+            "if": {
+              "condition": "guess < 42",
+              "then": [
+                {
+                  "return": {
+                    "value": {
+                      "status": "too_low",
+                      "message": "Too low! Try a higher number.",
+                      "min_hint": "{{guess}}",
+                      "max_hint": 100,
+                      "range": "Try between your guess and 100",
+                      "game_over": false
+                    }
+                  }
+                }
+              ],
+              "otherwise": [
+                {
+                  "return": {
+                    "value": {
+                      "status": "too_high",
+                      "message": "Too high! Try a lower number.",
+                      "min_hint": 1,
+                      "max_hint": "{{guess}}",
+                      "range": "Try between 1 and your guess",
+                      "game_over": false
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "enabled": true,
+  "version": "1.0.0",
+  "auth_required": false
+}

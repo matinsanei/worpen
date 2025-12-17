@@ -34,6 +34,7 @@ async fn main() {
     let incident_service = std::sync::Arc::new(core::services::IncidentService::new(incident_repo));
     let automation_service = std::sync::Arc::new(core::services::AutomationService::new(automation_repo));
     let pipeline_service = std::sync::Arc::new(core::services::PipelineService::new());
+    let dynamic_route_service = std::sync::Arc::new(core::services::DynamicRouteService::new());
     
     let connected_agents = std::sync::Arc::new(dashmap::DashMap::new());
     
@@ -44,6 +45,7 @@ async fn main() {
         incident_service,
         automation_service,
         pipeline_service,
+        dynamic_route_service,
         connected_agents,
     };
 
@@ -105,6 +107,14 @@ async fn main() {
         .route("/api/v1/terminal/container/:id", get(handlers::container_terminal_ws))
         .route("/api/v1/terminal/agent/:id", get(handlers::agent_terminal_ws))
         .route("/api/v1/terminal/sessions", get(handlers::list_terminal_sessions))
+        // Dynamic Routes Engine
+        .route("/api/v1/dynamic-routes", get(handlers::list_routes).post(handlers::register_route))
+        .route("/api/v1/dynamic-routes/stats", get(handlers::get_route_stats))
+        .route("/api/v1/dynamic-routes/test", post(handlers::test_route))
+        .route("/api/v1/dynamic-routes/import", post(handlers::import_route))
+        .route("/api/v1/dynamic-routes/:id", get(handlers::get_route).put(handlers::update_route).delete(handlers::delete_route))
+        .route("/api/v1/dynamic-routes/:id/execute", post(handlers::execute_route))
+        .route("/api/v1/dynamic-routes/:id/export", get(handlers::export_route))
         .layer(cors)
         .with_state(state);
 

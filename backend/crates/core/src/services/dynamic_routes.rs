@@ -1,0 +1,328 @@
+use std::sync::Arc;
+use std::collections::HashMap;
+use proto::models::{
+    RouteDefinition, LogicOperation, RouteTestRequest, RouteTestResponse,
+    DynamicRouteExecutionContext,
+};
+use serde_json::Value;
+
+pub struct DynamicRouteService {
+    // In production, this would be a repository
+    routes: Arc<std::sync::RwLock<HashMap<String, RouteDefinition>>>,
+}
+
+impl DynamicRouteService {
+    pub fn new() -> Self {
+        Self {
+            routes: Arc::new(std::sync::RwLock::new(HashMap::new())),
+        }
+    }
+
+    /// Register a new dynamic route
+    pub async fn register_route(&self, mut route: RouteDefinition) -> Result<String, String> {
+        // Validate route
+        self.validate_route(&route)?;
+        
+        // Generate ID if not provided
+        if route.id.is_empty() {
+            route.id = uuid::Uuid::new_v4().to_string();
+        }
+        
+        // Set timestamps
+        let now = chrono::Utc::now().to_rfc3339();
+        route.created_at = now.clone();
+        route.updated_at = now;
+        
+        // Store route
+        let mut routes = self.routes.write().unwrap();
+        let route_id = route.id.clone();
+        routes.insert(route_id.clone(), route);
+        
+        Ok(route_id)
+    }
+
+    /// List all registered routes
+    pub async fn list_routes(&self) -> Result<Vec<RouteDefinition>, String> {
+        let routes = self.routes.read().unwrap();
+        Ok(routes.values().cloned().collect())
+    }
+
+    /// Get a specific route by ID
+    pub async fn get_route(&self, route_id: &str) -> Result<Option<RouteDefinition>, String> {
+        let routes = self.routes.read().unwrap();
+        Ok(routes.get(route_id).cloned())
+    }
+
+    /// Update an existing route
+    pub async fn update_route(&self, route_id: &str, mut route: RouteDefinition) -> Result<(), String> {
+        self.validate_route(&route)?;
+        
+        let mut routes = self.routes.write().unwrap();
+        if !routes.contains_key(route_id) {
+            return Err("Route not found".to_string());
+        }
+        
+        route.updated_at = chrono::Utc::now().to_rfc3339();
+        routes.insert(route_id.to_string(), route);
+        
+        Ok(())
+    }
+
+    /// Delete a route
+    pub async fn delete_route(&self, route_id: &str) -> Result<(), String> {
+        let mut routes = self.routes.write().unwrap();
+        if routes.remove(route_id).is_none() {
+            return Err("Route not found".to_string());
+        }
+        Ok(())
+    }
+
+    /// Test a route with test data
+    pub async fn test_route(&self, request: RouteTestRequest) -> Result<RouteTestResponse, String> {
+        let start_time = std::time::Instant::now();
+        let mut steps = Vec::new();
+        
+        // Get route definition
+        let route = {
+            let routes = self.routes.read().unwrap();
+            routes.get(&request.route_id).cloned()
+                .ok_or_else(|| "Route not found".to_string())?
+        };
+        
+        steps.push(format!("Route found: {} ({})", route.name, route.path));
+        
+        // Create execution context
+        let context = DynamicRouteExecutionContext {
+            route_id: request.route_id.clone(),
+            variables: HashMap::new(),
+            request_payload: request.test_payload,
+            path_params: HashMap::new(),
+            query_params: request.test_params.iter()
+                .map(|(k, v)| (k.clone(), v.to_string()))
+                .collect(),
+        };
+        
+        steps.push("Execution context created".to_string());
+        
+        // Execute logic
+        match self.execute_logic(&route.logic, context, &mut steps).await {
+            Ok(result) => {
+                let execution_time = start_time.elapsed().as_millis() as u64;
+                Ok(RouteTestResponse {
+                    success: true,
+                    result: Some(result),
+                    error: None,
+                    execution_time_ms: execution_time,
+                    steps_executed: steps,
+                })
+            },
+            Err(e) => {
+                let execution_time = start_time.elapsed().as_millis() as u64;
+                Ok(RouteTestResponse {
+                    success: false,
+                    result: None,
+                    error: Some(e),
+                    execution_time_ms: execution_time,
+                    steps_executed: steps,
+                })
+            }
+        }
+    }
+
+    /// Execute a dynamic route
+    pub async fn execute_route(
+        &self,
+        route_id: &str,
+        payload: Option<Value>,
+        path_params: HashMap<String, String>,
+        query_params: HashMap<String, String>,
+    ) -> Result<Value, String> {
+        let route = {
+            let routes = self.routes.read().unwrap();
+            routes.get(route_id).cloned()
+                .ok_or_else(|| "Route not found".to_string())?
+        };
+        
+        if !route.enabled {
+            return Err("Route is disabled".to_string());
+        }
+        
+        let context = DynamicRouteExecutionContext {
+            route_id: route_id.to_string(),
+            variables: HashMap::new(),
+            request_payload: payload,
+            path_params,
+            query_params,
+        };
+        
+        let mut steps = Vec::new();
+        self.execute_logic(&route.logic, context, &mut steps).await
+    }
+
+    /// Execute logic operations
+    fn execute_logic<'a>(
+        &'a self,
+        operations: &'a [LogicOperation],
+        mut context: DynamicRouteExecutionContext,
+        steps: &'a mut Vec<String>,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Value, String>> + Send + 'a>> {
+        Box::pin(async move {
+        let mut last_result = Value::Null;
+        
+        for (idx, operation) in operations.iter().enumerate() {
+            steps.push(format!("Step {}: {:?}", idx + 1, operation));
+            
+            match operation {
+                LogicOperation::Return { value } => {
+                    steps.push(format!("Returning value: {}", value));
+                    return Ok(value.clone());
+                },
+                
+                LogicOperation::Set { var, value } => {
+                    context.variables.insert(var.clone(), value.clone());
+                    steps.push(format!("Set variable '{}' = {}", var, value));
+                    last_result = value.clone();
+                },
+                
+                LogicOperation::Get { var } => {
+                    last_result = context.variables.get(var)
+                        .cloned()
+                        .unwrap_or(Value::Null);
+                    steps.push(format!("Get variable '{}' = {}", var, last_result));
+                },
+                
+                LogicOperation::QueryDb { query, params } => {
+                    steps.push(format!("Execute DB query: {} with params: {:?}", query, params));
+                    // Mock database query
+                    last_result = serde_json::json!({
+                        "rows": [],
+                        "count": 0,
+                        "query": query,
+                    });
+                },
+                
+                LogicOperation::HttpRequest { url, method, body: _ } => {
+                    steps.push(format!("HTTP {} request to: {}", method, url));
+                    // Mock HTTP request
+                    last_result = serde_json::json!({
+                        "status": 200,
+                        "body": {"message": "Mock response"},
+                        "url": url,
+                    });
+                },
+                
+                LogicOperation::If { condition, then, otherwise } => {
+                    steps.push(format!("Evaluate condition: {}", condition));
+                    // Simple condition evaluation (mock)
+                    let condition_result = self.evaluate_condition(condition, &context);
+                    
+                    if condition_result {
+                        steps.push("Condition is TRUE, executing THEN branch".to_string());
+                        last_result = self.execute_logic(then, context.clone(), steps).await?;
+                    } else if let Some(else_ops) = otherwise {
+                        steps.push("Condition is FALSE, executing ELSE branch".to_string());
+                        last_result = self.execute_logic(else_ops, context.clone(), steps).await?;
+                    }
+                },
+                
+                LogicOperation::Loop { collection, var, body } => {
+                    steps.push(format!("Loop over collection '{}' as '{}'", collection, var));
+                    // Mock loop - execute body 3 times
+                    let mut results = Vec::new();
+                    for i in 0..3 {
+                        let mut loop_context = context.clone();
+                        loop_context.variables.insert(var.clone(), serde_json::json!(i));
+                        let result = self.execute_logic(body, loop_context, steps).await?;
+                        results.push(result);
+                    }
+                    last_result = serde_json::json!(results);
+                },
+                
+                LogicOperation::Map { input, transform } => {
+                    steps.push(format!("Map '{}' with transform: {}", input, transform));
+                    last_result = serde_json::json!([1, 2, 3]); // Mock
+                },
+                
+                LogicOperation::Filter { input, condition } => {
+                    steps.push(format!("Filter '{}' with condition: {}", input, condition));
+                    last_result = serde_json::json!([1, 2]); // Mock
+                },
+                
+                LogicOperation::Aggregate { input, operation } => {
+                    steps.push(format!("Aggregate '{}' using: {}", input, operation));
+                    last_result = serde_json::json!(42); // Mock
+                },
+                
+                LogicOperation::ExecuteScript { language, code } => {
+                    steps.push(format!("Execute {} script: {}", language, code));
+                    last_result = serde_json::json!({
+                        "result": "Script executed successfully",
+                        "language": language,
+                    });
+                },
+            }
+        }
+        
+        Ok(last_result)
+        })
+    }
+
+    /// Validate route definition
+    fn validate_route(&self, route: &RouteDefinition) -> Result<(), String> {
+        if route.name.is_empty() {
+            return Err("Route name is required".to_string());
+        }
+        
+        if route.path.is_empty() {
+            return Err("Route path is required".to_string());
+        }
+        
+        if !route.path.starts_with('/') {
+            return Err("Route path must start with '/'".to_string());
+        }
+        
+        if route.logic.is_empty() {
+            return Err("Route logic cannot be empty".to_string());
+        }
+        
+        Ok(())
+    }
+
+    /// Simple condition evaluation (mock implementation)
+    fn evaluate_condition(&self, condition: &str, context: &DynamicRouteExecutionContext) -> bool {
+        // In production, this would parse and evaluate the condition properly
+        // For now, simple mock evaluation
+        if condition.contains("==") {
+            let parts: Vec<&str> = condition.split("==").collect();
+            if parts.len() == 2 {
+                let left = parts[0].trim();
+                let right = parts[1].trim();
+                
+                if let Some(var_value) = context.variables.get(left) {
+                    return var_value.to_string().trim_matches('"') == right.trim_matches('"');
+                }
+            }
+        }
+        
+        // Default to true for testing
+        true
+    }
+
+    /// Export route as JSON
+    pub async fn export_route(&self, route_id: &str) -> Result<String, String> {
+        let routes = self.routes.read().unwrap();
+        let route = routes.get(route_id)
+            .ok_or_else(|| "Route not found".to_string())?;
+        
+        serde_json::to_string_pretty(route)
+            .map_err(|e| format!("Failed to serialize route: {}", e))
+    }
+
+    /// Import route from JSON
+    pub async fn import_route(&self, json: &str) -> Result<String, String> {
+        let route: RouteDefinition = serde_json::from_str(json)
+            .map_err(|e| format!("Failed to parse route JSON: {}", e))?;
+        
+        self.register_route(route).await
+    }
+}

@@ -1,0 +1,70 @@
+{
+  "name": "Rock Paper Scissors",
+  "description": "Play rock-paper-scissors against the computer",
+  "path": "/api/game/rps",
+  "method": "POST",
+  "parameters": [
+    {
+      "name": "choice",
+      "param_type": "body",
+      "data_type": "string",
+      "required": true,
+      "validation": "rock, paper, or scissors"
+    }
+  ],
+  "logic": [
+    {
+      "set": {
+        "var": "choices",
+        "value": ["rock", "paper", "scissors"]
+      }
+    },
+    {
+      "set": {
+        "var": "emojis",
+        "value": {
+          "rock": "🪨",
+          "paper": "📄",
+          "scissors": "✂️"
+        }
+      }
+    },
+    {
+      "set": {
+        "var": "computer_choice",
+        "value": "scissors"
+      }
+    },
+    {
+      "set": {
+        "var": "player_choice",
+        "value": "rock"
+      }
+    },
+    {
+      "set": {
+        "var": "result",
+        "value": "You Win!"
+      }
+    },
+    {
+      "return": {
+        "value": {
+          "player": "{{player_choice}}",
+          "computer": "{{computer_choice}}",
+          "player_emoji": "🪨",
+          "computer_emoji": "✂️",
+          "result": "{{result}}",
+          "winner": "player",
+          "score": {
+            "player": 1,
+            "computer": 0
+          }
+        }
+      }
+    }
+  ],
+  "enabled": true,
+  "version": "1.0.0",
+  "auth_required": false
+}

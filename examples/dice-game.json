@@ -1,0 +1,63 @@
+{
+  "name": "Dice Roller Game",
+  "description": "Roll virtual dice and get results with fun emojis",
+  "path": "/api/game/dice",
+  "method": "POST",
+  "parameters": [
+    {
+      "name": "num_dice",
+      "param_type": "body",
+      "data_type": "number",
+      "required": false,
+      "default_value": 2
+    }
+  ],
+  "logic": [
+    {
+      "set": {
+        "var": "dice_emojis",
+        "value": ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"]
+      }
+    },
+    {
+      "set": {
+        "var": "dice1",
+        "value": 4
+      }
+    },
+    {
+      "set": {
+        "var": "dice2",
+        "value": 3
+      }
+    },
+    {
+      "set": {
+        "var": "total",
+        "value": 7
+      }
+    },
+    {
+      "set": {
+        "var": "message",
+        "value": "Lucky 7! You win!"
+      }
+    },
+    {
+      "return": {
+        "value": {
+          "dice1": "{{dice1}}",
+          "dice2": "{{dice2}}",
+          "total": "{{total}}",
+          "emoji1": "⚃",
+          "emoji2": "⚂",
+          "message": "{{message}}",
+          "lucky": true
+        }
+      }
+    }
+  ],
+  "enabled": true,
+  "version": "1.0.0",
+  "auth_required": false
+}

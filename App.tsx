@@ -10,6 +10,7 @@ import { AutomationView } from './views/AutomationView';
 import { SettingsView } from './views/SettingsView';
 import { DependencyView } from './views/DependencyView';
 import { CicdView } from './views/CicdView';
+import { DynamicRoutesView } from './views/DynamicRoutesView';
 import { LeftSidebar } from './components/LeftSidebar';
 import { NotificationPanel } from './components/NotificationPanel';
 import {
@@ -167,6 +168,7 @@ const AppContent: React.FC = () => {
               {currentView === 'DEPENDENCY' && <DependencyView />}
               {currentView === 'CICD' && <CicdView />}
               {currentView === 'INCIDENTS' && <IncidentsView />}
+              {currentView === 'DYNAMIC_ROUTES' && <DynamicRoutesView />}
               {currentView === 'SETTINGS' && <SettingsView />}
             </PageTransition>
           </AnimatePresence>

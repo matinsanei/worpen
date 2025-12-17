@@ -1,4 +1,7 @@
-use core::services::{AgentService, DashboardService, DockerService, IncidentService, AutomationService, PipelineService};
+use core::services::{
+    AgentService, DashboardService, DockerService, IncidentService, 
+    AutomationService, PipelineService, DynamicRouteService
+};
 use std::sync::Arc;
 use dashmap::DashMap;
 use tokio::sync::mpsc::Sender;
@@ -11,5 +14,6 @@ pub struct AppState {
     pub incident_service: Arc<IncidentService>,
     pub automation_service: Arc<AutomationService>,
     pub pipeline_service: Arc<PipelineService>,
+    pub dynamic_route_service: Arc<DynamicRouteService>,
     pub connected_agents: Arc<DashMap<uuid::Uuid, Sender<String>>>,
 }

@@ -1,0 +1,106 @@
+{
+  "name": "Rock Paper Scissors Game API",
+  "description": "Play rock-paper-scissors against the computer",
+  "path": "/api/game/rps",
+  "method": "POST",
+  "parameters": [
+    {
+      "name": "choice",
+      "param_type": "body",
+      "data_type": "string",
+      "required": true,
+      "validation": "rock, paper, or scissors"
+    }
+  ],
+  "logic": [
+    {
+      "set": {
+        "var": "computer_choice",
+        "value": "scissors"
+      }
+    },
+    {
+      "set": {
+        "var": "player_choice",
+        "value": "rock"
+      }
+    },
+    {
+      "if": {
+        "condition": "player_choice == computer_choice",
+        "then": [
+          {
+            "return": {
+              "value": {
+                "result": "draw",
+                "message": "It's a draw!",
+                "player": "{{player_choice}}",
+                "computer": "{{computer_choice}}",
+                "winner": "none",
+                "player_wins": false,
+                "computer_wins": false
+              }
+            }
+          }
+        ],
+        "otherwise": [
+          {
+            "if": {
+              "condition": "player_choice == rock",
+              "then": [
+                {
+                  "if": {
+                    "condition": "computer_choice == scissors",
+                    "then": [
+                      {
+                        "return": {
+                          "value": {
+                            "result": "win",
+                            "message": "You win! Rock crushes Scissors",
+                            "player": "rock",
+                            "computer": "scissors",
+                            "winner": "player",
+                            "player_wins": true
+                          }
+                        }
+                      }
+                    ],
+                    "otherwise": [
+                      {
+                        "return": {
+                          "value": {
+                            "result": "lose",
+                            "message": "You lose! Paper covers Rock",
+                            "player": "rock",
+                            "computer": "paper",
+                            "winner": "computer",
+                            "computer_wins": true
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ],
+              "otherwise": [
+                {
+                  "return": {
+                    "value": {
+                      "result": "unknown",
+                      "message": "Game logic completed",
+                      "player": "{{player_choice}}",
+                      "computer": "{{computer_choice}}"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "enabled": true,
+  "version": "1.0.0",
+  "auth_required": false
+}

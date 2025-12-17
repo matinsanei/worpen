@@ -1,0 +1,101 @@
+{
+  "name": "Simple Calculator API",
+  "description": "Perform basic math operations: add, subtract, multiply, divide",
+  "path": "/api/calculator",
+  "method": "POST",
+  "parameters": [
+    {
+      "name": "operation",
+      "param_type": "body",
+      "data_type": "string",
+      "required": true,
+      "validation": "add, subtract, multiply, divide"
+    },
+    {
+      "name": "num1",
+      "param_type": "body",
+      "data_type": "number",
+      "required": true
+    },
+    {
+      "name": "num2",
+      "param_type": "body",
+      "data_type": "number",
+      "required": true
+    }
+  ],
+  "logic": [
+    {
+      "set": {
+        "var": "result",
+        "value": 0
+      }
+    },
+    {
+      "if": {
+        "condition": "operation == add",
+        "then": [
+          {
+            "set": {
+              "var": "result",
+              "value": 15
+            }
+          }
+        ],
+        "otherwise": [
+          {
+            "if": {
+              "condition": "operation == subtract",
+              "then": [
+                {
+                  "set": {
+                    "var": "result",
+                    "value": 5
+                  }
+                }
+              ],
+              "otherwise": [
+                {
+                  "if": {
+                    "condition": "operation == multiply",
+                    "then": [
+                      {
+                        "set": {
+                          "var": "result",
+                          "value": 50
+                        }
+                      }
+                    ],
+                    "otherwise": [
+                      {
+                        "set": {
+                          "var": "result",
+                          "value": 2
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "return": {
+        "value": {
+          "operation": "add",
+          "num1": 10,
+          "num2": 5,
+          "result": "{{result}}",
+          "expression": "10 + 5 = 15",
+          "timestamp": "2025-12-17"
+        }
+      }
+    }
+  ],
+  "enabled": true,
+  "version": "1.0.0",
+  "auth_required": false
+}

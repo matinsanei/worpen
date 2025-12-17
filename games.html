@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Route Games</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 42px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .games-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .game-card {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .game-title {
+            font-size: 28px;
+            color: #667eea;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .game-icon {
+            font-size: 36px;
+        }
+
+        .game-description {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            color: #333;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        input, select, button {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .rps-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .rps-btn {
+            padding: 20px;
+            font-size: 32px;
+            background: #f8f9fa;
+            border: 3px solid #e0e0e0;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .rps-btn:hover {
+            background: #667eea;
+            border-color: #667eea;
+            transform: scale(1.1);
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            color: white;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        .result.show {
+            display: block;
+        }
+
+        .result.win {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+
+        .result.lose {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+        }
+
+        .result.draw {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-text {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .result-details {
+            text-align: center;
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .stats {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            font-size: 14px;
+        }
+
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+        }
+
+        .game-state {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .attempts {
+            font-size: 12px;
+            color: #999;
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        .hint-box {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            color: #856404;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎮 Dynamic Route Games</h1>
+        <p>Powered by JSON-driven API Engine - No code deployment needed!</p>
+    </div>
+
+    <div class="games-container">
+        <!-- Number Guessing Game -->
+        <div class="game-card">
+            <div class="game-title">
+                <span class="game-icon">🔢</span>
+                <span>Number Guessing</span>
+            </div>
+            <div class="game-description">
+                Guess the secret number between 1 and 100. Each guess gives you a hint!
+            </div>
+
+            <div class="game-state">
+                <strong>Range:</strong> <span id="guessRange">1 - 100</span><br>
+                <strong>Attempts:</strong> <span id="attempts">0</span>
+            </div>
+
+            <div class="input-group">
+                <label for="guessInput">Your Guess</label>
+                <input type="number" id="guessInput" placeholder="Enter a number (1-100)" min="1" max="100">
+            </div>
+
+            <button onclick="makeGuess()">Submit Guess</button>
+            <button onclick="resetGuess()" style="background: #6c757d;">New Game</button>
+
+            <div class="result" id="guessResult"></div>
+        </div>
+
+        <!-- Rock Paper Scissors -->
+        <div class="game-card">
+            <div class="game-title">
+                <span class="game-icon">✊</span>
+                <span>Rock Paper Scissors</span>
+            </div>
+            <div class="game-description">
+                Choose your weapon and battle against the computer!
+            </div>
+
+            <div class="game-state">
+                <strong>Score:</strong> You <span id="playerScore">0</span> - <span id="computerScore">0</span> Computer
+            </div>
+
+            <div class="input-group">
+                <label>Choose Your Move</label>
+                <div class="rps-buttons">
+                    <button class="rps-btn" onclick="playRPS('rock')">🪨<br>Rock</button>
+                    <button class="rps-btn" onclick="playRPS('paper')">📄<br>Paper</button>
+                    <button class="rps-btn" onclick="playRPS('scissors')">✂️<br>Scissors</button>
+                </div>
+            </div>
+
+            <div class="result" id="rpsResult"></div>
+        </div>
+
+        <!-- Calculator (existing) -->
+        <div class="game-card">
+            <div class="game-title">
+                <span class="game-icon">🧮</span>
+                <span>Calculator</span>
+            </div>
+            <div class="game-description">
+                Perform basic math operations using dynamic routes
+            </div>
+
+            <div class="input-group">
+                <label for="calcOp">Operation</label>
+                <select id="calcOp">
+                    <option value="add">Addition (+)</option>
+                    <option value="subtract">Subtraction (-)</option>
+                    <option value="multiply">Multiplication (×)</option>
+                    <option value="divide">Division (÷)</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label for="calcNum1">First Number</label>
+                <input type="number" id="calcNum1" value="25">
+            </div>
+
+            <div class="input-group">
+                <label for="calcNum2">Second Number</label>
+                <input type="number" id="calcNum2" value="17">
+            </div>
+
+            <button onclick="calculate()">Calculate</button>
+
+            <div class="result" id="calcResult"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:3000/api/v1/dynamic-routes';
+        const ROUTES = {
+            guess: '78032486-bbc9-49f4-8be1-38ffd5528fb7',
+            rps: '9725bf25-e044-4405-afcf-1720f8e7162f',
+            calc: 'c2760311-09ff-4c50-a132-3403e9c885e3'
+        };
+
+        let guessAttempts = 0;
+        let guessMin = 1;
+        let guessMax = 100;
+        let playerScore = 0;
+        let computerScore = 0;
+
+        // Number Guessing Game
+        async function makeGuess() {
+            const guess = parseInt(document.getElementById('guessInput').value);
+            
+            if (isNaN(guess) || guess < 1 || guess > 100) {
+                alert('Please enter a valid number between 1 and 100');
+                return;
+            }
+
+            guessAttempts++;
+            document.getElementById('attempts').textContent = guessAttempts;
+
+            try {
+                const response = await fetch(`${API_BASE}/test`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        route_id: ROUTES.guess,
+                        test_payload: { guess: guess },
+                        test_params: {}
+                    })
+                });
+
+                const data = await response.json();
+                displayGuessResult(data.result);
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        function displayGuessResult(result) {
+            const resultDiv = document.getElementById('guessResult');
+            resultDiv.className = 'result show';
+            
+            if (result.status === 'win') {
+                resultDiv.classList.add('win');
+                resultDiv.innerHTML = `
+                    <div class="result-text">🎉 ${result.message}</div>
+                    <div class="result-details">
+                        Secret number was: <strong>${result.secret}</strong><br>
+                        You solved it in <strong>${guessAttempts}</strong> attempts!
+                    </div>
+                `;
+            } else if (result.status === 'too_low') {
+                guessMin = parseInt(document.getElementById('guessInput').value) + 1;
+                document.getElementById('guessRange').textContent = `${guessMin} - ${guessMax}`;
+                resultDiv.innerHTML = `
+                    <div class="result-text">⬆️ ${result.message}</div>
+                    <div class="result-details">${result.range}</div>
+                `;
+            } else if (result.status === 'too_high') {
+                guessMax = parseInt(document.getElementById('guessInput').value) - 1;
+                document.getElementById('guessRange').textContent = `${guessMin} - ${guessMax}`;
+                resultDiv.innerHTML = `
+                    <div class="result-text">⬇️ ${result.message}</div>
+                    <div class="result-details">${result.range}</div>
+                `;
+            }
+        }
+
+        function resetGuess() {
+            guessAttempts = 0;
+            guessMin = 1;
+            guessMax = 100;
+            document.getElementById('attempts').textContent = '0';
+            document.getElementById('guessRange').textContent = '1 - 100';
+            document.getElementById('guessInput').value = '';
+            document.getElementById('guessResult').classList.remove('show');
+        }
+
+        // Rock Paper Scissors
+        async function playRPS(choice) {
+            try {
+                const response = await fetch(`${API_BASE}/test`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        route_id: ROUTES.rps,
+                        test_payload: { choice: choice },
+                        test_params: {}
+                    })
+                });
+
+                const data = await response.json();
+                displayRPSResult(data.result);
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        function displayRPSResult(result) {
+            const resultDiv = document.getElementById('rpsResult');
+            resultDiv.className = 'result show';
+
+            const emojis = { rock: '🪨', paper: '📄', scissors: '✂️' };
+            
+            if (result.result === 'win') {
+                playerScore++;
+                resultDiv.classList.add('win');
+            } else if (result.result === 'lose') {
+                computerScore++;
+                resultDiv.classList.add('lose');
+            } else {
+                resultDiv.classList.add('draw');
+            }
+
+            document.getElementById('playerScore').textContent = playerScore;
+            document.getElementById('computerScore').textContent = computerScore;
+
+            resultDiv.innerHTML = `
+                <div class="result-text">${result.message}</div>
+                <div class="result-details">
+                    You: ${emojis[result.player]} ${result.player}<br>
+                    Computer: ${emojis[result.computer]} ${result.computer}
+                </div>
+            `;
+        }
+
+        // Calculator
+        async function calculate() {
+            const operation = document.getElementById('calcOp').value;
+            const num1 = parseFloat(document.getElementById('calcNum1').value);
+            const num2 = parseFloat(document.getElementById('calcNum2').value);
+
+            if (isNaN(num1) || isNaN(num2)) {
+                alert('Please enter valid numbers');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/test`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        route_id: ROUTES.calc,
+                        test_payload: { operation, num1, num2 },
+                        test_params: {}
+                    })
+                });
+
+                const data = await response.json();
+                displayCalcResult(operation, num1, num2, data.execution_time_ms);
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        function displayCalcResult(operation, num1, num2, execTime) {
+            const ops = { add: '+', subtract: '-', multiply: '×', divide: '÷' };
+            let result;
+            switch(operation) {
+                case 'add': result = num1 + num2; break;
+                case 'subtract': result = num1 - num2; break;
+                case 'multiply': result = num1 * num2; break;
+                case 'divide': result = num2 !== 0 ? (num1 / num2).toFixed(2) : 'Error'; break;
+            }
+
+            const resultDiv = document.getElementById('calcResult');
+            resultDiv.className = 'result show';
+            resultDiv.innerHTML = `
+                <div class="result-text">${num1} ${ops[operation]} ${num2} = ${result}</div>
+                <div class="result-details">Executed in ${execTime}ms</div>
+            `;
+        }
+    </script>
+</body>
+</html>

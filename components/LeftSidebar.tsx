@@ -2,7 +2,7 @@
 import React from 'react';
 import {
     LayoutGrid, Server, AlertTriangle, Settings,
-    Box, Bot, Layers, GitBranch, Hexagon, Zap
+    Box, Bot, Layers, GitBranch, Hexagon, Zap, Code
 } from 'lucide-react';
 import { ViewState } from '../types';
 
@@ -124,6 +124,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ isOpen, currentView, o
                     <NavItem view="AUTOMATION" icon={Bot} label="Auto-Healing" />
                     <NavItem view="DEPENDENCY" icon={Layers} label="Artifacts" />
                     <NavItem view="CICD" icon={GitBranch} label="Pipeline" />
+                    <NavItem view="DYNAMIC_ROUTES" icon={Code} label="Dynamic Routes" />
                 </NavGroup>
 
                 <NavGroup label="System">

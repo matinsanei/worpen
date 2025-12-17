@@ -1,0 +1,83 @@
+{
+  "name": "Random Quote Generator",
+  "description": "Get a random motivational quote with beautiful UI",
+  "path": "/api/fun/quote",
+  "method": "GET",
+  "parameters": [],
+  "logic": [
+    {
+      "set": {
+        "var": "quotes",
+        "value": [
+          "The only way to do great work is to love what you do. - Steve Jobs",
+          "Innovation distinguishes between a leader and a follower. - Steve Jobs",
+          "Stay hungry, stay foolish. - Steve Jobs",
+          "Code is like humor. When you have to explain it, it's bad. - Cory House",
+          "First, solve the problem. Then, write the code. - John Johnson",
+          "Experience is the name everyone gives to their mistakes. - Oscar Wilde",
+          "Any fool can write code that a computer can understand. Good programmers write code that humans can understand. - Martin Fowler",
+          "The best error message is the one that never shows up. - Thomas Fuchs"
+        ]
+      }
+    },
+    {
+      "set": {
+        "var": "colors",
+        "value": [
+          "#667eea",
+          "#764ba2",
+          "#f093fb",
+          "#4facfe",
+          "#43e97b",
+          "#fa709a",
+          "#fee140",
+          "#30cfd0"
+        ]
+      }
+    },
+    {
+      "set": {
+        "var": "random_index",
+        "value": 3
+      }
+    },
+    {
+      "set": {
+        "var": "color_index",
+        "value": 2
+      }
+    },
+    {
+      "set": {
+        "var": "selected_quote",
+        "value": "Code is like humor. When you have to explain it, it's bad. - Cory House"
+      }
+    },
+    {
+      "set": {
+        "var": "selected_color",
+        "value": "#f093fb"
+      }
+    },
+    {
+      "set": {
+        "var": "html_page",
+        "value": "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Quote Generator</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;background:linear-gradient(135deg,{{selected_color}} 0%,#667eea 100%);transition:background 0.5s}.container{max-width:600px;padding:40px;background:rgba(255,255,255,0.95);border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center}.quote{font-size:28px;color:#333;margin:20px 0;line-height:1.6;font-style:italic}.author{font-size:18px;color:#666;margin:20px 0}.btn{padding:15px 40px;background:{{selected_color}};color:white;border:none;border-radius:10px;font-size:16px;font-weight:bold;cursor:pointer;transition:all 0.3s;margin:10px}.btn:hover{transform:translateY(-2px);box-shadow:0 10px 20px rgba(0,0,0,0.2)}.icon{font-size:48px;margin-bottom:20px}</style></head><body><div class='container'><div class='icon'>💭</div><h1>Quote of the Moment</h1><div class='quote'>\"{{selected_quote}}\"</div><button class='btn' onclick='getNewQuote()'>Get New Quote ✨</button><button class='btn' onclick='shareQuote()'>Share 📱</button></div><script>function getNewQuote(){fetch('/api/fun/quote').then(r=>r.json()).then(data=>{document.querySelector('.quote').textContent='\"'+data.quote+'\"';document.body.style.background='linear-gradient(135deg,'+data.color+' 0%,#667eea 100%)';document.querySelectorAll('.btn').forEach(btn=>btn.style.background=data.color)})}function shareQuote(){const quote=document.querySelector('.quote').textContent;navigator.clipboard.writeText(quote);alert('Quote copied to clipboard! 📋')}</script></body></html>"
+      }
+    },
+    {
+      "return": {
+        "value": {
+          "quote": "{{selected_quote}}",
+          "color": "{{selected_color}}",
+          "html": "{{html_page}}",
+          "timestamp": "2025-12-17"
+        }
+      }
+    }
+  ],
+  "enabled": true,
+  "version": "1.0.0",
+  "auth_required": false,
+  "rate_limit": null
+}

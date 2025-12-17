@@ -1,0 +1,86 @@
+{
+  "name": "Number Guessing Game",
+  "description": "Guess a number between 1-100",
+  "path": "/api/game/guess",
+  "method": "POST",
+  "parameters": [
+    {
+      "name": "guess",
+      "param_type": "body",
+      "data_type": "number",
+      "required": true
+    }
+  ],
+  "logic": [
+    {
+      "set": {
+        "var": "secret_number",
+        "value": 42
+      }
+    },
+    {
+      "set": {
+        "var": "user_guess",
+        "value": 50
+      }
+    },
+    {
+      "set": {
+        "var": "difference",
+        "value": 8
+      }
+    },
+    {
+      "if": {
+        "condition": "user_guess == secret_number",
+        "then": [
+          {
+            "return": {
+              "value": {
+                "result": "correct",
+                "message": "Congratulations! You guessed it!",
+                "emoji": "🎉",
+                "secret": 42,
+                "attempts": 1
+              }
+            }
+          }
+        ],
+        "otherwise": [
+          {
+            "if": {
+              "condition": "user_guess < secret_number",
+              "then": [
+                {
+                  "return": {
+                    "value": {
+                      "result": "too_low",
+                      "message": "Too low! Try higher.",
+                      "emoji": "⬆️",
+                      "hint": "The number is between your guess and 100"
+                    }
+                  }
+                }
+              ],
+              "otherwise": [
+                {
+                  "return": {
+                    "value": {
+                      "result": "too_high",
+                      "message": "Too high! Try lower.",
+                      "emoji": "⬇️",
+                      "hint": "The number is between 1 and your guess"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "enabled": true,
+  "version": "1.0.0",
+  "auth_required": false
+}

@@ -162,3 +162,137 @@ pub struct TerminalOutput {
     pub data: String,
     pub stream: String, // "stdout" or "stderr"
 }
+
+// --- DYNAMIC ROUTE ENGINE ---
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub enum HttpMethod {
+    GET,
+    POST,
+    PUT,
+    DELETE,
+    PATCH,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub enum LogicOperation {
+    // Data Operations
+    #[serde(rename = "return")]
+    Return { value: serde_json::Value },
+    
+    #[serde(rename = "query_db")]
+    QueryDb { query: String, params: Vec<serde_json::Value> },
+    
+    #[serde(rename = "http_request")]
+    HttpRequest { url: String, method: String, body: Option<serde_json::Value> },
+    
+    // Control Flow
+    #[serde(rename = "if")]
+    If { condition: String, then: Vec<LogicOperation>, otherwise: Option<Vec<LogicOperation>> },
+    
+    #[serde(rename = "loop")]
+    Loop { collection: String, var: String, body: Vec<LogicOperation> },
+    
+    // Data Transformations
+    #[serde(rename = "map")]
+    Map { input: String, transform: String },
+    
+    #[serde(rename = "filter")]
+    Filter { input: String, condition: String },
+    
+    #[serde(rename = "aggregate")]
+    Aggregate { input: String, operation: String }, // sum, count, avg, min, max
+    
+    // Variable Operations
+    #[serde(rename = "set")]
+    Set { var: String, value: serde_json::Value },
+    
+    #[serde(rename = "get")]
+    Get { var: String },
+    
+    // Custom Script Execution
+    #[serde(rename = "execute_script")]
+    ExecuteScript { language: String, code: String },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct RouteDefinition {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub path: String,
+    pub method: HttpMethod,
+    pub logic: Vec<LogicOperation>,
+    pub parameters: Vec<RouteParameter>,
+    pub response_schema: Option<serde_json::Value>,
+    pub auth_required: bool,
+    pub rate_limit: Option<u32>,
+    pub enabled: bool,
+    pub version: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub created_by: String,
+}
+
+/// Request body for registering a new route (id, timestamps, created_by are auto-generated)
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct RegisterRouteRequest {
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    pub path: String,
+    pub method: HttpMethod,
+    pub logic: Vec<LogicOperation>,
+    #[serde(default)]
+    pub parameters: Vec<RouteParameter>,
+    pub response_schema: Option<serde_json::Value>,
+    #[serde(default)]
+    pub auth_required: bool,
+    pub rate_limit: Option<u32>,
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+    #[serde(default = "default_version")]
+    pub version: String,
+}
+
+fn default_enabled() -> bool {
+    true
+}
+
+fn default_version() -> String {
+    "1.0.0".to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct RouteParameter {
+    pub name: String,
+    pub param_type: String, // "path", "query", "body"
+    pub data_type: String,  // "string", "number", "boolean", "object", "array"
+    pub required: bool,
+    pub default_value: Option<serde_json::Value>,
+    pub validation: Option<String>, // regex or validation rule
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct RouteTestRequest {
+    pub route_id: String,
+    pub test_payload: Option<serde_json::Value>,
+    pub test_params: std::collections::HashMap<String, serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct RouteTestResponse {
+    pub success: bool,
+    pub result: Option<serde_json::Value>,
+    pub error: Option<String>,
+    pub execution_time_ms: u64,
+    pub steps_executed: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct DynamicRouteExecutionContext {
+    pub route_id: String,
+    pub variables: std::collections::HashMap<String, serde_json::Value>,
+    pub request_payload: Option<serde_json::Value>,
+    pub path_params: std::collections::HashMap<String, String>,
+    pub query_params: std::collections::HashMap<String, String>,
+}
