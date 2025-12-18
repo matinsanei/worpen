@@ -1,0 +1,242 @@
+{
+  "name": "physics_api_simple",
+  "path": "/api/physics",
+  "method": "POST",
+  "description": "Simple physics API for ball movement",
+  "logic": [
+    {
+      "set": {
+        "var": "ball_x",
+        "value": "{{payload.ball_x}}"
+      }
+    },
+    {
+      "set": {
+        "var": "ball_y",
+        "value": "{{payload.ball_y}}"
+      }
+    },
+    {
+      "set": {
+        "var": "ball_vx",
+        "value": "{{payload.ball_vx}}"
+      }
+    },
+    {
+      "set": {
+        "var": "ball_vy",
+        "value": "{{payload.ball_vy}}"
+      }
+    },
+    {
+      "set": {
+        "var": "ball_radius",
+        "value": "{{payload.ball_radius}}"
+      }
+    },
+    {
+      "set": {
+        "var": "canvas_width",
+        "value": "{{payload.canvas_width}}"
+      }
+    },
+    {
+      "set": {
+        "var": "canvas_height",
+        "value": "{{payload.canvas_height}}"
+      }
+    },
+    {
+      "set": {
+        "var": "hex_rotation",
+        "value": "{{payload.hex_rotation}}"
+      }
+    },
+    {
+      "math_op": {
+        "operation": "add",
+        "left": "{{ball_x}}",
+        "right": "{{ball_vx}}",
+        "output": "new_x"
+      }
+    },
+    {
+      "math_op": {
+        "operation": "add",
+        "left": "{{ball_y}}",
+        "right": "{{ball_vy}}",
+        "output": "new_y"
+      }
+    },
+    {
+      "set": {
+        "var": "new_vx",
+        "value": "{{ball_vx}}"
+      }
+    },
+    {
+      "set": {
+        "var": "new_vy",
+        "value": "{{ball_vy}}"
+      }
+    },
+    {
+      "set": {
+        "var": "collision",
+        "value": false
+      }
+    },
+    {
+      "math_op": {
+        "operation": "subtract",
+        "left": "{{new_x}}",
+        "right": "{{ball_radius}}",
+        "output": "left_check"
+      }
+    },
+    {
+      "if": {
+        "condition": {
+          "left": "{{left_check}}",
+          "operator": "<",
+          "right": 0
+        },
+        "then": [
+          {
+            "math_op": {
+              "operation": "multiply",
+              "left": "{{new_vx}}",
+              "right": -1,
+              "output": "new_vx"
+            }
+          },
+          {
+            "set": {
+              "collision": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "math_op": {
+        "operation": "add",
+        "left": "{{new_x}}",
+        "right": "{{ball_radius}}",
+        "output": "right_check"
+      }
+    },
+    {
+      "if": {
+        "condition": {
+          "left": "{{right_check}}",
+          "operator": ">",
+          "right": "{{canvas_width}}"
+        },
+        "then": [
+          {
+            "math_op": {
+              "operation": "multiply",
+              "left": "{{new_vx}}",
+              "right": -1,
+              "output": "new_vx"
+            }
+          },
+          {
+            "set": {
+              "collision": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "math_op": {
+        "operation": "subtract",
+        "left": "{{new_y}}",
+        "right": "{{ball_radius}}",
+        "output": "top_check"
+      }
+    },
+    {
+      "if": {
+        "condition": {
+          "left": "{{top_check}}",
+          "operator": "<",
+          "right": 0
+        },
+        "then": [
+          {
+            "math_op": {
+              "operation": "multiply",
+              "left": "{{new_vy}}",
+              "right": -1,
+              "output": "new_vy"
+            }
+          },
+          {
+            "set": {
+              "collision": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "math_op": {
+        "operation": "add",
+        "left": "{{new_y}}",
+        "right": "{{ball_radius}}",
+        "output": "bottom_check"
+      }
+    },
+    {
+      "if": {
+        "condition": {
+          "left": "{{bottom_check}}",
+          "operator": ">",
+          "right": "{{canvas_height}}"
+        },
+        "then": [
+          {
+            "math_op": {
+              "operation": "multiply",
+              "left": "{{new_vy}}",
+              "right": -1,
+              "output": "new_vy"
+            }
+          },
+          {
+            "set": {
+              "collision": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "math_op": {
+        "operation": "add",
+        "left": "{{hex_rotation}}",
+        "right": 0.02,
+        "output": "new_rotation"
+      }
+    },
+    {
+      "return": {
+        "value": {
+          "new_x": "{{new_x}}",
+          "new_y": "{{new_y}}",
+          "new_vx": "{{new_vx}}",
+          "new_vy": "{{new_vy}}",
+          "hex_rotation": "{{new_rotation}}",
+          "collision": "{{collision}}",
+          "message": "Physics calculated by Rust backend!",
+          "performance": "Real-time"
+        }
+      }
+    }
+  ],
+  "enabled": true,
+  "version": "1.0"
+}

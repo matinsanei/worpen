@@ -1,0 +1,139 @@
+{
+  "name": "physics_api_final",
+  "path": "/api/physics",
+  "method": "POST",
+  "description": "Physics engine with collision detection",
+  "logic": [
+    {
+      "set": {"var": "ball_x", "value": "{{payload.ball_x}}"}
+    },
+    {
+      "set": {"var": "ball_y", "value": "{{payload.ball_y}}"}
+    },
+    {
+      "set": {"var": "ball_vx", "value": "{{payload.ball_vx}}"}
+    },
+    {
+      "set": {"var": "ball_vy", "value": "{{payload.ball_vy}}"}
+    },
+    {
+      "set": {"var": "ball_radius", "value": "{{payload.ball_radius}}"}
+    },
+    {
+      "set": {"var": "canvas_width", "value": "{{payload.canvas_width}}"}
+    },
+    {
+      "set": {"var": "canvas_height", "value": "{{payload.canvas_height}}"}
+    },
+    {
+      "set": {"var": "hex_rotation", "value": "{{payload.hex_rotation}}"}
+    },
+    {
+      "math_op": {"operation": "sum", "args": ["{{ball_x}}", "{{ball_vx}}"]}
+    },
+    {
+      "set": {"var": "new_x", "value": "{{math_result}}"}
+    },
+    {
+      "math_op": {"operation": "sum", "args": ["{{ball_y}}", "{{ball_vy}}"]}
+    },
+    {
+      "set": {"var": "new_y", "value": "{{math_result}}"}
+    },
+    {
+      "set": {"var": "new_vx", "value": "{{ball_vx}}"}
+    },
+    {
+      "set": {"var": "new_vy", "value": "{{ball_vy}}"}
+    },
+    {
+      "set": {"var": "collision", "value": false}
+    },
+    {
+      "math_op": {"operation": "subtract", "args": ["{{new_x}}", "{{ball_radius}}"]}
+    },
+    {
+      "set": {"var": "left_check", "value": "{{math_result}}"}
+    },
+    {
+      "if": {
+        "condition": "{{left_check}} < 0",
+        "then": [
+          {"math_op": {"operation": "multiply", "args": ["{{new_vx}}", -1]}},
+          {"set": {"var": "new_vx", "value": "{{math_result}}"}},
+          {"set": {"var": "collision", "value": true}}
+        ]
+      }
+    },
+    {
+      "math_op": {"operation": "sum", "args": ["{{new_x}}", "{{ball_radius}}"]}
+    },
+    {
+      "set": {"var": "right_check", "value": "{{math_result}}"}
+    },
+    {
+      "if": {
+        "condition": "{{right_check}} > {{canvas_width}}",
+        "then": [
+          {"math_op": {"operation": "multiply", "args": ["{{new_vx}}", -1]}},
+          {"set": {"var": "new_vx", "value": "{{math_result}}"}},
+          {"set": {"var": "collision", "value": true}}
+        ]
+      }
+    },
+    {
+      "math_op": {"operation": "subtract", "args": ["{{new_y}}", "{{ball_radius}}"]}
+    },
+    {
+      "set": {"var": "top_check", "value": "{{math_result}}"}
+    },
+    {
+      "if": {
+        "condition": "{{top_check}} < 0",
+        "then": [
+          {"math_op": {"operation": "multiply", "args": ["{{new_vy}}", -1]}},
+          {"set": {"var": "new_vy", "value": "{{math_result}}"}},
+          {"set": {"var": "collision", "value": true}}
+        ]
+      }
+    },
+    {
+      "math_op": {"operation": "sum", "args": ["{{new_y}}", "{{ball_radius}}"]}
+    },
+    {
+      "set": {"var": "bottom_check", "value": "{{math_result}}"}
+    },
+    {
+      "if": {
+        "condition": "{{bottom_check}} > {{canvas_height}}",
+        "then": [
+          {"math_op": {"operation": "multiply", "args": ["{{new_vy}}", -1]}},
+          {"set": {"var": "new_vy", "value": "{{math_result}}"}},
+          {"set": {"var": "collision", "value": true}}
+        ]
+      }
+    },
+    {
+      "math_op": {"operation": "sum", "args": ["{{hex_rotation}}", 0.02]}
+    },
+    {
+      "set": {"var": "new_rotation", "value": "{{math_result}}"}
+    },
+    {
+      "return": {
+        "value": {
+          "new_x": "{{new_x}}",
+          "new_y": "{{new_y}}",
+          "new_vx": "{{new_vx}}",
+          "new_vy": "{{new_vy}}",
+          "hex_rotation": "{{new_rotation}}",
+          "collision": "{{collision}}",
+          "message": "⚡ Rust Physics Engine!",
+          "backend": "Worpen"
+        }
+      }
+    }
+  ],
+  "enabled": true,
+  "version": "1.0"
+}

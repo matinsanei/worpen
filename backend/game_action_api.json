@@ -1,0 +1,45 @@
+{
+  "name": "game_action_api",
+  "path": "/api/game-action",
+  "method": "POST",
+  "description": "Handle game actions from online players",
+  "logic": [
+    {
+      "set": {"var": "player_id", "value": "{{payload.player_id}}"}
+    },
+    {
+      "set": {"var": "action", "value": "{{payload.action}}"}
+    },
+    {
+      "set": {"var": "timestamp", "value": "{{payload.timestamp}}"}
+    },
+    {
+      "math_op": {"operation": "multiply", "args": ["{{player_id}}", 100]}
+    },
+    {
+      "set": {"var": "score", "value": "{{math_result}}"}
+    },
+    {
+      "math_op": {"operation": "sum", "args": ["{{score}}", 50]}
+    },
+    {
+      "set": {"var": "new_score", "value": "{{math_result}}"}
+    },
+    {
+      "return": {
+        "value": {
+          "success": true,
+          "player_id": "{{player_id}}",
+          "action": "{{action}}",
+          "score": "{{new_score}}",
+          "timestamp": "{{timestamp}}",
+          "server_time": "{{timestamp}}",
+          "message": "Action processed successfully",
+          "backend": "Rust + Worpen"
+        }
+      }
+    }
+  ],
+  "enabled": true,
+  "version": "1.0"
+}

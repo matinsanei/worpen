@@ -1,0 +1,302 @@
+{
+  "name": "physics_api",
+  "path": "/api/physics",
+  "method": "POST",
+  "description": "Real-time physics calculations for ball collision with hexagon",
+  "logic": [
+    {
+      "set": {
+        "ball_x": "{{payload.ball_x}}",
+        "ball_y": "{{payload.ball_y}}",
+        "ball_vx": "{{payload.ball_vx}}",
+        "ball_vy": "{{payload.ball_vy}}",
+        "ball_radius": "{{payload.ball_radius}}",
+        "hex_x": "{{payload.hex_x}}",
+        "hex_y": "{{payload.hex_y}}",
+        "hex_radius": "{{payload.hex_radius}}",
+        "hex_rotation": "{{payload.hex_rotation}}",
+        "canvas_width": "{{payload.canvas_width}}",
+        "canvas_height": "{{payload.canvas_height}}"
+      }
+    },
+    {
+      "math_op": {
+        "operation": "add",
+        "left": "{{ball_x}}",
+        "right": "{{ball_vx}}",
+        "result_var": "new_x"
+      }
+    },
+    {
+      "math": {
+        "operation": "add",
+        "left": "{{ball_y}}",
+        "right": "{{ball_vy}}",
+        "result_var": "new_y"
+      }
+    },
+    {
+      "set_variable": {
+        "name": "new_vx",
+        "value": "{{ball_vx}}"
+      }
+    },
+    {
+      "set_variable": {
+        "name": "new_vy",
+        "value": "{{ball_vy}}"
+      }
+    },
+    {
+      "set_variable": {
+        "name": "collision",
+        "value": false
+      }
+    },
+    {
+      "math": {
+        "operation": "subtract",
+        "left": "{{new_x}}",
+        "right": "{{ball_radius}}",
+        "result_var": "left_edge"
+      }
+    },
+    {
+      "if": {
+        "condition": {
+          "left": "{{left_edge}}",
+          "operator": "<",
+          "right": 0
+        },
+        "then": [
+          {
+            "math": {
+              "operation": "multiply",
+              "left": "{{new_vx}}",
+              "right": -1,
+              "result_var": "new_vx"
+            }
+          },
+          {
+            "set_variable": {
+              "name": "collision",
+              "value": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "math": {
+        "operation": "add",
+        "left": "{{new_x}}",
+        "right": "{{ball_radius}}",
+        "result_var": "right_edge"
+      }
+    },
+    {
+      "if": {
+        "condition": {
+          "left": "{{right_edge}}",
+          "operator": ">",
+          "right": "{{canvas_width}}"
+        },
+        "then": [
+          {
+            "math": {
+              "operation": "multiply",
+              "left": "{{new_vx}}",
+              "right": -1,
+              "result_var": "new_vx"
+            }
+          },
+          {
+            "set_variable": {
+              "name": "collision",
+              "value": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "math": {
+        "operation": "subtract",
+        "left": "{{new_y}}",
+        "right": "{{ball_radius}}",
+        "result_var": "top_edge"
+      }
+    },
+    {
+      "if": {
+        "condition": {
+          "left": "{{top_edge}}",
+          "operator": "<",
+          "right": 0
+        },
+        "then": [
+          {
+            "math": {
+              "operation": "multiply",
+              "left": "{{new_vy}}",
+              "right": -1,
+              "result_var": "new_vy"
+            }
+          },
+          {
+            "set_variable": {
+              "name": "collision",
+              "value": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "math": {
+        "operation": "add",
+        "left": "{{new_y}}",
+        "right": "{{ball_radius}}",
+        "result_var": "bottom_edge"
+      }
+    },
+    {
+      "if": {
+        "condition": {
+          "left": "{{bottom_edge}}",
+          "operator": ">",
+          "right": "{{canvas_height}}"
+        },
+        "then": [
+          {
+            "math": {
+              "operation": "multiply",
+              "left": "{{new_vy}}",
+              "right": -1,
+              "result_var": "new_vy"
+            }
+          },
+          {
+            "set_variable": {
+              "name": "collision",
+              "value": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "math": {
+        "operation": "subtract",
+        "left": "{{new_x}}",
+        "right": "{{hex_x}}",
+        "result_var": "dx"
+      }
+    },
+    {
+      "math": {
+        "operation": "subtract",
+        "left": "{{new_y}}",
+        "right": "{{hex_y}}",
+        "result_var": "dy"
+      }
+    },
+    {
+      "math": {
+        "operation": "multiply",
+        "left": "{{dx}}",
+        "right": "{{dx}}",
+        "result_var": "dx_squared"
+      }
+    },
+    {
+      "math": {
+        "operation": "multiply",
+        "left": "{{dy}}",
+        "right": "{{dy}}",
+        "result_var": "dy_squared"
+      }
+    },
+    {
+      "math": {
+        "operation": "add",
+        "left": "{{dx_squared}}",
+        "right": "{{dy_squared}}",
+        "result_var": "distance_squared"
+      }
+    },
+    {
+      "math": {
+        "operation": "add",
+        "left": "{{hex_radius}}",
+        "right": "{{ball_radius}}",
+        "result_var": "collision_threshold"
+      }
+    },
+    {
+      "math": {
+        "operation": "multiply",
+        "left": "{{collision_threshold}}",
+        "right": "{{collision_threshold}}",
+        "result_var": "threshold_squared"
+      }
+    },
+    {
+      "if": {
+        "condition": {
+          "left": "{{distance_squared}}",
+          "operator": "<",
+          "right": "{{threshold_squared}}"
+        },
+        "then": [
+          {
+            "math": {
+              "operation": "multiply",
+              "left": "{{new_vx}}",
+              "right": -0.95,
+              "result_var": "new_vx"
+            }
+          },
+          {
+            "math": {
+              "operation": "multiply",
+              "left": "{{new_vy}}",
+              "right": -0.95,
+              "result_var": "new_vy"
+            }
+          },
+          {
+            "set_variable": {
+              "name": "collision",
+              "value": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "math": {
+        "operation": "add",
+        "left": "{{hex_rotation}}",
+        "right": 0.02,
+        "result_var": "new_rotation"
+      }
+    },
+    {
+      "return": {
+        "value": {
+          "new_x": "{{new_x}}",
+          "new_y": "{{new_y}}",
+          "new_vx": "{{new_vx}}",
+          "new_vy": "{{new_vy}}",
+          "hex_rotation": "{{new_rotation}}",
+          "collision": "{{collision}}",
+          "message": "Physics calculated by Rust backend!",
+          "performance": "Real-time calculations"
+        }
+      }
+    }
+  ],
+  "enabled": true,
+  "version": "1.0"
+}
