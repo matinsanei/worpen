@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <title>Worpen Performance Demo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            padding: 40px;
+            text-align: center;
+            color: white;
+        }
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        .header p { font-size: 1.2em; opacity: 0.9; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 30px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 25px;
+            border-radius: 15px;
+            color: white;
+            text-align: center;
+            transition: transform 0.3s;
+        }
+        .stat-card:hover { transform: translateY(-5px); }
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .stat-label { opacity: 0.9; font-size: 1.1em; }
+        .test-section { padding: 30px; }
+        .test-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border-radius: 50px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .test-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+        .test-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .results {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f5f5f5;
+            border-radius: 10px;
+            font-family: monospace;
+        }
+        .progress {
+            width: 100%;
+            height: 30px;
+            background: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 30px;
+        }
+        .feature {
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        .feature h3 { color: #667eea; margin-bottom: 10px; }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            background: #f5f5f5;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <h1>Worpen Performance Demo</h1>
+            <p>Powered by Rust + Axum + Dynamic Routes</p>
+        </div>
+        
+        <div class='stats'>
+            <div class='stat-card'>
+                <div class='stat-label'>Backend Language</div>
+                <div class='stat-value'>Rust</div>
+            </div>
+            <div class='stat-card'>
+                <div class='stat-label'>Web Framework</div>
+                <div class='stat-value'>Axum</div>
+            </div>
+            <div class='stat-card'>
+                <div class='stat-label'>Avg Response</div>
+                <div class='stat-value' id='responseTime'>~1ms</div>
+            </div>
+            <div class='stat-card'>
+                <div class='stat-label'>Server Time</div>
+                <div class='stat-value' id='serverTime'>Loading...</div>
+            </div>
+        </div>
+
+        <div class='test-section'>
+            <h2 style='text-align:center;margin-bottom:20px;color:#667eea'>Performance Tests</h2>
+            <div style='text-align:center'>
+                <button class='test-btn' onclick='testSimple()'>Simple Request</button>
+                <button class='test-btn' onclick='testParallel()'>Parallel (10x)</button>
+                <button class='test-btn' onclick='testHeavy()'>Heavy (50x)</button>
+                <button class='test-btn' onclick='testStress()'>Stress (100x)</button>
+            </div>
+            <div class='progress' id='progressContainer' style='display:none'>
+                <div class='progress-bar' id='progressBar'>0%</div>
+            </div>
+            <div class='results' id='results' style='display:none'></div>
+        </div>
+
+        <div class='features'>
+            <div class='feature'>
+                <h3>Ultra Fast</h3>
+                <p>Rust native performance - 10-100x faster than Node.js</p>
+            </div>
+            <div class='feature'>
+                <h3>Async/Await</h3>
+                <p>Non-blocking I/O with Tokio runtime</p>
+            </div>
+            <div class='feature'>
+                <h3>Zero Overhead</h3>
+                <p>No GC pauses, predictable performance</p>
+            </div>
+            <div class='feature'>
+                <h3>Memory Safe</h3>
+                <p>No segfaults, no memory leaks</p>
+            </div>
+            <div class='feature'>
+                <h3>Type Safe</h3>
+                <p>Catch errors at compile time</p>
+            </div>
+            <div class='feature'>
+                <h3>Scalable</h3>
+                <p>Handle thousands of concurrent requests</p>
+            </div>
+        </div>
+
+        <div class='footer'>
+            <p>Built with Worpen Dynamic Routes Engine</p>
+            <p style='margin-top:10px;font-size:0.9em'>This entire page is served from a JSON configuration!</p>
+        </div>
+    </div>
+
+    <script>
+        const API = '/hello';
+        
+        function updateResults(text) {
+            const r = document.getElementById('results');
+            r.style.display = 'block';
+            r.innerHTML += text + '<br>';
+        }
+        
+        function showProgress(show) {
+            document.getElementById('progressContainer').style.display = show ? 'block' : 'none';
+        }
+        
+        function updateProgress(percent, text) {
+            const bar = document.getElementById('progressBar');
+            bar.style.width = percent + '%';
+            bar.textContent = text || percent + '%';
+        }
+        
+        async function testSimple() {
+            document.getElementById('results').innerHTML = '';
+            const start = performance.now();
+            try {
+                const res = await fetch(API);
+                const data = await res.json();
+                const end = performance.now();
+                const time = (end - start).toFixed(2);
+                updateResults('Simple Request: ' + time + 'ms');
+                updateResults('Response: ' + JSON.stringify(data));
+            } catch (e) {
+                updateResults('Error: ' + e.message);
+            }
+        }
+        
+        async function testParallel() {
+            document.getElementById('results').innerHTML = '';
+            const count = 10;
+            const start = performance.now();
+            try {
+                const promises = Array(count).fill().map(() => fetch(API));
+                await Promise.all(promises);
+                const end = performance.now();
+                const total = (end - start).toFixed(2);
+                const avg = (total / count).toFixed(2);
+                updateResults('Parallel Test (' + count + ' requests):');
+                updateResults('Total: ' + total + 'ms');
+                updateResults('Average: ' + avg + 'ms per request');
+                updateResults('Throughput: ' + (count * 1000 / total).toFixed(0) + ' req/s');
+            } catch (e) {
+                updateResults('Error: ' + e.message);
+            }
+        }
+        
+        async function testHeavy() {
+            document.getElementById('results').innerHTML = '';
+            const count = 50;
+            updateResults('Testing ' + count + ' concurrent requests...');
+            showProgress(true);
+            const start = performance.now();
+            let completed = 0;
+            try {
+                const promises = Array(count).fill().map(async () => {
+                    const res = await fetch(API);
+                    completed++;
+                    updateProgress((completed / count * 100).toFixed(0), completed + '/' + count);
+                    return res;
+                });
+                await Promise.all(promises);
+                const end = performance.now();
+                const total = (end - start).toFixed(2);
+                const avg = (total / count).toFixed(2);
+                showProgress(false);
+                updateResults('');
+                updateResults('Heavy Test Complete!');
+                updateResults('Requests: ' + count);
+                updateResults('Total: ' + total + 'ms');
+                updateResults('Average: ' + avg + 'ms');
+                updateResults('Throughput: ' + (count * 1000 / total).toFixed(0) + ' req/s');
+            } catch (e) {
+                showProgress(false);
+                updateResults('Error: ' + e.message);
+            }
+        }
+        
+        async function testStress() {
+            document.getElementById('results').innerHTML = '';
+            const count = 100;
+            updateResults('Starting stress test (' + count + ' requests)...');
+            showProgress(true);
+            const start = performance.now();
+            let completed = 0;
+            try {
+                const promises = Array(count).fill().map(async () => {
+                    const res = await fetch(API);
+                    completed++;
+                    updateProgress((completed / count * 100).toFixed(0), completed + '/' + count);
+                    return res;
+                });
+                await Promise.all(promises);
+                const end = performance.now();
+                const total = (end - start).toFixed(2);
+                const avg = (total / count).toFixed(2);
+                showProgress(false);
+                updateResults('');
+                updateResults('STRESS TEST COMPLETE!');
+                updateResults('Requests: ' + count);
+                updateResults('Total time: ' + total + 'ms');
+                updateResults('Average: ' + avg + 'ms per request');
+                updateResults('Throughput: ' + (count * 1000 / total).toFixed(0) + ' req/s');
+                updateResults('');
+                updateResults('Backend handled ' + count + ' concurrent requests!');
+                updateResults('This is Rust performance!');
+            } catch (e) {
+                showProgress(false);
+                updateResults('Error: ' + e.message);
+            }
+        }
+        
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('serverTime').textContent = now.toLocaleTimeString();
+        }, 1000);
+    </script>
+</body>
+</html>
