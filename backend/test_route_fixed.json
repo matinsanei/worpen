@@ -1,0 +1,335 @@
+{
+  "name": "Advanced E-Commerce Order Processor",
+  "path": "/api/custom/orders/process-advanced",
+  "method": "POST",
+  "description": "Complete order processing with custom functions, error handling, parallel execution, and advanced operations",
+  "logic": [
+    {
+      "log": {
+        "level": "info",
+        "message": "Starting advanced order processing for order_id: {{order_id}}"
+      }
+    },
+    {
+      "try": {
+        "body": [
+          {
+            "define_function": {
+              "name": "validate_inventory",
+              "params": ["product_id", "quantity"],
+              "body": [
+                {
+                  "query_db": {
+                    "query": "SELECT available_quantity FROM inventory WHERE product_id = ?",
+                    "params": ["{{product_id}}"]
+                  }
+                },
+                {
+                  "set": {
+                    "var": "available",
+                    "value": "{{db_result.rows[0].available_quantity}}"
+                  }
+                },
+                {
+                  "if": {
+                    "condition": "{{available}} < {{quantity}}",
+                    "then": [
+                      {
+                        "throw": {
+                          "message": "Insufficient inventory for product {{product_id}}"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "return": {
+                    "value": "{\"valid\": true, \"available\": {{available}}}"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "define_function": {
+              "name": "calculate_total",
+              "params": ["items"],
+              "body": [
+                {
+                  "set": {
+                    "var": "sum",
+                    "value": "0"
+                  }
+                },
+                {
+                  "loop": {
+                    "items": "{{items}}",
+                    "var": "item",
+                    "body": [
+                      {
+                        "math_op": {
+                          "operation": "multiply",
+                          "values": ["{{item.quantity}}", "{{item.price}}"],
+                          "store_in": "item_total"
+                        }
+                      },
+                      {
+                        "math_op": {
+                          "operation": "add",
+                          "values": ["{{sum}}", "{{item_total}}"],
+                          "store_in": "sum"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "return": {
+                    "value": "{{sum}}"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "query_db": {
+              "query": "SELECT * FROM orders WHERE id = ?",
+              "params": ["{{order_id}}"]
+            }
+          },
+          {
+            "set": {
+              "var": "order",
+              "value": "{{db_result.rows[0]}}"
+            }
+          },
+          {
+            "switch": {
+              "value": "{{order.status}}",
+              "cases": [
+                {
+                  "value": "pending",
+                  "operations": [
+                    {
+                      "log": {
+                        "level": "info",
+                        "message": "Processing pending order"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "value": "processing",
+                  "operations": [
+                    {
+                      "log": {
+                        "level": "warn",
+                        "message": "Order already being processed"
+                      }
+                    },
+                    {
+                      "return": {
+                        "value": "{\"success\": false, \"reason\": \"Already processing\"}"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "value": "completed",
+                  "operations": [
+                    {
+                      "return": {
+                        "value": "{\"success\": false, \"reason\": \"Order already completed\"}"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "default": [
+                {
+                  "throw": {
+                    "message": "Invalid order status: {{order.status}}"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "parallel": {
+              "tasks": [
+                [
+                  {
+                    "http_request": {
+                      "url": "https://api.payment.com/validate",
+                      "method": "POST",
+                      "body": "{\"token\": \"{{payment_token}}\"}",
+                      "store_in": "payment_validation"
+                    }
+                  }
+                ],
+                [
+                  {
+                    "query_db": {
+                      "query": "SELECT * FROM order_items WHERE order_id = ?",
+                      "params": ["{{order_id}}"]
+                    }
+                  },
+                  {
+                    "set": {
+                      "var": "order_items",
+                      "value": "{{db_result.rows}}"
+                    }
+                  }
+                ],
+                [
+                  {
+                    "http_request": {
+                      "url": "https://api.shipping.com/rates",
+                      "method": "GET",
+                      "store_in": "shipping_rates"
+                    }
+                  }
+                ]
+              ]
+            }
+          },
+          {
+            "loop": {
+              "items": "{{order_items}}",
+              "var": "item",
+              "body": [
+                {
+                  "call_function": {
+                    "name": "validate_inventory",
+                    "args": ["{{item.product_id}}", "{{item.quantity}}"],
+                    "store_in": "inventory_check"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "parallel": {
+              "tasks": [
+                [
+                  {
+                    "http_request": {
+                      "url": "https://api.payment.com/charge",
+                      "method": "POST",
+                      "body": "{\"token\": \"{{payment_token}}\", \"amount\": {{order.total_amount}}}",
+                      "store_in": "payment_result"
+                    }
+                  }
+                ],
+                [
+                  {
+                    "query_db": {
+                      "query": "UPDATE orders SET status = 'processing' WHERE id = ?",
+                      "params": ["{{order_id}}"]
+                    }
+                  }
+                ],
+                [
+                  {
+                    "http_request": {
+                      "url": "https://api.notification.com/send",
+                      "method": "POST",
+                      "body": "{\"user_id\": \"{{order.user_id}}\", \"message\": \"Processing your order\"}",
+                      "store_in": "notification_result"
+                    }
+                  }
+                ]
+              ]
+            }
+          },
+          {
+            "set": {
+              "var": "success_count",
+              "value": "0"
+            }
+          },
+          {
+            "loop": {
+              "items": "{{order_items}}",
+              "var": "item",
+              "body": [
+                {
+                  "query_db": {
+                    "query": "UPDATE inventory SET reserved_quantity = reserved_quantity + ? WHERE product_id = ?",
+                    "params": ["{{item.quantity}}", "{{item.product_id}}"]
+                  }
+                },
+                {
+                  "math_op": {
+                    "operation": "add",
+                    "values": ["{{success_count}}", "1"],
+                    "store_in": "success_count"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "date_op": {
+              "operation": "now",
+              "format": "iso",
+              "store_in": "completion_time"
+            }
+          },
+          {
+            "query_db": {
+              "query": "UPDATE orders SET status = 'completed', last_processed_at = ? WHERE id = ?",
+              "params": ["{{completion_time}}", "{{order_id}}"]
+            }
+          },
+          {
+            "return": {
+              "value": "{\"success\": true, \"order_id\": \"{{order_id}}\", \"items_processed\": {{success_count}}, \"total_amount\": {{order.total_amount}}, \"completed_at\": \"{{completion_time}}\"}"
+            }
+          }
+        ],
+        "catch": [
+          {
+            "log": {
+              "level": "error",
+              "message": "Order processing failed: {{error.message}}"
+            }
+          },
+          {
+            "query_db": {
+              "query": "INSERT INTO error_logs (order_id, error_message, error_code, created_at) VALUES (?, ?, ?, datetime('now'))",
+              "params": ["{{order_id}}", "{{error.message}}", "{{error.code}}"]
+            }
+          },
+          {
+            "return": {
+              "value": "{\"success\": false, \"order_id\": \"{{order_id}}\", \"error\": \"{{error.message}}\", \"error_code\": \"{{error.code}}\"}"
+            }
+          }
+        ],
+        "finally": [
+          {
+            "log": {
+              "level": "info",
+              "message": "Order processing completed for {{order_id}}"
+            }
+          },
+          {
+            "date_op": {
+              "operation": "timestamp",
+              "store_in": "final_timestamp"
+            }
+          },
+          {
+            "query_db": {
+              "query": "UPDATE orders SET last_processed_at = ? WHERE id = ?",
+              "params": ["{{final_timestamp}}", "{{order_id}}"]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
+
+

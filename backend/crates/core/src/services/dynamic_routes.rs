@@ -163,7 +163,8 @@ impl DynamicRouteService {
         };
         
         let mut steps = Vec::new();
-        execute_logic_extended(&route.logic, context, &mut steps).await
+        let (result, _context) = execute_logic_extended(&route.logic, context, &mut steps).await?;
+        Ok(result)
     }
 
     /// Legacy execute logic (now uses extended version)
@@ -174,8 +175,9 @@ impl DynamicRouteService {
         steps: &'a mut Vec<String>,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Value, String>> + Send + 'a>> {
         Box::pin(async move {
-        execute_logic_extended(operations, context, steps).await
-    })
+            let (result, _context) = execute_logic_extended(operations, context, steps).await?;
+            Ok(result)
+        })
     }
 
     /// Validate route definition
@@ -199,25 +201,7 @@ impl DynamicRouteService {
         Ok(())
     }
 
-    /// Simple condition evaluation (mock implementation)
-    fn evaluate_condition(&self, condition: &str, context: &DynamicRouteExecutionContext) -> bool {
-        // In production, this would parse and evaluate the condition properly
-        // For now, simple mock evaluation
-        if condition.contains("==") {
-            let parts: Vec<&str> = condition.split("==").collect();
-            if parts.len() == 2 {
-                let left = parts[0].trim();
-                let right = parts[1].trim();
-                
-                if let Some(var_value) = context.variables.get(left) {
-                    return var_value.to_string().trim_matches('"') == right.trim_matches('"');
-                }
-            }
-        }
-        
-        // Default to true for testing
-        true
-    }
+
 
     /// Export route as JSON
     pub async fn export_route(&self, route_id: &str) -> Result<String, String> {

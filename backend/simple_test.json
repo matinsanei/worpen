@@ -1,0 +1,85 @@
+{
+  "name": "Simple Order Test",
+  "path": "/api/custom/orders/test",
+  "method": "POST",
+  "description": "Simple test with error handling and variable resolution",
+  "logic": [
+    {
+      "log": {
+        "level": "info",
+        "message": "Processing order: {{order_id}}"
+      }
+    },
+    {
+      "try": {
+        "body": [
+          {
+            "query_db": {
+              "query": "SELECT * FROM orders WHERE id = ?",
+              "params": ["{{order_id}}"]
+            }
+          },
+          {
+            "set": {
+              "var": "order",
+              "value": "{{db_result.rows[0]}}"
+            }
+          },
+          {
+            "if": {
+              "condition": "{{order.status}} == pending",
+              "then": [
+                {
+                  "log": {
+                    "level": "info",
+                    "message": "Order status is pending, processing..."
+                  }
+                },
+                {
+                  "return": {
+                    "value": {"success": true, "order_id": "{{order_id}}", "status": "{{order.status}}"}
+                  }
+                }
+              ],
+              "otherwise": [
+                {
+                  "throw": {
+                    "message": "Invalid order status: {{order.status}}",
+                    "code": "INVALID_STATUS"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "catch": [
+          {
+            "log": {
+              "level": "error",
+              "message": "Error: {{error.message}}"
+            }
+          },
+          {
+            "query_db": {
+              "query": "INSERT INTO error_logs (order_id, error_message, error_code, created_at) VALUES (?, ?, ?, datetime('now'))",
+              "params": ["{{order_id}}", "{{error.message}}", "{{error.code}}"]
+            }
+          },
+          {
+            "return": {
+              "value": {"success": false, "order_id": "{{order_id}}", "error": "{{error.message}}", "error_code": "{{error.code}}"}
+            }
+          }
+        ],
+        "finally": [
+          {
+            "log": {
+              "level": "info",
+              "message": "Request completed for order: {{order_id}}"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

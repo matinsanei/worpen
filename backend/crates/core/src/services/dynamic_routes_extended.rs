@@ -10,7 +10,7 @@ pub async fn execute_logic_extended(
     operations: &[LogicOperation],
     mut context: DynamicRouteExecutionContext,
     steps: &mut Vec<String>,
-) -> Result<Value, String> {
+) -> Result<(Value, DynamicRouteExecutionContext), String> {
     let mut last_result = Value::Null;
     
     for (idx, operation) in operations.iter().enumerate() {
@@ -31,7 +31,7 @@ pub async fn execute_logic_extended(
             // ===== BASIC OPERATIONS =====
             LogicOperation::Return { value } => {
                 steps.push(format!("Returning value: {}", value));
-                return Ok(resolve_variables(value, &context));
+                return Ok((resolve_variables(value, &context), context));
             },
             
             LogicOperation::Set { var, value } => {
@@ -49,7 +49,7 @@ pub async fn execute_logic_extended(
             },
             
             // ===== DATABASE OPERATIONS =====
-            LogicOperation::QueryDb { query, params } => {
+            LogicOperation::QueryDb { query, params: _ } => {
                 steps.push(format!("Execute DB query: {}", query));
                 // TODO: Implement real database connection
                 last_result = serde_json::json!({
@@ -61,12 +61,12 @@ pub async fn execute_logic_extended(
             },
             
             // ===== HTTP REQUESTS (ASYNC) =====
-            LogicOperation::HttpRequest { url, method, body, headers, timeout_ms } => {
+            LogicOperation::HttpRequest { url, method, body, headers: _, timeout_ms: _ } => {
                 steps.push(format!("HTTP {} request to: {}", method, url));
                 
                 // Resolve URL and body with variables
                 let resolved_url = resolve_string(url, &context);
-                let resolved_body = body.as_ref().map(|b| resolve_variables(b, &context));
+                let _resolved_body = body.as_ref().map(|b| resolve_variables(b, &context));
                 
                 // TODO: Implement real HTTP client (reqwest)
                 last_result = serde_json::json!({
@@ -85,27 +85,41 @@ pub async fn execute_logic_extended(
                 
                 if condition_result {
                     steps.push("Condition is TRUE, executing THEN branch".to_string());
-                    last_result = Box::pin(execute_logic_extended(then, context.clone(), steps)).await?;
+                    let (result, updated_context) = Box::pin(execute_logic_extended(then, context.clone(), steps)).await?;
+                    last_result = result;
+                    // Merge variables from then branch
+                    for (key, value) in updated_context.variables.iter() {
+                        context.variables.insert(key.clone(), value.clone());
+                    }
                 } else if let Some(else_ops) = otherwise {
                     steps.push("Condition is FALSE, executing ELSE branch".to_string());
-                    last_result = Box::pin(execute_logic_extended(else_ops, context.clone(), steps)).await?;
+                    let (result, updated_context) = Box::pin(execute_logic_extended(else_ops, context.clone(), steps)).await?;
+                    last_result = result;
+                    // Merge variables from else branch
+                    for (key, value) in updated_context.variables.iter() {
+                        context.variables.insert(key.clone(), value.clone());
+                    }
                 }
             },
             
             // ===== CONTROL FLOW - SWITCH =====
             LogicOperation::Switch { value, cases, default } => {
                 steps.push(format!("Switch on value: {}", value));
-                let switch_value = if let Some(v) = context.variables.get(value) {
-                    v.clone()
-                } else {
-                    Value::String(value.clone())
-                };
+                let switch_value = resolve_string(value, &context);
+                let _switch_value_json = serde_json::from_str::<Value>(&format!("\"{}\"", switch_value.clone()))
+                    .unwrap_or(Value::String(switch_value.clone()));
                 
                 let mut matched = false;
                 for case in cases {
                     if switch_value == case.value {
                         steps.push(format!("Matched case: {}", case.value));
-                        last_result = Box::pin(execute_logic_extended(&case.operations, context.clone(), steps)).await?;
+                        let case_context = context.clone();
+                        let (result, updated_context) = Box::pin(execute_logic_extended(&case.operations, case_context, steps)).await?;
+                        last_result = result;
+                        // Merge variables back to main context
+                        for (key, value) in updated_context.variables.iter() {
+                            context.variables.insert(key.clone(), value.clone());
+                        }
                         matched = true;
                         break;
                     }
@@ -114,7 +128,13 @@ pub async fn execute_logic_extended(
                 if !matched {
                     if let Some(default_ops) = default {
                         steps.push("No case matched, executing default".to_string());
-                        last_result = Box::pin(execute_logic_extended(default_ops, context.clone(), steps)).await?;
+                        let default_context = context.clone();
+                        let (result, updated_context) = Box::pin(execute_logic_extended(default_ops, default_context, steps)).await?;
+                        last_result = result;
+                        // Merge variables back to main context
+                        for (key, value) in updated_context.variables.iter() {
+                            context.variables.insert(key.clone(), value.clone());
+                        }
                     }
                 }
             },
@@ -129,13 +149,20 @@ pub async fn execute_logic_extended(
                     iterations += 1;
                     steps.push(format!("While iteration #{}", iterations));
                     
-                    last_result = Box::pin(execute_logic_extended(body, context.clone(), steps)).await?;
+                    let loop_context = context.clone();
+                    let (result, updated_context) = Box::pin(execute_logic_extended(body, loop_context, steps)).await?;
+                    last_result = result;
                     
-                    if context.loop_control.should_break {
+                    // Merge variables back from the updated context
+                    for (key, value) in updated_context.variables.iter() {
+                        context.variables.insert(key.clone(), value.clone());
+                    }
+                    
+                    if updated_context.loop_control.should_break {
                         context.loop_control.should_break = false;
                         break;
                     }
-                    if context.loop_control.should_continue {
+                    if updated_context.loop_control.should_continue {
                         context.loop_control.should_continue = false;
                         continue;
                     }
@@ -148,9 +175,18 @@ pub async fn execute_logic_extended(
             LogicOperation::Loop { collection, var, body } => {
                 steps.push(format!("Loop over collection '{}' as '{}'", collection, var));
                 
-                let items = if let Some(var_value) = context.variables.get(collection) {
+                // Extract variable name from {{var}} syntax
+                let var_name = if collection.starts_with("{{") && collection.ends_with("}}") {
+                    collection.trim_start_matches("{{").trim_end_matches("}}").trim()
+                } else {
+                    collection
+                };
+                
+                let items = if let Some(var_value) = context.variables.get(var_name) {
+                    // Found variable by name
                     var_value.clone()
                 } else if collection.starts_with('[') {
+                    // JSON array literal
                     serde_json::from_str(collection).unwrap_or(Value::Array(vec![]))
                 } else {
                     Value::Array(vec![])
@@ -163,13 +199,21 @@ pub async fn execute_logic_extended(
                         loop_context.variables.insert(var.clone(), item.clone());
                         loop_context.variables.insert("index".to_string(), Value::Number(i.into()));
                         
-                        last_result = Box::pin(execute_logic_extended(body, loop_context.clone(), steps)).await?;
+                        let (result, updated_context) = Box::pin(execute_logic_extended(body, loop_context, steps)).await?;
+                        last_result = result;
                         
-                        if loop_context.loop_control.should_break {
+                        // Merge variables back (except loop var and index)
+                        for (key, value) in updated_context.variables.iter() {
+                            if key != var && key != "index" {
+                                context.variables.insert(key.clone(), value.clone());
+                            }
+                        }
+                        
+                        if updated_context.loop_control.should_break {
                             steps.push("Loop BREAK".to_string());
                             break;
                         }
-                        if loop_context.loop_control.should_continue {
+                        if updated_context.loop_control.should_continue {
                             steps.push("Loop CONTINUE".to_string());
                             continue;
                         }
@@ -193,8 +237,12 @@ pub async fn execute_logic_extended(
                 steps.push("Try block starting".to_string());
                 
                 match Box::pin(execute_logic_extended(body, context.clone(), steps)).await {
-                    Ok(result) => {
+                    Ok((result, updated_context)) => {
                         last_result = result;
+                        // Merge variables from try block
+                        for (key, value) in updated_context.variables.iter() {
+                            context.variables.insert(key.clone(), value.clone());
+                        }
                         steps.push("Try block succeeded".to_string());
                     },
                     Err(e) => {
@@ -208,28 +256,37 @@ pub async fn execute_logic_extended(
                             "message": e,
                         }));
                         
-                        last_result = Box::pin(execute_logic_extended(catch, context.clone(), steps)).await?;
+                        let (result, updated_context) = Box::pin(execute_logic_extended(catch, context.clone(), steps)).await?;
+                        last_result = result;
+                        // Merge variables from catch block
+                        for (key, value) in updated_context.variables.iter() {
+                            context.variables.insert(key.clone(), value.clone());
+                        }
                     }
                 }
                 
                 if let Some(finally_ops) = finally {
                     steps.push("Executing finally block".to_string());
-                    Box::pin(execute_logic_extended(finally_ops, context.clone(), steps)).await?;
+                    let (_, updated_context) = Box::pin(execute_logic_extended(finally_ops, context.clone(), steps)).await?;
+                    // Merge variables from finally block
+                    for (key, value) in updated_context.variables.iter() {
+                        context.variables.insert(key.clone(), value.clone());
+                    }
                 }
             },
             
-            LogicOperation::Throw { message, code } => {
+            LogicOperation::Throw { message, code: _ } => {
                 let error_msg = resolve_string(message, &context);
                 steps.push(format!("Throwing error: {}", error_msg));
                 return Err(error_msg);
             },
             
             // ===== PARALLEL EXECUTION =====
-            LogicOperation::Parallel { tasks, max_concurrent } => {
+            LogicOperation::Parallel { tasks, max_concurrent: _ } => {
                 steps.push(format!("Parallel execution of {} tasks", tasks.len()));
                 
                 let mut futures = vec![];
-                for (i, task) in tasks.iter().enumerate() {
+                for (_i, task) in tasks.iter().enumerate() {
                     let task_context = context.clone();
                     let task_ops = task.clone();
                     let mut task_steps = vec![];
@@ -244,7 +301,7 @@ pub async fn execute_logic_extended(
                 
                 for (i, result) in results.iter().enumerate() {
                     match result {
-                        Ok(v) => success_results.push(v.clone()),
+                        Ok((v, _ctx)) => success_results.push(v.clone()),
                         Err(e) => steps.push(format!("Task {} failed: {}", i, e)),
                     }
                 }
@@ -277,7 +334,9 @@ pub async fn execute_logic_extended(
                         }
                     }
                     
-                    last_result = Box::pin(execute_logic_extended(&func_def.body, func_context, steps)).await?;
+                    let (result, _updated_context) = Box::pin(execute_logic_extended(&func_def.body, func_context, steps)).await?;
+                    last_result = result.clone();
+                    context.variables.insert("function_result".to_string(), result);
                 } else {
                     return Err(format!("Function '{}' not defined", name));
                 }
@@ -317,14 +376,21 @@ pub async fn execute_logic_extended(
                     _ => Value::Null,
                 };
                 
+                context.variables.insert("string_result".to_string(), last_result.clone());
                 steps.push(format!("String operation: {} on '{}'", operation, input));
             },
             
             // ===== HELPER FUNCTIONS - MATH =====
             LogicOperation::MathOp { operation, args } => {
-                let numbers: Vec<f64> = args.iter()
+                // Resolve variables in args first
+                let resolved_args: Vec<Value> = args.iter()
+                    .map(|v| resolve_variables(v, &context))
+                    .collect();
+                
+                let numbers: Vec<f64> = resolved_args.iter()
                     .filter_map(|v| match v {
                         Value::Number(n) => n.as_f64(),
+                        Value::String(s) => s.parse().ok(),
                         _ => None,
                     })
                     .collect();
@@ -368,9 +434,35 @@ pub async fn execute_logic_extended(
                         let val = numbers.get(0).unwrap_or(&0.0).sqrt();
                         Value::Number(serde_json::Number::from_f64(val).unwrap())
                     },
+                    "subtract" => {
+                        if numbers.len() >= 2 {
+                            Value::Number(serde_json::Number::from_f64(numbers[0] - numbers[1]).unwrap())
+                        } else {
+                            Value::Null
+                        }
+                    },
+                    "multiply" => {
+                        let product = numbers.iter().product();
+                        Value::Number(serde_json::Number::from_f64(product).unwrap())
+                    },
+                    "divide" => {
+                        if numbers.len() >= 2 && numbers[1] != 0.0 {
+                            Value::Number(serde_json::Number::from_f64(numbers[0] / numbers[1]).unwrap())
+                        } else {
+                            Value::Null
+                        }
+                    },
+                    "mod" => {
+                        if numbers.len() >= 2 && numbers[1] != 0.0 {
+                            Value::Number(serde_json::Number::from_f64(numbers[0] % numbers[1]).unwrap())
+                        } else {
+                            Value::Null
+                        }
+                    },
                     _ => Value::Null,
                 };
                 
+                context.variables.insert("math_result".to_string(), last_result.clone());
                 steps.push(format!("Math operation: {}", operation));
             },
             
@@ -388,6 +480,7 @@ pub async fn execute_logic_extended(
                     _ => Value::Null,
                 };
                 
+                context.variables.insert("date_result".to_string(), last_result.clone());
                 steps.push(format!("Date operation: {}", operation));
             },
             
@@ -432,13 +525,13 @@ pub async fn execute_logic_extended(
             },
             
             // ===== DATA TRANSFORMATIONS =====
-            LogicOperation::Map { input, transform } => {
+            LogicOperation::Map { input, transform: _ } => {
                 steps.push(format!("Map operation on '{}'", input));
                 // TODO: Implement real data mapping
                 last_result = Value::Array(vec![]);
             },
             
-            LogicOperation::Filter { input, condition } => {
+            LogicOperation::Filter { input, condition: _ } => {
                 steps.push(format!("Filter operation on '{}'", input));
                 last_result = Value::Array(vec![]);
             },
@@ -449,7 +542,7 @@ pub async fn execute_logic_extended(
             },
             
             // ===== SCRIPT EXECUTION =====
-            LogicOperation::ExecuteScript { language, code } => {
+            LogicOperation::ExecuteScript { language, code: _ } => {
                 steps.push(format!("Execute {} script", language));
                 // TODO: Implement sandboxed script execution
                 last_result = serde_json::json!({
@@ -458,30 +551,79 @@ pub async fn execute_logic_extended(
                 });
             },
             
-            LogicOperation::AwaitAll { task_ids } => {
+            LogicOperation::AwaitAll { task_ids: _ } => {
                 steps.push("Await all tasks".to_string());
                 last_result = Value::Array(vec![]);
             },
         }
     }
     
-    Ok(last_result)
+    Ok((last_result, context))
 }
 
 // Helper function to resolve variables in strings
 fn resolve_string(template: &str, context: &DynamicRouteExecutionContext) -> String {
     let mut result = template.to_string();
     
-    for (key, value) in &context.variables {
-        let placeholder = format!("{{{{{}}}}}", key);
-        if result.contains(&placeholder) {
-            let replacement = match value {
-                Value::String(s) => s.clone(),
-                other => other.to_string(),
-            };
-            result = result.replace(&placeholder, &replacement);
+    // First resolve error context variables (error.message, error.code)
+    if let Some(error_ctx) = &context.error_context {
+        result = result.replace("{{error.message}}", &error_ctx.message);
+        if let Some(code) = &error_ctx.code {
+            result = result.replace("{{error.code}}", code);
+        } else {
+            result = result.replace("{{error.code}}", "UNKNOWN_ERROR");
         }
     }
+    
+    // Then resolve from request payload (for top-level fields like {{order_id}})
+    if let Some(payload) = &context.request_payload {
+        if let Some(obj) = payload.as_object() {
+            for (key, value) in obj {
+                let placeholder = format!("{{{{{}}}}}", key);
+                if result.contains(&placeholder) {
+                    let replacement = match value {
+                        Value::String(s) => s.clone(),
+                        other => other.to_string(),
+                    };
+                    result = result.replace(&placeholder, &replacement);
+                }
+            }
+        }
+    }
+    
+    // Then resolve regular variables (including nested paths like order.status)
+    // Use regex to find all {{...}} patterns
+    use regex::Regex;
+    let re = Regex::new(r"\{\{([^}]+)\}\}").unwrap();
+    
+    result = re.replace_all(&result, |caps: &regex::Captures| {
+        let path = &caps[1];
+        
+        // Check if it's a nested path (contains dot)
+        if path.contains('.') {
+            let parts: Vec<&str> = path.split('.').collect();
+            if let Some(root_var) = context.variables.get(parts[0]) {
+                // Use get_json_path for nested access
+                let nested_value = get_json_path(root_var, &parts[1..].join("."));
+                return match nested_value {
+                    Value::String(s) => s,
+                    Value::Null => caps[0].to_string(), // Keep original if null
+                    other => other.to_string(),
+                };
+            }
+        } else {
+            // Simple variable lookup
+            if let Some(value) = context.variables.get(path) {
+                return match value {
+                    Value::String(s) => s.clone(),
+                    other => other.to_string(),
+                };
+            }
+        }
+        
+        // If not found, keep original
+        caps[0].to_string()
+    }).to_string();
     
     result
 }
@@ -509,6 +651,7 @@ fn resolve_variables(value: &Value, context: &DynamicRouteExecutionContext) -> V
 // Enhanced condition evaluation
 fn evaluate_condition(condition: &str, context: &DynamicRouteExecutionContext) -> bool {
     let resolved = resolve_string(condition, context);
+    eprintln!("DEBUG: Evaluating condition: '{}' -> '{}'", condition, resolved);
     
     // Support multiple operators
     if resolved.contains("==") {

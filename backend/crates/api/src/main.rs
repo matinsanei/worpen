@@ -14,7 +14,7 @@ use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 use apidoc::ApiDoc;
 
-#[tokio::main]
+#[tokio::main(worker_threads = 4)]
 async fn main() {
     tracing_subscriber::fmt::init();
     

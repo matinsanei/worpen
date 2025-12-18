@@ -253,6 +253,7 @@ dependencies = [
  "chrono",
  "futures",
  "proto",
+ "regex",
  "serde",
  "serde_json",
  "tokio",

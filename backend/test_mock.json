@@ -1,0 +1,95 @@
+{
+  "name": "Simple Order Test - Mock Data",
+  "path": "/api/custom/orders/test-mock",
+  "method": "POST",
+  "description": "Test with manually set order data to verify nested path resolution",
+  "logic": [
+    {
+      "log": {
+        "level": "info",
+        "message": "Processing order: {{order_id}}"
+      }
+    },
+    {
+      "try": {
+        "body": [
+          {
+            "set": {
+              "var": "order",
+              "value": {
+                "id": "ORD-001",
+                "user_id": "USER-123",
+                "status": "pending",
+                "total_amount": 150.50
+              }
+            }
+          },
+          {
+            "log": {
+              "level": "info",
+              "message": "Order status: {{order.status}}"
+            }
+          },
+          {
+            "if": {
+              "condition": "{{order.status}} == pending",
+              "then": [
+                {
+                  "log": {
+                    "level": "info",
+                    "message": "Order status is pending, processing..."
+                  }
+                },
+                {
+                  "return": {
+                    "value": {
+                      "success": true,
+                      "order_id": "{{order_id}}",
+                      "status": "{{order.status}}",
+                      "user_id": "{{order.user_id}}",
+                      "total": "{{order.total_amount}}"
+                    }
+                  }
+                }
+              ],
+              "otherwise": [
+                {
+                  "throw": {
+                    "message": "Invalid order status: {{order.status}}",
+                    "code": "INVALID_STATUS"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "catch": [
+          {
+            "log": {
+              "level": "error",
+              "message": "Error: {{error.message}}"
+            }
+          },
+          {
+            "return": {
+              "value": {
+                "success": false,
+                "order_id": "{{order_id}}",
+                "error": "{{error.message}}",
+                "error_code": "{{error.code}}"
+              }
+            }
+          }
+        ],
+        "finally": [
+          {
+            "log": {
+              "level": "info",
+              "message": "Request completed for order: {{order_id}}"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

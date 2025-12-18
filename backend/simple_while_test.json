@@ -1,0 +1,60 @@
+{
+  "path": "/test-while",
+  "method": "POST",
+  "name": "Simple While Loop Test",
+  "description": "Test while loop variable propagation",
+  "logic": [
+    {
+      "set": {
+        "var": "counter",
+        "value": 0
+      }
+    },
+    {
+      "set": {
+        "var": "sum",
+        "value": 0
+      }
+    },
+    {
+      "while": {
+        "condition": "{{counter}} < 5",
+        "body": [
+          {
+            "math_op": {
+              "operation": "sum",
+              "args": ["{{sum}}", "{{counter}}"]
+            }
+          },
+          {
+            "set": {
+              "var": "sum",
+              "value": "{{math_result}}"
+            }
+          },
+          {
+            "math_op": {
+              "operation": "sum",
+              "args": ["{{counter}}", 1]
+            }
+          },
+          {
+            "set": {
+              "var": "counter",
+              "value": "{{math_result}}"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "return": {
+        "value": {
+          "counter": "{{counter}}",
+          "sum": "{{sum}}",
+          "message": "Counter should be 5, sum should be 10"
+        }
+      }
+    }
+  ]
+}

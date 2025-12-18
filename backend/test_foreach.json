@@ -1,0 +1,51 @@
+{
+  "path": "/test-foreach",
+  "method": "POST",
+  "name": "Simple ForEach Test",
+  "description": "Test foreach loop with nested path",
+  "logic": [
+    {
+      "set": {
+        "var": "items",
+        "value": [
+          {"name": "Apple", "price": 10},
+          {"name": "Banana", "price": 20}
+        ]
+      }
+    },
+    {
+      "set": {
+        "var": "total",
+        "value": 0
+      }
+    },
+    {
+      "loop": {
+        "collection": "{{items}}",
+        "var": "item",
+        "body": [
+          {
+            "math_op": {
+              "operation": "sum",
+              "args": ["{{total}}", "{{item.price}}"]
+            }
+          },
+          {
+            "set": {
+              "var": "total",
+              "value": "{{math_result}}"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "return": {
+        "value": {
+          "total": "{{total}}",
+          "message": "Total should be 30"
+        }
+      }
+    }
+  ]
+}

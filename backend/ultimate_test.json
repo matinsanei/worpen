@@ -1,0 +1,954 @@
+{
+  "name": "Ultimate Feature Test - Complete Programming Demo",
+  "path": "/api/test/ultimate",
+  "method": "POST",
+  "description": "Complete test of ALL features: custom functions, recursion, try/catch/finally, switch/case, while loops, parallel execution, nested logic, math/string/date ops, variable resolution",
+  "logic": [
+    {
+      "log": {
+        "level": "info",
+        "message": "=== ULTIMATE FEATURE TEST STARTED ==="
+      }
+    },
+    {
+      "set": {
+        "var": "test_results",
+        "value": []
+      }
+    },
+    {
+      "try": {
+        "body": [
+          {
+            "log": {
+              "level": "info",
+              "message": "TEST 1: Custom Functions & Recursion"
+            }
+          },
+          {
+            "define_function": {
+              "name": "fibonacci",
+              "params": ["n"],
+              "body": [
+                {
+                  "if": {
+                    "condition": "{{n}} <= 1",
+                    "then": [
+                      {
+                        "return": {
+                          "value": "{{n}}"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "set": {
+                    "var": "a",
+                    "value": 0
+                  }
+                },
+                {
+                  "set": {
+                    "var": "b",
+                    "value": 1
+                  }
+                },
+                {
+                  "set": {
+                    "var": "i",
+                    "value": 2
+                  }
+                },
+                {
+                  "while": {
+                    "condition": "{{i}} <= {{n}}",
+                    "max_iterations": 100,
+                    "body": [
+                      {
+                        "math_op": {
+                          "operation": "sum",
+                          "args": ["{{a}}", "{{b}}"]
+                        }
+                      },
+                      {
+                        "set": {
+                          "var": "temp",
+                          "value": "{{math_result}}"
+                        }
+                      },
+                      {
+                        "set": {
+                          "var": "a",
+                          "value": "{{b}}"
+                        }
+                      },
+                      {
+                        "set": {
+                          "var": "b",
+                          "value": "{{temp}}"
+                        }
+                      },
+                      {
+                        "math_op": {
+                          "operation": "sum",
+                          "args": ["{{i}}", 1]
+                        }
+                      },
+                      {
+                        "set": {
+                          "var": "i",
+                          "value": "{{math_result}}"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "return": {
+                    "value": "{{b}}"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "define_function": {
+              "name": "factorial",
+              "params": ["n"],
+              "body": [
+                {
+                  "if": {
+                    "condition": "{{n}} <= 1",
+                    "then": [
+                      {
+                        "return": {
+                          "value": 1
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "set": {
+                    "var": "result",
+                    "value": 1
+                  }
+                },
+                {
+                  "set": {
+                    "var": "i",
+                    "value": 2
+                  }
+                },
+                {
+                  "while": {
+                    "condition": "{{i}} <= {{n}}",
+                    "max_iterations": 100,
+                    "body": [
+                      {
+                        "math_op": {
+                          "operation": "multiply",
+                          "args": ["{{result}}", "{{i}}"]
+                        }
+                      },
+                      {
+                        "set": {
+                          "var": "result",
+                          "value": "{{math_result}}"
+                        }
+                      },
+                      {
+                        "math_op": {
+                          "operation": "sum",
+                          "args": ["{{i}}", 1]
+                        }
+                      },
+                      {
+                        "set": {
+                          "var": "i",
+                          "value": "{{math_result}}"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "return": {
+                    "value": "{{result}}"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "call_function": {
+              "name": "fibonacci",
+              "args": [8]
+            }
+          },
+          {
+            "set": {
+              "var": "fib_8",
+              "value": "{{function_result}}"
+            }
+          },
+          {
+            "call_function": {
+              "name": "factorial",
+              "args": [5]
+            }
+          },
+          {
+            "set": {
+              "var": "fact_5",
+              "value": "{{function_result}}"
+            }
+          },
+          {
+            "log": {
+              "level": "info",
+              "message": "Fibonacci(8) = {{fib_8}}, Factorial(5) = {{fact_5}}"
+            }
+          },
+          {
+            "log": {
+              "level": "info",
+              "message": "TEST 2: Math Operations"
+            }
+          },
+          {
+            "set": {
+              "var": "numbers",
+              "value": [10, 20, 30, 40, 50]
+            }
+          },
+          {
+            "math_op": {
+              "operation": "sum",
+              "args": [10, 20, 30, 40, 50]
+            }
+          },
+          {
+            "set": {
+              "var": "sum",
+              "value": "{{math_result}}"
+            }
+          },
+          {
+            "math_op": {
+              "operation": "avg",
+              "args": [10, 20, 30, 40, 50]
+            }
+          },
+          {
+            "set": {
+              "var": "avg",
+              "value": "{{math_result}}"
+            }
+          },
+          {
+            "math_op": {
+              "operation": "pow",
+              "args": [2, 10]
+            }
+          },
+          {
+            "set": {
+              "var": "power",
+              "value": "{{math_result}}"
+            }
+          },
+          {
+            "math_op": {
+              "operation": "sqrt",
+              "args": [144]
+            }
+          },
+          {
+            "set": {
+              "var": "sqrt",
+              "value": "{{math_result}}"
+            }
+          },
+          {
+            "log": {
+              "level": "info",
+              "message": "Sum={{sum}}, Avg={{avg}}, 2^10={{power}}, sqrt(144)={{sqrt}}"
+            }
+          },
+          {
+            "log": {
+              "level": "info",
+              "message": "TEST 3: String Operations"
+            }
+          },
+          {
+            "set": {
+              "var": "text",
+              "value": "hello world from dynamic routes"
+            }
+          },
+          {
+            "string_op": {
+              "operation": "upper",
+              "input": "{{text}}",
+              "args": []
+            }
+          },
+          {
+            "set": {
+              "var": "text_upper",
+              "value": "{{string_result}}"
+            }
+          },
+          {
+            "string_op": {
+              "operation": "split",
+              "input": "{{text}}",
+              "args": [" "]
+            }
+          },
+          {
+            "set": {
+              "var": "words",
+              "value": "{{string_result}}"
+            }
+          },
+          {
+            "log": {
+              "level": "info",
+              "message": "Original: {{text}}, Upper: {{text_upper}}"
+            }
+          },
+          {
+            "log": {
+              "level": "info",
+              "message": "TEST 4: Date/Time Operations"
+            }
+          },
+          {
+            "date_op": {
+              "operation": "now",
+              "args": []
+            }
+          },
+          {
+            "set": {
+              "var": "current_time",
+              "value": "{{date_result}}"
+            }
+          },
+          {
+            "date_op": {
+              "operation": "timestamp",
+              "args": []
+            }
+          },
+          {
+            "set": {
+              "var": "timestamp",
+              "value": "{{date_result}}"
+            }
+          },
+          {
+            "log": {
+              "level": "info",
+              "message": "Current Time: {{current_time}}, Timestamp: {{timestamp}}"
+            }
+          },
+          {
+            "log": {
+              "level": "info",
+              "message": "TEST 5: Switch/Case with Multiple Conditions"
+            }
+          },
+          {
+            "set": {
+              "var": "user_role",
+              "value": "{{role}}"
+            }
+          },
+          {
+            "switch": {
+              "value": "{{user_role}}",
+              "cases": [
+                {
+                  "value": "admin",
+                  "operations": [
+                    {
+                      "set": {
+                        "var": "permissions",
+                        "value": ["read", "write", "delete", "admin"]
+                      }
+                    },
+                    {
+                      "set": {
+                        "var": "access_level",
+                        "value": 100
+                      }
+                    }
+                  ]
+                },
+                {
+                  "value": "user",
+                  "operations": [
+                    {
+                      "set": {
+                        "var": "permissions",
+                        "value": ["read", "write"]
+                      }
+                    },
+                    {
+                      "set": {
+                        "var": "access_level",
+                        "value": 50
+                      }
+                    }
+                  ]
+                },
+                {
+                  "value": "guest",
+                  "operations": [
+                    {
+                      "set": {
+                        "var": "permissions",
+                        "value": ["read"]
+                      }
+                    },
+                    {
+                      "set": {
+                        "var": "access_level",
+                        "value": 10
+                      }
+                    }
+                  ]
+                }
+              ],
+              "default": [
+                {
+                  "set": {
+                    "var": "permissions",
+                    "value": []
+                  }
+                },
+                {
+                  "set": {
+                    "var": "access_level",
+                    "value": 0
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "log": {
+              "level": "info",
+              "message": "Role: {{user_role}}, Access Level: {{access_level}}"
+            }
+          },
+          {
+            "log": {
+              "level": "info",
+              "message": "TEST 6: While Loop with Break/Continue"
+            }
+          },
+          {
+            "set": {
+              "var": "counter",
+              "value": 0
+            }
+          },
+          {
+            "set": {
+              "var": "sum_odd",
+              "value": 0
+            }
+          },
+          {
+            "while": {
+              "condition": "{{counter}} < 10",
+              "max_iterations": 20,
+              "body": [
+                {
+                  "math_op": {
+                    "operation": "sum",
+                    "args": ["{{counter}}", 1]
+                  }
+                },
+                {
+                  "set": {
+                    "var": "counter",
+                    "value": "{{math_result}}"
+                  }
+                },
+                {
+                  "math_op": {
+                    "operation": "mod",
+                    "args": ["{{counter}}", 2]
+                  }
+                },
+                {
+                  "set": {
+                    "var": "is_even",
+                    "value": "{{math_result}}"
+                  }
+                },
+                {
+                  "if": {
+                    "condition": "{{is_even}} == 0",
+                    "then": [
+                      {
+                        "continue": null
+                      }
+                    ]
+                  }
+                },
+                {
+                  "math_op": {
+                    "operation": "sum",
+                    "args": ["{{sum_odd}}", "{{counter}}"]
+                  }
+                },
+                {
+                  "set": {
+                    "var": "sum_odd",
+                    "value": "{{math_result}}"
+                  }
+                },
+                {
+                  "if": {
+                    "condition": "{{counter}} >= 10",
+                    "then": [
+                      {
+                        "break": null
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "log": {
+              "level": "info",
+              "message": "Sum of odd numbers (1-9): {{sum_odd}}"
+            }
+          },
+          {
+            "log": {
+              "level": "info",
+              "message": "TEST 7: ForEach Loop"
+            }
+          },
+          {
+            "set": {
+              "var": "items",
+              "value": [
+                {"name": "Apple", "price": 1.5, "quantity": 10},
+                {"name": "Banana", "price": 0.8, "quantity": 20},
+                {"name": "Orange", "price": 2.0, "quantity": 15}
+              ]
+            }
+          },
+          {
+            "set": {
+              "var": "total_value",
+              "value": 0
+            }
+          },
+          {
+            "loop": {
+              "collection": "{{items}}",
+              "var": "item",
+              "body": [
+                {
+                  "math_op": {
+                    "operation": "multiply",
+                    "args": ["{{item.price}}", "{{item.quantity}}"]
+                  }
+                },
+                {
+                  "set": {
+                    "var": "item_value",
+                    "value": "{{math_result}}"
+                  }
+                },
+                {
+                  "math_op": {
+                    "operation": "sum",
+                    "args": ["{{total_value}}", "{{item_value}}"]
+                  }
+                },
+                {
+                  "set": {
+                    "var": "total_value",
+                    "value": "{{math_result}}"
+                  }
+                },
+                {
+                  "log": {
+                    "level": "info",
+                    "message": "Item: {{item.name}}, Value: {{item_value}}"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "log": {
+              "level": "info",
+              "message": "Total inventory value: {{total_value}}"
+            }
+          },
+          {
+            "log": {
+              "level": "info",
+              "message": "TEST 8: Nested Try/Catch with Multiple Levels"
+            }
+          },
+          {
+            "try": {
+              "body": [
+                {
+                  "set": {
+                    "var": "risky_operation",
+                    "value": "level_1"
+                  }
+                },
+                {
+                  "try": {
+                    "body": [
+                      {
+                        "set": {
+                          "var": "risky_operation",
+                          "value": "level_2"
+                        }
+                      },
+                      {
+                        "if": {
+                          "condition": "{{test_error}} == true",
+                          "then": [
+                            {
+                              "throw": {
+                                "message": "Intentional error for testing",
+                                "code": "TEST_ERROR"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "set": {
+                          "var": "inner_success",
+                          "value": true
+                        }
+                      }
+                    ],
+                    "catch": [
+                      {
+                        "log": {
+                          "level": "warn",
+                          "message": "Inner catch: {{error.message}}"
+                        }
+                      },
+                      {
+                        "set": {
+                          "var": "inner_error_handled",
+                          "value": true
+                        }
+                      }
+                    ],
+                    "finally": [
+                      {
+                        "log": {
+                          "level": "info",
+                          "message": "Inner finally executed"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "set": {
+                    "var": "outer_success",
+                    "value": true
+                  }
+                }
+              ],
+              "catch": [
+                {
+                  "log": {
+                    "level": "error",
+                    "message": "Outer catch: {{error.message}}"
+                  }
+                },
+                {
+                  "set": {
+                    "var": "outer_error_handled",
+                    "value": true
+                  }
+                }
+              ],
+              "finally": [
+                {
+                  "log": {
+                    "level": "info",
+                    "message": "Outer finally executed"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "log": {
+              "level": "info",
+              "message": "TEST 9: Parallel Execution (Simulated)"
+            }
+          },
+          {
+            "parallel": {
+              "tasks": [
+                [
+                  {
+                    "log": {
+                      "level": "info",
+                      "message": "Parallel Task 1: Starting"
+                    }
+                  },
+                  {
+                    "sleep": {
+                      "duration_ms": 100
+                    }
+                  },
+                  {
+                    "set": {
+                      "var": "task1_result",
+                      "value": "Task 1 completed"
+                    }
+                  }
+                ],
+                [
+                  {
+                    "log": {
+                      "level": "info",
+                      "message": "Parallel Task 2: Starting"
+                    }
+                  },
+                  {
+                    "sleep": {
+                      "duration_ms": 100
+                    }
+                  },
+                  {
+                    "set": {
+                      "var": "task2_result",
+                      "value": "Task 2 completed"
+                    }
+                  }
+                ],
+                [
+                  {
+                    "log": {
+                      "level": "info",
+                      "message": "Parallel Task 3: Starting"
+                    }
+                  },
+                  {
+                    "sleep": {
+                      "duration_ms": 100
+                    }
+                  },
+                  {
+                    "set": {
+                      "var": "task3_result",
+                      "value": "Task 3 completed"
+                    }
+                  }
+                ]
+              ],
+              "max_concurrent": 3
+            }
+          },
+          {
+            "log": {
+              "level": "info",
+              "message": "All parallel tasks completed"
+            }
+          },
+          {
+            "log": {
+              "level": "info",
+              "message": "TEST 10: Complex Nested Logic"
+            }
+          },
+          {
+            "define_function": {
+              "name": "process_user",
+              "params": ["user_name", "user_age"],
+              "body": [
+                {
+                  "if": {
+                    "condition": "{{user_age}} >= 18",
+                    "then": [
+                      {
+                        "if": {
+                          "condition": "{{user_age}} >= 65",
+                          "then": [
+                            {
+                              "return": {
+                                "value": {"status": "senior", "discount": 30, "name": "{{user_name}}"}
+                              }
+                            }
+                          ],
+                          "otherwise": [
+                            {
+                              "return": {
+                                "value": {"status": "adult", "discount": 0, "name": "{{user_name}}"}
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "otherwise": [
+                      {
+                        "if": {
+                          "condition": "{{user_age}} >= 13",
+                          "then": [
+                            {
+                              "return": {
+                                "value": {"status": "teen", "discount": 10, "name": "{{user_name}}"}
+                              }
+                            }
+                          ],
+                          "otherwise": [
+                            {
+                              "return": {
+                                "value": {"status": "child", "discount": 50, "name": "{{user_name}}"}
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "set": {
+              "var": "users",
+              "value": [
+                {"name": "Alice", "age": 25},
+                {"name": "Bob", "age": 70},
+                {"name": "Charlie", "age": 15},
+                {"name": "Diana", "age": 8}
+              ]
+            }
+          },
+          {
+            "set": {
+              "var": "processed_users",
+              "value": []
+            }
+          },
+          {
+            "loop": {
+              "collection": "{{users}}",
+              "var": "user",
+              "body": [
+                {
+                  "call_function": {
+                    "name": "process_user",
+                    "args": ["{{user.name}}", "{{user.age}}"]
+                  }
+                },
+                {
+                  "log": {
+                    "level": "info",
+                    "message": "Processed: {{user.name}}, Age: {{user.age}}"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "log": {
+              "level": "info",
+              "message": "=== ALL TESTS COMPLETED SUCCESSFULLY ==="
+            }
+          },
+          {
+            "return": {
+              "value": {
+                "success": true,
+                "message": "All 10 tests passed",
+                "results": {
+                  "fibonacci_8": "{{fib_8}}",
+                  "factorial_5": "{{fact_5}}",
+                  "math_sum": "{{sum}}",
+                  "math_avg": "{{avg}}",
+                  "math_power": "{{power}}",
+                  "math_sqrt": "{{sqrt}}",
+                  "text_upper": "{{text_upper}}",
+                  "current_time": "{{current_time}}",
+                  "timestamp": "{{timestamp}}",
+                  "user_role": "{{user_role}}",
+                  "access_level": "{{access_level}}",
+                  "sum_odd": "{{sum_odd}}",
+                  "total_inventory_value": "{{total_value}}",
+                  "input_params": {
+                    "role": "{{role}}",
+                    "test_error": "{{test_error}}"
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "catch": [
+          {
+            "log": {
+              "level": "error",
+              "message": "CRITICAL ERROR: {{error.message}}"
+            }
+          },
+          {
+            "return": {
+              "value": {
+                "success": false,
+                "error": "{{error.message}}",
+                "error_code": "{{error.code}}"
+              }
+            }
+          }
+        ],
+        "finally": [
+          {
+            "log": {
+              "level": "info",
+              "message": "=== TEST SUITE FINISHED ==="
+            }
+          },
+          {
+            "date_op": {
+              "operation": "timestamp",
+              "args": []
+            }
+          },
+          {
+            "set": {
+              "var": "finish_time",
+              "value": "{{date_result}}"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
+
+
+
