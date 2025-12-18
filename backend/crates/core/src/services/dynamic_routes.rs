@@ -220,4 +220,15 @@ impl DynamicRouteService {
         
         self.register_route(route).await
     }
+
+    /// Execute route logic با context
+    pub async fn execute_route_logic(
+        &self,
+        logic: &[LogicOperation],
+        context: &mut DynamicRouteExecutionContext,
+    ) -> Result<Value, String> {
+        let mut steps = Vec::new();
+        let (result, _) = execute_logic_extended(logic, context.clone(), &mut steps).await?;
+        Ok(result)
+    }
 }

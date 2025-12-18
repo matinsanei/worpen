@@ -20,3 +20,4 @@ utoipa = { version = "5", features = ["axum_extras", "uuid"] }
 utoipa-swagger-ui = { version = "8", features = ["axum"] }
 dashmap = "6.1.0"
 futures = "0.3.31"
+url = "2.5"

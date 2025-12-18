@@ -115,6 +115,9 @@ async fn main() {
         .route("/api/v1/dynamic-routes/:id", get(handlers::get_route).put(handlers::update_route).delete(handlers::delete_route))
         .route("/api/v1/dynamic-routes/:id/execute", post(handlers::execute_route))
         .route("/api/v1/dynamic-routes/:id/export", get(handlers::export_route))
+        // Fallback handler برای dynamic routes
+        // این handler همه request های ثبت‌نشده رو میگیره
+        .fallback(handlers::dynamic_route_fallback)
         .layer(cors)
         .with_state(state);
 
