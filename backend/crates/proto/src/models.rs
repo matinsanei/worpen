@@ -183,14 +183,48 @@ pub enum LogicOperation {
     QueryDb { query: String, params: Vec<serde_json::Value> },
     
     #[serde(rename = "http_request")]
-    HttpRequest { url: String, method: String, body: Option<serde_json::Value> },
+    HttpRequest { url: String, method: String, body: Option<serde_json::Value>, headers: Option<std::collections::HashMap<String, String>>, timeout_ms: Option<u64> },
     
-    // Control Flow
+    // Control Flow - Basic
     #[serde(rename = "if")]
     If { condition: String, then: Vec<LogicOperation>, otherwise: Option<Vec<LogicOperation>> },
     
     #[serde(rename = "loop")]
     Loop { collection: String, var: String, body: Vec<LogicOperation> },
+    
+    // Control Flow - Advanced
+    #[serde(rename = "switch")]
+    Switch { value: String, cases: Vec<SwitchCase>, default: Option<Vec<LogicOperation>> },
+    
+    #[serde(rename = "while")]
+    While { condition: String, body: Vec<LogicOperation>, max_iterations: Option<u32> },
+    
+    #[serde(rename = "break")]
+    Break,
+    
+    #[serde(rename = "continue")]
+    Continue,
+    
+    // Error Handling
+    #[serde(rename = "try")]
+    Try { body: Vec<LogicOperation>, catch: Vec<LogicOperation>, finally: Option<Vec<LogicOperation>> },
+    
+    #[serde(rename = "throw")]
+    Throw { message: String, code: Option<String> },
+    
+    // Parallel Execution
+    #[serde(rename = "parallel")]
+    Parallel { tasks: Vec<Vec<LogicOperation>>, max_concurrent: Option<usize> },
+    
+    #[serde(rename = "await_all")]
+    AwaitAll { task_ids: Vec<String> },
+    
+    // Function Operations
+    #[serde(rename = "define_function")]
+    DefineFunction { name: String, params: Vec<String>, body: Vec<LogicOperation> },
+    
+    #[serde(rename = "call_function")]
+    CallFunction { name: String, args: Vec<serde_json::Value> },
     
     // Data Transformations
     #[serde(rename = "map")]
@@ -209,9 +243,35 @@ pub enum LogicOperation {
     #[serde(rename = "get")]
     Get { var: String },
     
+    // Helper Functions
+    #[serde(rename = "string_op")]
+    StringOp { operation: String, input: String, args: Vec<serde_json::Value> }, // split, join, upper, lower, trim, replace, regex_match
+    
+    #[serde(rename = "math_op")]
+    MathOp { operation: String, args: Vec<serde_json::Value> }, // sum, avg, min, max, round, ceil, floor, abs, pow, sqrt
+    
+    #[serde(rename = "date_op")]
+    DateOp { operation: String, args: Vec<serde_json::Value> }, // now, parse, format, add, diff
+    
+    #[serde(rename = "json_op")]
+    JsonOp { operation: String, input: String, args: Vec<serde_json::Value> }, // parse, stringify, merge, get_path, set_path
+    
+    // Logging & Debugging
+    #[serde(rename = "log")]
+    Log { level: String, message: String },
+    
+    #[serde(rename = "sleep")]
+    Sleep { duration_ms: u64 },
+    
     // Custom Script Execution
     #[serde(rename = "execute_script")]
     ExecuteScript { language: String, code: String },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct SwitchCase {
+    pub value: serde_json::Value,
+    pub operations: Vec<LogicOperation>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -295,4 +355,26 @@ pub struct DynamicRouteExecutionContext {
     pub request_payload: Option<serde_json::Value>,
     pub path_params: std::collections::HashMap<String, String>,
     pub query_params: std::collections::HashMap<String, String>,
+    pub functions: std::collections::HashMap<String, FunctionDefinition>,
+    pub loop_control: LoopControl,
+    pub error_context: Option<ErrorContext>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct FunctionDefinition {
+    pub params: Vec<String>,
+    pub body: Vec<LogicOperation>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]
+pub struct LoopControl {
+    pub should_break: bool,
+    pub should_continue: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ErrorContext {
+    pub message: String,
+    pub code: Option<String>,
+    pub stack: Vec<String>,
 }

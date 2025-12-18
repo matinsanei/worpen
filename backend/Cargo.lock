@@ -251,9 +251,11 @@ name = "core"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "futures",
  "proto",
  "serde",
  "serde_json",
+ "tokio",
  "uuid",
 ]
 

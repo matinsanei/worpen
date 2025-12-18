@@ -5,6 +5,7 @@ pub mod incident;
 pub mod automation;
 pub mod pipelines;
 pub mod dynamic_routes;
+pub mod dynamic_routes_extended;
 
 pub use agent_service::AgentService;
 pub use dashboard::DashboardService;

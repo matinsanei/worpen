@@ -2,9 +2,10 @@ use std::sync::Arc;
 use std::collections::HashMap;
 use proto::models::{
     RouteDefinition, LogicOperation, RouteTestRequest, RouteTestResponse,
-    DynamicRouteExecutionContext,
+    DynamicRouteExecutionContext, LoopControl,
 };
 use serde_json::Value;
+use crate::services::dynamic_routes_extended::execute_logic_extended;
 
 pub struct DynamicRouteService {
     // In production, this would be a repository
@@ -100,6 +101,9 @@ impl DynamicRouteService {
             query_params: request.test_params.iter()
                 .map(|(k, v)| (k.clone(), v.to_string()))
                 .collect(),
+            functions: HashMap::new(),
+            loop_control: LoopControl::default(),
+            error_context: None,
         };
         
         steps.push("Execution context created".to_string());
@@ -153,118 +157,25 @@ impl DynamicRouteService {
             request_payload: payload,
             path_params,
             query_params,
+            functions: HashMap::new(),
+            loop_control: LoopControl::default(),
+            error_context: None,
         };
         
         let mut steps = Vec::new();
-        self.execute_logic(&route.logic, context, &mut steps).await
+        execute_logic_extended(&route.logic, context, &mut steps).await
     }
 
-    /// Execute logic operations
+    /// Legacy execute logic (now uses extended version)
     fn execute_logic<'a>(
         &'a self,
         operations: &'a [LogicOperation],
-        mut context: DynamicRouteExecutionContext,
+        context: DynamicRouteExecutionContext,
         steps: &'a mut Vec<String>,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Value, String>> + Send + 'a>> {
         Box::pin(async move {
-        let mut last_result = Value::Null;
-        
-        for (idx, operation) in operations.iter().enumerate() {
-            steps.push(format!("Step {}: {:?}", idx + 1, operation));
-            
-            match operation {
-                LogicOperation::Return { value } => {
-                    steps.push(format!("Returning value: {}", value));
-                    return Ok(value.clone());
-                },
-                
-                LogicOperation::Set { var, value } => {
-                    context.variables.insert(var.clone(), value.clone());
-                    steps.push(format!("Set variable '{}' = {}", var, value));
-                    last_result = value.clone();
-                },
-                
-                LogicOperation::Get { var } => {
-                    last_result = context.variables.get(var)
-                        .cloned()
-                        .unwrap_or(Value::Null);
-                    steps.push(format!("Get variable '{}' = {}", var, last_result));
-                },
-                
-                LogicOperation::QueryDb { query, params } => {
-                    steps.push(format!("Execute DB query: {} with params: {:?}", query, params));
-                    // Mock database query
-                    last_result = serde_json::json!({
-                        "rows": [],
-                        "count": 0,
-                        "query": query,
-                    });
-                },
-                
-                LogicOperation::HttpRequest { url, method, body: _ } => {
-                    steps.push(format!("HTTP {} request to: {}", method, url));
-                    // Mock HTTP request
-                    last_result = serde_json::json!({
-                        "status": 200,
-                        "body": {"message": "Mock response"},
-                        "url": url,
-                    });
-                },
-                
-                LogicOperation::If { condition, then, otherwise } => {
-                    steps.push(format!("Evaluate condition: {}", condition));
-                    // Simple condition evaluation (mock)
-                    let condition_result = self.evaluate_condition(condition, &context);
-                    
-                    if condition_result {
-                        steps.push("Condition is TRUE, executing THEN branch".to_string());
-                        last_result = self.execute_logic(then, context.clone(), steps).await?;
-                    } else if let Some(else_ops) = otherwise {
-                        steps.push("Condition is FALSE, executing ELSE branch".to_string());
-                        last_result = self.execute_logic(else_ops, context.clone(), steps).await?;
-                    }
-                },
-                
-                LogicOperation::Loop { collection, var, body } => {
-                    steps.push(format!("Loop over collection '{}' as '{}'", collection, var));
-                    // Mock loop - execute body 3 times
-                    let mut results = Vec::new();
-                    for i in 0..3 {
-                        let mut loop_context = context.clone();
-                        loop_context.variables.insert(var.clone(), serde_json::json!(i));
-                        let result = self.execute_logic(body, loop_context, steps).await?;
-                        results.push(result);
-                    }
-                    last_result = serde_json::json!(results);
-                },
-                
-                LogicOperation::Map { input, transform } => {
-                    steps.push(format!("Map '{}' with transform: {}", input, transform));
-                    last_result = serde_json::json!([1, 2, 3]); // Mock
-                },
-                
-                LogicOperation::Filter { input, condition } => {
-                    steps.push(format!("Filter '{}' with condition: {}", input, condition));
-                    last_result = serde_json::json!([1, 2]); // Mock
-                },
-                
-                LogicOperation::Aggregate { input, operation } => {
-                    steps.push(format!("Aggregate '{}' using: {}", input, operation));
-                    last_result = serde_json::json!(42); // Mock
-                },
-                
-                LogicOperation::ExecuteScript { language, code } => {
-                    steps.push(format!("Execute {} script: {}", language, code));
-                    last_result = serde_json::json!({
-                        "result": "Script executed successfully",
-                        "language": language,
-                    });
-                },
-            }
-        }
-        
-        Ok(last_result)
-        })
+        execute_logic_extended(operations, context, steps).await
+    })
     }
 
     /// Validate route definition
