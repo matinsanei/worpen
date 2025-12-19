@@ -1413,58 +1413,79 @@ backend/
 
 ### 📅 Phase 3: Advanced Features (4 روز)
 
-#### Day 12: Schema Validation
+#### Day 12: Schema Validation ✅ COMPLETED (commit: a2bb0fe)
 **هدف:** JSON Schema validation برای input
 
 **Tasks:**
-- [ ] اضافه کردن `jsonschema` crate
-- [ ] Parser برای `schema` field
-- [ ] Auto-validation قبل از اجرا
-- [ ] Custom error messages
+- [x] اضافه کردن `jsonschema` crate (v0.18)
+- [x] Schema validation module با Draft 7
+- [x] Auto-validation برای YAML routes
+- [x] Detailed error messages با path
+- [x] 11 unit tests + 9 integration tests
+
+**Files:**
+```
+backend/crates/core/src/
+└── validation.rs                          (370+ lines)
+    ├── validate_input()                   (simple validation)
+    ├── validate_with_details()            (detailed errors)
+    ├── ValidationResult                   (structured result)
+    └── ValidationError                    (error details)
+
+backend/crates/core/tests/
+└── integration_schema_validation.rs       (450+ lines, 9 tests)
+    ├── User registration schema
+    ├── Product schema with enums
+    ├── Nested objects
+    ├── Array validation
+    ├── Checkout request
+    ├── API key request
+    ├── Webhook config
+    └── Phone number patterns
+```
 
 **کد نمونه:**
 ```rust
-// validation/schema.rs
+// validation.rs
 use jsonschema::{Draft, JSONSchema};
 
-pub fn validate_input(
-    input: &Value,
-    schema: &SchemaDefinition,
-) -> Result<(), ValidationErrors> {
-    let schema_json = schema_to_json_schema(schema);
+pub fn validate_input(data: &Value, schema: &Value) -> Result<(), String> {
     let compiled = JSONSchema::options()
         .with_draft(Draft::Draft7)
-        .compile(&schema_json)
-        .map_err(|e| ValidationErrors::SchemaInvalid(e.to_string()))?;
+        .compile(schema)
+        .map_err(|e| format!("Invalid schema: {}", e))?;
     
-    if let Err(errors) = compiled.validate(input) {
-        let messages: Vec<String> = errors
-            .map(|e| format!("{}: {}", e.instance_path, e))
-            .collect();
-        return Err(ValidationErrors::ValidationFailed(messages));
+    let validation_result = compiled.validate(data);
+    
+    match validation_result {
+        Ok(_) => Ok(()),
+        Err(errors) => {
+            let error_messages: Vec<String> = errors
+                .map(|e| format!("{} at {}", e, e.instance_path))
+                .collect();
+            
+            Err(format!("Validation failed:\n- {}", error_messages.join("\n- ")))
+        }
     }
-    
-    Ok(())
 }
 ```
 
-**مثال:**
-```yaml
-schema:
-  email:
-    type: string
-    required: true
-    format: email
-  age:
-    type: number
-    required: true
-    minimum: 18
-    maximum: 120
+**Schema Support:**
+- ✅ Type validation (string, number, integer, boolean, array, object)
+- ✅ Format validation (email, uri, phone patterns)
+- ✅ Number constraints (minimum, maximum)
+- ✅ String constraints (minLength, maxLength, pattern)
+- ✅ Array constraints (minItems, maxItems, uniqueItems)
+- ✅ Enum validation
+- ✅ Nested objects
+- ✅ Required fields
+- ✅ Additional properties control
+- ✅ Multiple validation errors
 
-operations:
-  # اگه validation fail شد، اتوماتیک 400 return میشه
-  # با error message دقیق
-```
+**Stats:**
+- ✅ 20 total validation tests (11 unit + 9 integration)
+- ✅ 159 total tests passing
+- ✅ Full JSON Schema Draft 7 support
 
 ---
 
