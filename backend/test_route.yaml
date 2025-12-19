@@ -1,0 +1,12 @@
+﻿name: Test YAML Route
+description: E2E test
+path: /api/test/yaml
+method: GET
+logic:
+  - return:
+      value:
+        message: Hello from YAML
+parameters: []
+enabled: true
+version: 1.0.0
+auth_required: false

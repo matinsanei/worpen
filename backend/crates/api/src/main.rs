@@ -109,6 +109,8 @@ async fn main() {
         .route("/api/v1/terminal/sessions", get(handlers::list_terminal_sessions))
         // Dynamic Routes Engine
         .route("/api/v1/dynamic-routes", get(handlers::list_routes).post(handlers::register_route))
+        .route("/api/v1/dynamic-routes/register", post(handlers::register_route_raw)) // YAML support
+        .route("/api/v1/dynamic-routes/formats", get(handlers::get_format_stats)) // Format info
         .route("/api/v1/dynamic-routes/stats", get(handlers::get_route_stats))
         .route("/api/v1/dynamic-routes/test", post(handlers::test_route))
         .route("/api/v1/dynamic-routes/import", post(handlers::import_route))
