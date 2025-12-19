@@ -19,6 +19,8 @@ use crate::parsers::detector::{detect_format, InputFormat};
 /// # Examples
 /// 
 /// ```
+/// use core::parsers::route_parser::parse_route;
+/// 
 /// let json = r#"{"name":"test","path":"/test","method":"GET","logic":[]}"#;
 /// let route = parse_route(json).unwrap();
 /// assert_eq!(route.name, "test");
