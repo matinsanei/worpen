@@ -1263,14 +1263,16 @@ mod builtin {
 
 ---
 
-#### Day 9-10: Expression Integration
+#### Day 9-10: Expression Integration ✅ COMPLETED (commit: b042681)
 **هدف:** ادغام Expression Compiler با Route Parser
 
 **Tasks:**
-- [ ] Resolve expressions در `{{...}}`
-- [ ] Update `normalize_operation()` برای شناسایی expressions
-- [ ] Variable assignment shorthand
-- [ ] Tests
+- [x] Resolve expressions در `{{...}}` syntax
+- [x] Template resolver با regex-based parsing
+- [x] Variable assignment و expression evaluation
+- [x] Support برای pure expressions (return value) vs mixed templates (return string)
+- [x] Nested object/array template resolution
+- [x] 12 unit tests + 10 integration tests covering all scenarios
 
 **کد نمونه:**
 ```rust
