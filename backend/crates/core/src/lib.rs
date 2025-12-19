@@ -4,6 +4,7 @@ pub mod services;
 pub mod parsers;
 pub mod expression;
 pub mod validation;
+pub mod helpers;
 
 pub use domain::*;
 pub use ports::*;

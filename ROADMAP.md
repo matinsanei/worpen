@@ -1489,8 +1489,97 @@ pub fn validate_input(data: &Value, schema: &Value) -> Result<(), String> {
 
 ---
 
-#### Day 13: Helper Functions Library
+#### Day 13: Helper Functions Library ✅
 **هدف:** Standard library از helper functions
+
+**Status:** ✅ COMPLETED (40+ helper functions implemented)
+
+**Completed Tasks:**
+- ✅ پیاده‌سازی UUID generation
+- ✅ پیاده‌سازی Password hashing helpers
+- ✅ پیاده‌سازی Date/Time helpers (now_iso, now_unix, today, now_time, add_days, add_hours, format_timestamp, parse_iso_timestamp)
+- ✅ پیاده‌سازی Random helpers (random_int, random_float, random_string)
+- ✅ پیاده‌سازی Encoding helpers (base64_encode/decode, url_encode/decode, html_escape/unescape)
+- ✅ پیاده‌سازی String helpers (slugify, truncate, word_count, initials)
+- ✅ پیاده‌سازی Email helpers (email_domain, email_username, is_email)
+- ✅ پیاده‌سازی URL helpers (is_url)
+- ✅ پیاده‌سازی JSON helpers (json_parse, json_stringify, json_pretty)
+- ✅ پیاده‌سازی Formatting helpers (format_number, format_bytes)
+- ✅ پیاده‌سازی Hash helpers (md5_hash)
+- ✅ Integration با Expression Evaluator
+- ✅ 27 unit tests
+- ✅ Demo route: helper_functions_demo.json
+
+**Implemented Functions (40+):**
+```rust
+// UUID
+generate_uuid()
+
+// Hashing
+hash_password(password)
+md5_hash(text)
+
+// Date/Time
+now_iso()
+now_unix()
+today()
+now_time()
+add_days(timestamp, days)
+add_hours(timestamp, hours)
+format_timestamp(timestamp, format)
+parse_iso_timestamp(iso_string)
+
+// Random
+random_int(min, max)
+random_float(min, max)
+random_string(length)
+
+// Encoding
+base64_encode(text)
+base64_decode(encoded)
+url_encode(text)
+url_decode(encoded)
+html_escape(html)
+html_unescape(escaped)
+
+// String Utilities
+slugify(text)
+truncate(text, max_length)
+word_count(text)
+initials(name)
+
+// Email Utilities
+email_domain(email)
+email_username(email)
+is_email(text)
+
+// URL Utilities
+is_url(text)
+
+// JSON Utilities
+json_parse(json_string)
+json_stringify(value)
+json_pretty(value)
+
+// Formatting
+format_number(num, decimals)
+format_bytes(bytes)
+```
+
+**Files:**
+- `crates/core/src/helpers.rs`: 630+ lines, 40+ functions
+- `helper_functions_demo.json`: Demo route showcasing all helpers
+- `register_helpers_demo.py`: Test script
+
+**Tests:**
+- 27 unit tests in helpers.rs
+- All tests passing ✅
+
+**Total Tests:** 145 passing (118 existing + 27 new)
+
+---
+
+#### Day 13: Helper Functions Library (OLD - Archived)
 
 **Tasks:**
 - [ ] پیاده‌سازی String helpers

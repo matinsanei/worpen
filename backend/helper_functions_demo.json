@@ -1,0 +1,66 @@
+{
+  "method": "GET",
+  "path": "/api/helpers/demo",
+  "description": "Demo of all helper functions - Phase 3 Day 13",
+  "steps": [
+    {
+      "action": "set",
+      "target": "helpers",
+      "value": {
+        "uuid": "{{ uuid() }}",
+        "timestamp": "{{ now() }}",
+        "unix_time": "{{ now_unix() }}",
+        "today": "{{ today() }}",
+        "time": "{{ now_time() }}",
+        "random_num": "{{ random_int(1, 100) }}",
+        "random_float": "{{ random_float(0.0, 1.0) }}",
+        "random_string": "{{ random_string(10) }}",
+        "base64": "{{ base64_encode('Hello World') }}",
+        "url_encoded": "{{ url_encode('hello world@test.com') }}",
+        "slug": "{{ slugify('Hello World 123') }}",
+        "truncated": "{{ truncate('This is a long text', 10) }}",
+        "words": "{{ word_count('Hello World Test') }}",
+        "initials": "{{ initials('John Doe Smith') }}",
+        "email_user": "{{ email_username('user@example.com') }}",
+        "email_domain": "{{ email_domain('user@example.com') }}",
+        "is_valid_email": "{{ is_email('test@example.com') }}",
+        "is_valid_url": "{{ is_url('https://example.com') }}",
+        "formatted_number": "{{ format_number(1234567.89, 2) }}",
+        "formatted_bytes": "{{ format_bytes(1048576) }}",
+        "html_escaped": "{{ html_escape('<script>alert(1)</script>') }}",
+        "json_test": "{{ json_parse('{\"key\":\"value\"}') }}",
+        "md5": "{{ md5('test') }}",
+        "password_hash": "{{ hash_password('secret123') }}"
+      }
+    },
+    {
+      "action": "respond",
+      "status": 200,
+      "body": {
+        "success": true,
+        "message": "Helper Functions Demo - Phase 3 Day 13",
+        "helpers": "{{ helpers }}",
+        "stats": {
+          "total_functions": 40,
+          "categories": [
+            "UUID Generation",
+            "Password Hashing",
+            "Date/Time Operations",
+            "Random Value Generation",
+            "Encoding/Decoding",
+            "String Utilities",
+            "Email Utilities",
+            "URL Utilities",
+            "JSON Operations",
+            "Formatting"
+          ]
+        },
+        "examples": {
+          "add_days": "{{ add_days(now(), 7) }}",
+          "add_hours": "{{ add_hours(now(), 24) }}",
+          "format_timestamp": "{{ format_timestamp(now(), '%Y-%m-%d %H:%M') }}"
+        }
+      }
+    }
+  ]
+}

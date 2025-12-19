@@ -3,6 +3,7 @@
 
 use crate::expression::ast::{Expr, BinaryOp, UnaryOp, PipeFilter};
 use crate::expression::filters;
+use crate::helpers;
 use serde_json::{Value, Number};
 use std::collections::HashMap;
 
@@ -270,6 +271,304 @@ impl Evaluator {
                 _ => return Err("len requires string, array, or object".to_string()),
             };
             Ok(Value::Number(Number::from(len)))
+        });
+        
+        // UUID functions
+        self.register_function("uuid", |args| {
+            if !args.is_empty() {
+                return Err("uuid requires no arguments".to_string());
+            }
+            Ok(Value::String(helpers::generate_uuid()))
+        });
+        
+        // Hashing functions
+        self.register_function("hash_password", |args| {
+            if args.len() != 1 {
+                return Err("hash_password requires 1 argument".to_string());
+            }
+            let password = args[0].as_str().ok_or("hash_password requires string")?;
+            Ok(Value::String(helpers::hash_password(password)))
+        });
+        
+        self.register_function("md5", |args| {
+            if args.len() != 1 {
+                return Err("md5 requires 1 argument".to_string());
+            }
+            let text = args[0].as_str().ok_or("md5 requires string")?;
+            Ok(Value::String(helpers::md5_hash(text)))
+        });
+        
+        // DateTime functions
+        self.register_function("now", |args| {
+            if !args.is_empty() {
+                return Err("now requires no arguments".to_string());
+            }
+            Ok(Value::String(helpers::now_iso()))
+        });
+        
+        self.register_function("now_unix", |args| {
+            if !args.is_empty() {
+                return Err("now_unix requires no arguments".to_string());
+            }
+            Ok(Value::Number(Number::from(helpers::now_unix())))
+        });
+        
+        self.register_function("today", |args| {
+            if !args.is_empty() {
+                return Err("today requires no arguments".to_string());
+            }
+            Ok(Value::String(helpers::today()))
+        });
+        
+        self.register_function("now_time", |args| {
+            if !args.is_empty() {
+                return Err("now_time requires no arguments".to_string());
+            }
+            Ok(Value::String(helpers::now_time()))
+        });
+        
+        self.register_function("add_days", |args| {
+            if args.len() != 2 {
+                return Err("add_days requires 2 arguments".to_string());
+            }
+            let timestamp = args[0].as_str().ok_or("add_days requires string timestamp")?;
+            let days = args[1].as_i64().ok_or("add_days requires integer days")? as i32;
+            helpers::add_days(timestamp, days)
+                .map(Value::String)
+                .map_err(|e| e.to_string())
+        });
+        
+        self.register_function("add_hours", |args| {
+            if args.len() != 2 {
+                return Err("add_hours requires 2 arguments".to_string());
+            }
+            let timestamp = args[0].as_str().ok_or("add_hours requires string timestamp")?;
+            let hours = args[1].as_i64().ok_or("add_hours requires integer hours")? as i32;
+            helpers::add_hours(timestamp, hours)
+                .map(Value::String)
+                .map_err(|e| e.to_string())
+        });
+        
+        self.register_function("format_timestamp", |args| {
+            if args.len() != 2 {
+                return Err("format_timestamp requires 2 arguments".to_string());
+            }
+            let timestamp = args[0].as_str().ok_or("format_timestamp requires string timestamp")?;
+            let format = args[1].as_str().ok_or("format_timestamp requires string format")?;
+            helpers::format_timestamp(timestamp, format)
+                .map(Value::String)
+                .map_err(|e| e.to_string())
+        });
+        
+        self.register_function("parse_timestamp", |args| {
+            if args.len() != 1 {
+                return Err("parse_timestamp requires 1 argument".to_string());
+            }
+            let timestamp = args[0].as_str().ok_or("parse_timestamp requires string")?;
+            helpers::parse_iso_timestamp(timestamp)
+                .map(|ts| Value::Number(Number::from(ts)))
+                .map_err(|e| e.to_string())
+        });
+        
+        // Random functions
+        self.register_function("random_int", |args| {
+            if args.len() != 2 {
+                return Err("random_int requires 2 arguments".to_string());
+            }
+            let min = args[0].as_i64().ok_or("random_int requires integer min")?;
+            let max = args[1].as_i64().ok_or("random_int requires integer max")?;
+            Ok(Value::Number(Number::from(helpers::random_int(min, max))))
+        });
+        
+        self.register_function("random_float", |args| {
+            if args.len() != 2 {
+                return Err("random_float requires 2 arguments".to_string());
+            }
+            let min = args[0].as_f64().ok_or("random_float requires number min")?;
+            let max = args[1].as_f64().ok_or("random_float requires number max")?;
+            Ok(Value::Number(Number::from_f64(helpers::random_float(min, max)).ok_or("Invalid number")?))
+        });
+        
+        self.register_function("random_string", |args| {
+            if args.len() != 1 {
+                return Err("random_string requires 1 argument".to_string());
+            }
+            let length = args[0].as_u64().ok_or("random_string requires positive integer")? as usize;
+            Ok(Value::String(helpers::random_string(length)))
+        });
+        
+        // Encoding functions
+        self.register_function("base64_encode", |args| {
+            if args.len() != 1 {
+                return Err("base64_encode requires 1 argument".to_string());
+            }
+            let text = args[0].as_str().ok_or("base64_encode requires string")?;
+            Ok(Value::String(helpers::base64_encode(text)))
+        });
+        
+        self.register_function("base64_decode", |args| {
+            if args.len() != 1 {
+                return Err("base64_decode requires 1 argument".to_string());
+            }
+            let encoded = args[0].as_str().ok_or("base64_decode requires string")?;
+            helpers::base64_decode(encoded)
+                .map(Value::String)
+                .map_err(|e| e.to_string())
+        });
+        
+        self.register_function("url_encode", |args| {
+            if args.len() != 1 {
+                return Err("url_encode requires 1 argument".to_string());
+            }
+            let text = args[0].as_str().ok_or("url_encode requires string")?;
+            Ok(Value::String(helpers::url_encode(text)))
+        });
+        
+        self.register_function("url_decode", |args| {
+            if args.len() != 1 {
+                return Err("url_decode requires 1 argument".to_string());
+            }
+            let encoded = args[0].as_str().ok_or("url_decode requires string")?;
+            helpers::url_decode(encoded)
+                .map(Value::String)
+                .map_err(|e| e.to_string())
+        });
+        
+        self.register_function("html_escape", |args| {
+            if args.len() != 1 {
+                return Err("html_escape requires 1 argument".to_string());
+            }
+            let text = args[0].as_str().ok_or("html_escape requires string")?;
+            Ok(Value::String(helpers::html_escape(text)))
+        });
+        
+        self.register_function("html_unescape", |args| {
+            if args.len() != 1 {
+                return Err("html_unescape requires 1 argument".to_string());
+            }
+            let escaped = args[0].as_str().ok_or("html_unescape requires string")?;
+            Ok(Value::String(helpers::html_unescape(escaped)))
+        });
+        
+        // String utility functions
+        self.register_function("slugify", |args| {
+            if args.len() != 1 {
+                return Err("slugify requires 1 argument".to_string());
+            }
+            let text = args[0].as_str().ok_or("slugify requires string")?;
+            Ok(Value::String(helpers::slugify(text)))
+        });
+        
+        self.register_function("truncate", |args| {
+            if args.len() != 2 {
+                return Err("truncate requires 2 arguments".to_string());
+            }
+            let text = args[0].as_str().ok_or("truncate requires string")?;
+            let max_len = args[1].as_u64().ok_or("truncate requires positive integer")? as usize;
+            Ok(Value::String(helpers::truncate(text, max_len)))
+        });
+        
+        self.register_function("word_count", |args| {
+            if args.len() != 1 {
+                return Err("word_count requires 1 argument".to_string());
+            }
+            let text = args[0].as_str().ok_or("word_count requires string")?;
+            Ok(Value::Number(Number::from(helpers::word_count(text))))
+        });
+        
+        self.register_function("initials", |args| {
+            if args.len() != 1 {
+                return Err("initials requires 1 argument".to_string());
+            }
+            let name = args[0].as_str().ok_or("initials requires string")?;
+            Ok(Value::String(helpers::initials(name)))
+        });
+        
+        // Email utility functions
+        self.register_function("email_domain", |args| {
+            if args.len() != 1 {
+                return Err("email_domain requires 1 argument".to_string());
+            }
+            let email = args[0].as_str().ok_or("email_domain requires string")?;
+            helpers::email_domain(email)
+                .map(Value::String)
+                .ok_or_else(|| "Invalid email format".to_string())
+        });
+        
+        self.register_function("email_username", |args| {
+            if args.len() != 1 {
+                return Err("email_username requires 1 argument".to_string());
+            }
+            let email = args[0].as_str().ok_or("email_username requires string")?;
+            helpers::email_username(email)
+                .map(Value::String)
+                .ok_or_else(|| "Invalid email format".to_string())
+        });
+        
+        self.register_function("is_email", |args| {
+            if args.len() != 1 {
+                return Err("is_email requires 1 argument".to_string());
+            }
+            let text = args[0].as_str().ok_or("is_email requires string")?;
+            Ok(Value::Bool(helpers::is_email(text)))
+        });
+        
+        self.register_function("is_url", |args| {
+            if args.len() != 1 {
+                return Err("is_url requires 1 argument".to_string());
+            }
+            let text = args[0].as_str().ok_or("is_url requires string")?;
+            Ok(Value::Bool(helpers::is_url(text)))
+        });
+        
+        // JSON utility functions
+        self.register_function("json_parse", |args| {
+            if args.len() != 1 {
+                return Err("json_parse requires 1 argument".to_string());
+            }
+            let json_str = args[0].as_str().ok_or("json_parse requires string")?;
+            helpers::json_parse(json_str)
+                .map_err(|e| e.to_string())
+        });
+        
+        self.register_function("json_stringify", |args| {
+            if args.len() != 1 {
+                return Err("json_stringify requires 1 argument".to_string());
+            }
+            helpers::json_stringify(&args[0])
+                .map(Value::String)
+                .map_err(|e| e.to_string())
+        });
+        
+        self.register_function("json_pretty", |args| {
+            if args.len() != 1 {
+                return Err("json_pretty requires 1 argument".to_string());
+            }
+            helpers::json_pretty(&args[0])
+                .map(Value::String)
+                .map_err(|e| e.to_string())
+        });
+        
+        // Formatting functions
+        self.register_function("format_number", |args| {
+            if args.len() < 1 || args.len() > 2 {
+                return Err("format_number requires 1 or 2 arguments".to_string());
+            }
+            let number = args[0].as_f64().ok_or("format_number requires number")?;
+            let decimals = if args.len() == 2 {
+                args[1].as_u64().ok_or("format_number decimals requires positive integer")? as usize
+            } else {
+                2
+            };
+            Ok(Value::String(helpers::format_number(number, decimals)))
+        });
+        
+        self.register_function("format_bytes", |args| {
+            if args.len() != 1 {
+                return Err("format_bytes requires 1 argument".to_string());
+            }
+            let bytes = args[0].as_u64().ok_or("format_bytes requires positive integer")?;
+            Ok(Value::String(helpers::format_bytes(bytes)))
         });
     }
     
