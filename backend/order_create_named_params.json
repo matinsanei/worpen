@@ -1,0 +1,98 @@
+{
+  "method": "POST",
+  "path": "/api/orders/create",
+  "description": "Create order with items using SQL Named Parameters - Phase 3 Day 14",
+  "steps": [
+    {
+      "action": "set",
+      "target": "order_id",
+      "value": "{{ uuid() }}"
+    },
+    {
+      "action": "set",
+      "target": "order_number",
+      "value": "{{ 'ORD-' + random_int(10000, 99999) }}"
+    },
+    {
+      "action": "set",
+      "target": "created_at",
+      "value": "{{ now() }}"
+    },
+    {
+      "action": "sql",
+      "query": "INSERT INTO orders (id, order_number, user_id, status, total_amount, created_at) VALUES (:id, :order_number, :user_id, :status, :total, :created_at)",
+      "params": {
+        "id": "{{ order_id }}",
+        "order_number": "{{ order_number }}",
+        "user_id": "{{ request.user_id }}",
+        "status": "pending",
+        "total": "{{ request.total_amount }}",
+        "created_at": "{{ created_at }}"
+      }
+    },
+    {
+      "action": "for_each",
+      "items": "{{ request.items }}",
+      "item_name": "item",
+      "body": [
+        {
+          "action": "set",
+          "target": "item_id",
+          "value": "{{ uuid() }}"
+        },
+        {
+          "action": "sql",
+          "query": "INSERT INTO order_items (id, order_id, product_id, quantity, price, subtotal) VALUES (:id, :order_id, :product_id, :quantity, :price, :subtotal)",
+          "params": {
+            "id": "{{ item_id }}",
+            "order_id": "{{ order_id }}",
+            "product_id": "{{ item.product_id }}",
+            "quantity": "{{ item.quantity }}",
+            "price": "{{ item.price }}",
+            "subtotal": "{{ item.quantity * item.price }}"
+          }
+        },
+        {
+          "action": "sql",
+          "query": "UPDATE products SET stock = stock - :quantity WHERE id = :product_id",
+          "params": {
+            "quantity": "{{ item.quantity }}",
+            "product_id": "{{ item.product_id }}"
+          }
+        }
+      ]
+    },
+    {
+      "action": "sql",
+      "query": "SELECT * FROM orders WHERE id = :order_id",
+      "params": {
+        "order_id": "{{ order_id }}"
+      },
+      "target": "order"
+    },
+    {
+      "action": "sql",
+      "query": "SELECT * FROM order_items WHERE order_id = :order_id",
+      "params": {
+        "order_id": "{{ order_id }}"
+      },
+      "target": "order_items"
+    },
+    {
+      "action": "respond",
+      "status": 201,
+      "body": {
+        "success": true,
+        "message": "Order created successfully",
+        "order": {
+          "id": "{{ order_id }}",
+          "order_number": "{{ order_number }}",
+          "status": "{{ order.status }}",
+          "total_amount": "{{ order.total_amount }}",
+          "items_count": "{{ order_items | length }}",
+          "created_at": "{{ created_at }}"
+        }
+      }
+    }
+  ]
+}

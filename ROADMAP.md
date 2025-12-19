@@ -1649,8 +1649,92 @@ pub fn nanoid() -> String {
 
 ---
 
-#### Day 14: SQL Named Parameters
-**هدف:** پشتیبانی از `:name` به جای `?`
+#### Day 14: SQL Named Parameters ✅
+**هدف:** پشتیبانی از `:param_name` syntax به جای `?`
+
+**Status:** ✅ COMPLETED
+
+**Completed Tasks:**
+- ✅ Parser برای `:param_name` syntax
+- ✅ تبدیل خودکار به `?` placeholders
+- ✅ Parameter extraction و ordering
+- ✅ Binding values from context
+- ✅ Expression evaluation support
+- ✅ SqlParamBuilder fluent interface
+- ✅ 14 unit tests
+- ✅ 3 demo routes (registration, update, order)
+- ✅ Python test suite
+
+**Implemented Features:**
+
+1. **NamedQuery Parser**
+   - Parse SQL با `:param_name` syntax
+   - تبدیل به positional placeholders (`?`)
+   - استخراج نام پارامترها به ترتیب
+
+2. **Parameter Binding**
+   - `bind_params()` - اتصال مستقیم از HashMap
+   - `bind_params_with_eval()` - پشتیبانی از expressions
+   - Validation برای missing parameters
+
+3. **SqlParamBuilder**
+   - Fluent interface برای ساخت queries
+   - `.param(name, value)` chain کردن
+   - `.build_with_eval()` برای evaluation
+
+**کد نمونه:**
+```rust
+// Parse query with named parameters
+let query = NamedQuery::parse("SELECT * FROM users WHERE email = :email AND age > :min_age");
+
+// query.param_names = ["email", "min_age"]
+// query.query = "SELECT * FROM users WHERE email = ? AND age > ?"
+
+// Bind parameters
+let mut params = HashMap::new();
+params.insert("email".to_string(), json!("user@example.com"));
+params.insert("min_age".to_string(), json!(18));
+
+let values = query.bind_params(&params)?;
+// values = [json!("user@example.com"), json!(18)]
+
+// With expression evaluation
+params.insert("email".to_string(), json!("{{ request.email | lower }}"));
+let values = query.bind_params_with_eval(&params, &context)?;
+```
+
+**مثال Route:**
+```json
+{
+  "action": "sql",
+  "query": "INSERT INTO users (id, email, name, created_at) VALUES (:id, :email, :name, :created_at)",
+  "params": {
+    "id": "{{ uuid() }}",
+    "email": "{{ request.email | lower | trim }}",
+    "name": "{{ request.name }}",
+    "created_at": "{{ now() }}"
+  }
+}
+```
+
+**Files:**
+- `sql_params.rs`: 370+ lines, NamedQuery, SqlParamBuilder
+- `user_registration_named_params.json`: Demo INSERT
+- `user_profile_update_named_params.json`: Demo UPDATE
+- `order_create_named_params.json`: Demo transaction
+- `test_named_params.py`: Python test suite (6 tests + 3 demos)
+
+**Tests:**
+- 14 new unit tests
+- All query types: SELECT, INSERT, UPDATE
+- Edge cases: colons in strings, complex joins
+- Expression evaluation
+
+**Total Tests:** 159 passing (145 existing + 14 new)
+
+---
+
+#### Day 14: SQL Named Parameters (OLD - Archived)
 
 **Tasks:**
 - [ ] Parser برای `:param` syntax

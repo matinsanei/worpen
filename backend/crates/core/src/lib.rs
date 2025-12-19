@@ -5,6 +5,7 @@ pub mod parsers;
 pub mod expression;
 pub mod validation;
 pub mod helpers;
+pub mod sql_params;
 
 pub use domain::*;
 pub use ports::*;

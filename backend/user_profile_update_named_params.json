@@ -1,0 +1,66 @@
+{
+  "method": "PUT",
+  "path": "/api/users/:user_id/profile",
+  "description": "Update user profile with SQL Named Parameters - Phase 3 Day 14",
+  "steps": [
+    {
+      "action": "set",
+      "target": "user_id",
+      "value": "{{ path_params.user_id }}"
+    },
+    {
+      "action": "sql",
+      "query": "SELECT * FROM users WHERE id = :user_id",
+      "params": {
+        "user_id": "{{ user_id }}"
+      },
+      "target": "user"
+    },
+    {
+      "action": "if",
+      "condition": "{{ user == null }}",
+      "then": [
+        {
+          "action": "respond",
+          "status": 404,
+          "body": {
+            "error": "User not found"
+          }
+        }
+      ]
+    },
+    {
+      "action": "set",
+      "target": "updated_at",
+      "value": "{{ now() }}"
+    },
+    {
+      "action": "sql",
+      "query": "UPDATE users SET name = :name, bio = :bio, avatar_url = :avatar, updated_at = :updated_at WHERE id = :user_id",
+      "params": {
+        "name": "{{ request.name | default(user.name) }}",
+        "bio": "{{ request.bio | default(user.bio) }}",
+        "avatar": "{{ request.avatar_url | default(user.avatar_url) }}",
+        "updated_at": "{{ updated_at }}",
+        "user_id": "{{ user_id }}"
+      }
+    },
+    {
+      "action": "sql",
+      "query": "SELECT * FROM users WHERE id = :user_id",
+      "params": {
+        "user_id": "{{ user_id }}"
+      },
+      "target": "updated_user"
+    },
+    {
+      "action": "respond",
+      "status": 200,
+      "body": {
+        "success": true,
+        "message": "Profile updated successfully",
+        "user": "{{ updated_user }}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "method": "POST",
+  "path": "/api/users/register",
+  "description": "User registration with SQL Named Parameters - Phase 3 Day 14",
+  "steps": [
+    {
+      "action": "set",
+      "target": "user_id",
+      "value": "{{ uuid() }}"
+    },
+    {
+      "action": "set",
+      "target": "email",
+      "value": "{{ request.email | lower | trim }}"
+    },
+    {
+      "action": "set",
+      "target": "password_hash",
+      "value": "{{ hash_password(request.password) }}"
+    },
+    {
+      "action": "set",
+      "target": "created_at",
+      "value": "{{ now() }}"
+    },
+    {
+      "action": "sql",
+      "query": "INSERT INTO users (id, email, password, name, created_at, status) VALUES (:id, :email, :password, :name, :created_at, :status)",
+      "params": {
+        "id": "{{ user_id }}",
+        "email": "{{ email }}",
+        "password": "{{ password_hash }}",
+        "name": "{{ request.name }}",
+        "created_at": "{{ created_at }}",
+        "status": "active"
+      }
+    },
+    {
+      "action": "respond",
+      "status": 201,
+      "body": {
+        "success": true,
+        "message": "User registered successfully",
+        "user": {
+          "id": "{{ user_id }}",
+          "email": "{{ email }}",
+          "name": "{{ request.name }}",
+          "created_at": "{{ created_at }}"
+        }
+      }
+    }
+  ]
+}
