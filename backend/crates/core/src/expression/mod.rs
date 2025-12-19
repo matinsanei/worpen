@@ -5,6 +5,7 @@ pub mod tokenizer;
 pub mod parser;
 pub mod ast;
 pub mod evaluator;
+pub mod filters;
 
 pub use tokenizer::{Tokenizer, Token, TokenType};
 pub use parser::Parser;

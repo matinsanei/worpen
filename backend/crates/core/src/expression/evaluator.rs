@@ -2,6 +2,7 @@
 // Phase 2 Day 7-8: Full implementation
 
 use crate::expression::ast::{Expr, BinaryOp, UnaryOp, PipeFilter};
+use crate::expression::filters;
 use serde_json::{Value, Number};
 use std::collections::HashMap;
 
@@ -208,35 +209,15 @@ impl Evaluator {
     }
     
     fn apply_filter(&self, value: &Value, filter: &PipeFilter) -> Result<Value, String> {
-        // Pipe filters will be implemented in Phase 2 Day 8-9
-        match filter.name.as_str() {
-            "upper" => self.filter_upper(value),
-            "lower" => self.filter_lower(value),
-            "trim" => self.filter_trim(value),
-            _ => Err(format!("Unknown filter: {}", filter.name)),
-        }
-    }
-    
-    // Basic pipe filters
-    fn filter_upper(&self, value: &Value) -> Result<Value, String> {
-        match value.as_str() {
-            Some(s) => Ok(Value::String(s.to_uppercase())),
-            None => Err(format!("upper filter requires string, got {:?}", value)),
-        }
-    }
-    
-    fn filter_lower(&self, value: &Value) -> Result<Value, String> {
-        match value.as_str() {
-            Some(s) => Ok(Value::String(s.to_lowercase())),
-            None => Err(format!("lower filter requires string, got {:?}", value)),
-        }
-    }
-    
-    fn filter_trim(&self, value: &Value) -> Result<Value, String> {
-        match value.as_str() {
-            Some(s) => Ok(Value::String(s.trim().to_string())),
-            None => Err(format!("trim filter requires string, got {:?}", value)),
-        }
+        // Evaluate filter arguments
+        let args: Result<Vec<Value>, String> = filter.args
+            .iter()
+            .map(|arg| self.evaluate(arg))
+            .collect();
+        let args = args?;
+        
+        // Use the filters module for all filter operations
+        filters::apply_filter(value, &filter.name, &args)
     }
     
     fn register_builtin_functions(&mut self) {
@@ -523,5 +504,87 @@ mod tests {
         assert_eq!(evaluator.is_truthy(&Value::Number(Number::from(1))), true);
         assert_eq!(evaluator.is_truthy(&Value::String("".to_string())), false);
         assert_eq!(evaluator.is_truthy(&Value::String("hello".to_string())), true);
+    }
+    
+    // Advanced filter integration tests
+    #[test]
+    fn test_eval_pipe_replace() {
+        let result = eval(r#""hello world" | replace("world", "rust")"#).unwrap();
+        assert_eq!(result, Value::String("hello rust".to_string()));
+    }
+    
+    #[test]
+    fn test_eval_pipe_split() {
+        let result = eval(r#""a,b,c" | split(",")"#).unwrap();
+        assert_eq!(result.as_array().unwrap().len(), 3);
+    }
+    
+    #[test]
+    fn test_eval_pipe_capitalize() {
+        let result = eval(r#""hello" | capitalize"#).unwrap();
+        assert_eq!(result, Value::String("Hello".to_string()));
+    }
+    
+    #[test]
+    fn test_eval_pipe_array_operations() {
+        let result = eval(r#"[3, 1, 2] | sort | first"#).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 1.0);
+        
+        let result = eval(r#"[1, 2, 3] | last"#).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 3.0);
+    }
+    
+    #[test]
+    fn test_eval_pipe_join() {
+        let result = eval(r#"["a", "b", "c"] | join("-")"#).unwrap();
+        assert_eq!(result, Value::String("a-b-c".to_string()));
+    }
+    
+    #[test]
+    fn test_eval_pipe_keys_values() {
+        let result = eval(r#"{a: 1, b: 2} | keys | length"#).unwrap();
+        assert_eq!(result.as_u64().unwrap(), 2);
+        
+        let result = eval(r#"{a: 1, b: 2} | values | first"#).unwrap();
+        assert!(result.is_number());
+    }
+    
+    #[test]
+    fn test_eval_pipe_math_filters() {
+        let result = eval(r#"-5.7 | abs | round"#).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 6.0);
+        
+        let result = eval(r#"3.2 | floor"#).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 3.0);
+        
+        let result = eval(r#"3.2 | ceil"#).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 4.0);
+    }
+    
+    #[test]
+    fn test_eval_pipe_type_conversion() {
+        let result = eval(r#"42 | string | length"#).unwrap();
+        assert_eq!(result.as_u64().unwrap(), 2);
+        
+        let result = eval(r#""123" | number"#).unwrap();
+        assert_eq!(result.as_f64().unwrap(), 123.0);
+        
+        let result = eval(r#""" | bool"#).unwrap();
+        assert_eq!(result, Value::Bool(false));
+    }
+    
+    #[test]
+    fn test_eval_complex_pipe_chain() {
+        let result = eval(r#""  HELLO WORLD  " | trim | lower | split(" ") | join("-")"#).unwrap();
+        assert_eq!(result, Value::String("hello-world".to_string()));
+    }
+    
+    #[test]
+    fn test_eval_pipe_with_variables() {
+        let mut vars = HashMap::new();
+        vars.insert("email".to_string(), Value::String("  USER@EXAMPLE.COM  ".to_string()));
+        
+        let result = eval_with_vars("email | trim | lower", vars).unwrap();
+        assert_eq!(result, Value::String("user@example.com".to_string()));
     }
 }
