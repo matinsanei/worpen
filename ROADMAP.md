@@ -1263,69 +1263,113 @@ mod builtin {
 
 ---
 
-#### Day 9-10: Expression Integration ✅ COMPLETED (commit: b042681)
-**هدف:** ادغام Expression Compiler با Route Parser
+#### Day 9: Expression Integration ✅ COMPLETED (commit: b042681)
+**هدف:** ادغام Expression Compiler با YAML Route Templates
 
 **Tasks:**
 - [x] Resolve expressions در `{{...}}` syntax
-- [x] Template resolver با regex-based parsing
+- [x] Template resolver با regex-based parsing (220+ lines)
 - [x] Variable assignment و expression evaluation
 - [x] Support برای pure expressions (return value) vs mixed templates (return string)
 - [x] Nested object/array template resolution
 - [x] 12 unit tests + 10 integration tests covering all scenarios
 
+**Files:**
+```
+backend/crates/core/src/
+├── expression/
+│   ├── template.rs        (template resolution, 220+ lines)
+│   └── mod.rs             (exports template module)
+tests/
+└── integration_expression_templates.rs (10 tests)
+```
+
 **کد نمونه:**
 ```rust
-// parsers/normalizer.rs
-pub fn normalize_operation(raw: RawOperation, context: &Context) -> Operation {
-    match raw {
-        RawOperation::Shorthand(map) if map.len() == 1 => {
-            let (key, value) = map.iter().next().unwrap();
-            
-            // Check if it's a known operation
-            if is_known_operation(key) {
-                parse_known_operation(key, value)
-            } else {
-                // Variable assignment with expression
-                Operation::Set {
-                    variable: key.clone(),
-                    value: resolve_expression_value(value, context),
-                }
+// expression/template.rs
+pub fn resolve_templates(
+    value: &Value,
+    context: &HashMap<String, Value>
+) -> Result<Value, String> {
+    match value {
+        Value::String(s) => resolve_string_template(s, context),
+        Value::Object(obj) => {
+            let mut result = serde_json::Map::new();
+            for (k, v) in obj {
+                result.insert(k.clone(), resolve_templates(v, context)?);
             }
+            Ok(Value::Object(result))
         }
-        _ => parse_explicit_operation(raw),
-    }
-}
-
-fn resolve_expression_value(value: &Value, context: &Context) -> Value {
-    if let Some(expr_str) = value.as_str() {
-        if expr_str.contains("{{") {
-            // Parse and evaluate expression
-            let expr = parse_expression_from_template(expr_str);
-            evaluate_expression(&expr, context)
-        } else {
-            value.clone()
+        Value::Array(arr) => {
+            let mut result = Vec::new();
+            for item in arr {
+                result.push(resolve_templates(item, context)?);
+            }
+            Ok(Value::Array(result))
         }
-    } else {
-        value.clone()
-    }
-}
-
-fn parse_expression_from_template(template: &str) -> Expr {
-    // "{{price * quantity}}" → extract "price * quantity" → parse → AST
-    let expr_content = extract_expression_content(template);
-    
-    if expr_content.contains('|') {
-        parse_pipe_expression(expr_content)
-    } else {
-        parse_simple_expression(expr_content)
+        _ => Ok(value.clone()),
     }
 }
 ```
 
+**Stats:**
+- 12 unit tests (template resolution)
+- 10 integration tests (YAML routes with expressions)
+- 126 total tests passing
+
 ---
 
-#### Day 11: Ternary & Function Calls
+#### Day 10: E2E Testing ✅ COMPLETED (commit: a963fea)
+**هدف:** End-to-End Testing برای Expression System
+
+**Tasks:**
+- [x] 10 E2E tests با route execution واقعی
+- [x] Test scenarios: echo, calculator, user registration, checkout, arrays, strings, conditionals, complex business logic, math functions, realistic API
+- [x] Fixed doctest import issue
+- [x] همه 138 تست پاس شدند
+
+**Files:**
+```
+backend/crates/core/
+├── tests/
+│   └── e2e_yaml_expressions.rs   (10 comprehensive E2E tests, 400+ lines)
+└── src/
+    └── parsers/route_parser.rs   (fixed doctest)
+```
+
+**Test Coverage:**
+```rust
+// E2E Test Scenarios:
+1. Simple echo route (variables + pipes)
+2. Calculator route (arithmetic operations)
+3. User registration (string manipulation, conditionals)
+4. Checkout route (complex pricing logic)
+5. Array operations (length, first, last, sort, unique, join)
+6. String operations (upper, lower, trim, capitalize, reverse)
+7. Complex business logic (multi-level discounts, pricing)
+8. Conditional responses (nested ternary operators)
+9. Math functions (max, min, abs, round, floor, ceil)
+10. Realistic API response (full user profile with stats)
+```
+
+**Stats:**
+- ✅ 138 total tests passing:
+  - 107 unit tests
+  - 10 E2E tests (new!)
+  - 10 integration expression template tests
+  - 9 integration YAML route tests
+  - 2 doc tests
+
+---
+
+#### Day 11: Documentation & Benchmarks
+**هدف:** مستندات کامل و Performance Benchmarks
+
+**Tasks:**
+- [ ] Documentation برای expression syntax
+- [ ] Performance benchmarks با criterion
+- [ ] Example routes repository
+- [ ] Migration guide از JSON به YAML
 **هدف:** پشتیبانی از ternary و function calls در expressions
 
 **Tasks:**
