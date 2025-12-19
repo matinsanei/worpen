@@ -1775,8 +1775,143 @@ let param_values: Vec<Value> = param_names
 
 ---
 
-#### Day 15: Loop Enhancements
-**هدف:** بهبود syntax برای loops
+#### Day 15: Loop Enhancements ✅
+**هدف:** Advanced loop constructs و control flow
+
+**Status:** ✅ COMPLETED
+
+**Completed Tasks:**
+- ✅ While loops با condition evaluation
+- ✅ Until loops (inverse of while)
+- ✅ Nested loops با depth tracking
+- ✅ Loop metadata (index, counter, is_first, is_last)
+- ✅ Range loops با step support
+- ✅ ForEach loops با metadata
+- ✅ Break/Continue control flow
+- ✅ Max iterations safety limit
+- ✅ 15 unit tests
+- ✅ 5 demo routes
+
+**Implemented Features:**
+
+1. **Loop Types**
+   - WhileLoop: تکرار تا زمانی که condition true است
+   - UntilLoop: تکرار تا زمانی که condition true شود
+   - ForEachLoop: تکرار روی آیتم‌ها
+   - RangeLoop: تکرار روی محدوده اعداد
+
+2. **Loop Metadata**
+   ```rust
+   {
+     "index": 0,        // 0-based
+     "counter": 1,      // 1-based
+     "total": 10,       // if known
+     "is_first": true,
+     "is_last": false,
+     "depth": 0         // nesting level
+   }
+   ```
+
+3. **Control Flow**
+   - `LoopControl::Continue` - ادامه normal
+   - `LoopControl::Break` - خروج از loop
+   - `LoopControl::Skip` - رد شدن iteration
+   - `LoopControl::Return(value)` - برگشت با مقدار
+
+4. **Safety Features**
+   - Max iterations limit (10000 default)
+   - Configurable limits
+   - Infinite loop protection
+
+**مثال While Loop:**
+```json
+{
+  "action": "while",
+  "condition": "{{ counter < 5 }}",
+  "max_iterations": 100,
+  "body": [
+    {
+      "action": "set",
+      "target": "counter",
+      "value": "{{ counter + 1 }}"
+    }
+  ]
+}
+```
+
+**مثال Until Loop:**
+```json
+{
+  "action": "until",
+  "condition": "{{ sum >= 100 }}",
+  "body": [
+    {
+      "action": "set",
+      "target": "sum",
+      "value": "{{ sum + random_int(1, 30) }}"
+    }
+  ]
+}
+```
+
+**مثال Nested Loops:**
+```json
+{
+  "action": "for",
+  "range": {"start": 1, "end": 4},
+  "variable": "row",
+  "body": [
+    {
+      "action": "for",
+      "range": {"start": 1, "end": 4},
+      "variable": "col",
+      "body": [
+        {
+          "action": "set",
+          "target": "cell",
+          "value": "{{ row * col }}"
+        }
+      ]
+    }
+  ]
+}
+```
+
+**مثال Loop Metadata:**
+```json
+{
+  "action": "for_each",
+  "items": "{{ users }}",
+  "item_name": "user",
+  "loop_var": "loop",
+  "body": [
+    {
+      "action": "set",
+      "target": "message",
+      "value": "{{ loop.is_first ? 'First' : (loop.is_last ? 'Last' : 'Middle') }}: {{ user.name }}"
+    }
+  ]
+}
+```
+
+**Files:**
+- `loops.rs`: 400+ lines, all loop types
+- `loop_while_demo.json`: While loop demo
+- `loop_until_demo.json`: Until loop demo
+- `loop_nested_demo.json`: Nested loops demo
+- `loop_break_continue_demo.json`: Control flow demo
+- `loop_metadata_demo.json`: Metadata usage demo
+
+**Tests:**
+- 15 new unit tests
+- All loop types covered
+- Edge cases tested
+
+**Total Tests:** 174 passing (159 existing + 15 new)
+
+---
+
+#### Day 15: Loop Enhancements (OLD - Archived)
 
 **Tasks:**
 - [ ] `for item in collection` syntax

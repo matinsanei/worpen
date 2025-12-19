@@ -1,0 +1,99 @@
+{
+  "method": "GET",
+  "path": "/api/loops/demo/metadata",
+  "description": "Loop metadata and counters - Phase 3 Day 15",
+  "steps": [
+    {
+      "action": "set",
+      "target": "users",
+      "value": [
+        {"name": "Alice", "age": 25},
+        {"name": "Bob", "age": 30},
+        {"name": "Charlie", "age": 35},
+        {"name": "Diana", "age": 28},
+        {"name": "Eve", "age": 32}
+      ]
+    },
+    {
+      "action": "set",
+      "target": "processed",
+      "value": []
+    },
+    {
+      "action": "for_each",
+      "items": "{{ users }}",
+      "item_name": "user",
+      "loop_var": "loop",
+      "body": [
+        {
+          "action": "set",
+          "target": "user_with_meta",
+          "value": {
+            "position": "{{ loop.counter }}",
+            "index": "{{ loop.index }}",
+            "name": "{{ user.name }}",
+            "age": "{{ user.age }}",
+            "is_first": "{{ loop.is_first }}",
+            "is_last": "{{ loop.is_last }}",
+            "total_users": "{{ loop.total }}",
+            "prefix": "{{ loop.is_first ? 'First: ' : (loop.is_last ? 'Last: ' : 'Middle: ') }}{{ user.name }}"
+          }
+        },
+        {
+          "action": "set",
+          "target": "processed",
+          "value": "{{ processed + [user_with_meta] }}"
+        }
+      ]
+    },
+    {
+      "action": "set",
+      "target": "ranges",
+      "value": []
+    },
+    {
+      "action": "for",
+      "range": {
+        "start": 0,
+        "end": 5,
+        "step": 1
+      },
+      "variable": "i",
+      "loop_var": "loop",
+      "body": [
+        {
+          "action": "set",
+          "target": "ranges",
+          "value": "{{ ranges + [{'value': i, 'counter': loop.counter, 'index': loop.index}] }}"
+        }
+      ]
+    },
+    {
+      "action": "respond",
+      "status": 200,
+      "body": {
+        "success": true,
+        "loop_type": "metadata and counters",
+        "users": {
+          "total": "{{ users | length }}",
+          "processed": "{{ processed }}",
+          "first_user": "{{ processed[0].name }}",
+          "last_user": "{{ processed[-1].name }}"
+        },
+        "ranges": {
+          "description": "Range loop with metadata",
+          "values": "{{ ranges }}"
+        },
+        "metadata_fields": {
+          "loop.counter": "1-based counter",
+          "loop.index": "0-based index",
+          "loop.is_first": "boolean - first iteration",
+          "loop.is_last": "boolean - last iteration",
+          "loop.total": "total iterations",
+          "loop.depth": "nesting level"
+        },
+        "message": "Loop metadata provides rich iteration context"
+      }
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "method": "GET",
+  "path": "/api/loops/demo/until",
+  "description": "Until loop demonstration - Phase 3 Day 15",
+  "steps": [
+    {
+      "action": "set",
+      "target": "sum",
+      "value": 0
+    },
+    {
+      "action": "set",
+      "target": "iterations",
+      "value": []
+    },
+    {
+      "action": "until",
+      "condition": "{{ sum >= 100 }}",
+      "max_iterations": 100,
+      "body": [
+        {
+          "action": "set",
+          "target": "random_num",
+          "value": "{{ random_int(1, 30) }}"
+        },
+        {
+          "action": "set",
+          "target": "sum",
+          "value": "{{ sum + random_num }}"
+        },
+        {
+          "action": "set",
+          "target": "iterations",
+          "value": "{{ iterations + [{'number': random_num, 'running_total': sum}] }}"
+        }
+      ]
+    },
+    {
+      "action": "respond",
+      "status": 200,
+      "body": {
+        "success": true,
+        "loop_type": "until",
+        "condition": "sum >= 100",
+        "final_sum": "{{ sum }}",
+        "total_iterations": "{{ iterations | length }}",
+        "iterations": "{{ iterations }}",
+        "message": "Until loop stopped when sum reached 100+"
+      }
+    }
+  ]
+}

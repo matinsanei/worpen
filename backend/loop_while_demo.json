@@ -1,0 +1,46 @@
+{
+  "method": "GET",
+  "path": "/api/loops/demo/while",
+  "description": "While loop demonstration - Phase 3 Day 15",
+  "steps": [
+    {
+      "action": "set",
+      "target": "counter",
+      "value": 0
+    },
+    {
+      "action": "set",
+      "target": "results",
+      "value": []
+    },
+    {
+      "action": "while",
+      "condition": "{{ counter < 5 }}",
+      "max_iterations": 100,
+      "body": [
+        {
+          "action": "set",
+          "target": "results",
+          "value": "{{ results + [counter] }}"
+        },
+        {
+          "action": "set",
+          "target": "counter",
+          "value": "{{ counter + 1 }}"
+        }
+      ]
+    },
+    {
+      "action": "respond",
+      "status": 200,
+      "body": {
+        "success": true,
+        "loop_type": "while",
+        "condition": "counter < 5",
+        "iterations": "{{ counter }}",
+        "results": "{{ results }}",
+        "message": "While loop completed successfully"
+      }
+    }
+  ]
+}

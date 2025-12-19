@@ -1,0 +1,115 @@
+{
+  "method": "POST",
+  "path": "/api/loops/demo/break-continue",
+  "description": "Break and Continue demonstration - Phase 3 Day 15",
+  "steps": [
+    {
+      "action": "set",
+      "target": "numbers",
+      "value": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    },
+    {
+      "action": "set",
+      "target": "even_numbers",
+      "value": []
+    },
+    {
+      "action": "set",
+      "target": "iterations_before_break",
+      "value": 0
+    },
+    {
+      "action": "comment",
+      "text": "Find even numbers, skip odds, break at first number > 6"
+    },
+    {
+      "action": "for_each",
+      "items": "{{ numbers }}",
+      "item_name": "num",
+      "body": [
+        {
+          "action": "set",
+          "target": "iterations_before_break",
+          "value": "{{ iterations_before_break + 1 }}"
+        },
+        {
+          "action": "if",
+          "condition": "{{ num > 6 }}",
+          "then": [
+            {
+              "action": "break",
+              "message": "Breaking: found number > 6"
+            }
+          ]
+        },
+        {
+          "action": "if",
+          "condition": "{{ num % 2 != 0 }}",
+          "then": [
+            {
+              "action": "continue",
+              "message": "Skipping odd number"
+            }
+          ]
+        },
+        {
+          "action": "set",
+          "target": "even_numbers",
+          "value": "{{ even_numbers + [num] }}"
+        }
+      ]
+    },
+    {
+      "action": "set",
+      "target": "search_numbers",
+      "value": [10, 20, 30, 40, 50]
+    },
+    {
+      "action": "set",
+      "target": "found",
+      "value": null
+    },
+    {
+      "action": "for_each",
+      "items": "{{ search_numbers }}",
+      "item_name": "num",
+      "body": [
+        {
+          "action": "if",
+          "condition": "{{ num == request.target || 30 }}",
+          "then": [
+            {
+              "action": "set",
+              "target": "found",
+              "value": "{{ num }}"
+            },
+            {
+              "action": "break",
+              "message": "Found target number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "action": "respond",
+      "status": 200,
+      "body": {
+        "success": true,
+        "loop_type": "break and continue",
+        "even_numbers": {
+          "description": "Even numbers before break (> 6)",
+          "result": "{{ even_numbers }}",
+          "iterations": "{{ iterations_before_break }}"
+        },
+        "search_result": {
+          "description": "Search for target number with early break",
+          "target": "{{ request.target || 30 }}",
+          "found": "{{ found }}",
+          "found_in_list": "{{ found != null }}"
+        },
+        "message": "Break and continue control flow demonstrated"
+      }
+    }
+  ]
+}

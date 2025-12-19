@@ -1,0 +1,64 @@
+{
+  "method": "GET",
+  "path": "/api/loops/demo/nested",
+  "description": "Nested loops demonstration - Phase 3 Day 15",
+  "steps": [
+    {
+      "action": "set",
+      "target": "matrix",
+      "value": []
+    },
+    {
+      "action": "for",
+      "range": {
+        "start": 1,
+        "end": 4
+      },
+      "variable": "row",
+      "body": [
+        {
+          "action": "set",
+          "target": "current_row",
+          "value": []
+        },
+        {
+          "action": "for",
+          "range": {
+            "start": 1,
+            "end": 4
+          },
+          "variable": "col",
+          "body": [
+            {
+              "action": "set",
+              "target": "cell_value",
+              "value": "{{ row * col }}"
+            },
+            {
+              "action": "set",
+              "target": "current_row",
+              "value": "{{ current_row + [{'row': row, 'col': col, 'value': cell_value, 'loop_depth': 2}] }}"
+            }
+          ]
+        },
+        {
+          "action": "set",
+          "target": "matrix",
+          "value": "{{ matrix + [current_row] }}"
+        }
+      ]
+    },
+    {
+      "action": "respond",
+      "status": 200,
+      "body": {
+        "success": true,
+        "loop_type": "nested for loops",
+        "description": "3x3 multiplication matrix",
+        "rows": "{{ matrix | length }}",
+        "matrix": "{{ matrix }}",
+        "message": "Nested loops completed - matrix generated"
+      }
+    }
+  ]
+}
