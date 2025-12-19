@@ -1088,14 +1088,14 @@ mod integration_tests {
 
 ### 📅 Phase 2: Expression Parser (7 روز)
 
-#### Day 5-6: Expression Tokenizer & Parser
+#### Day 5-6: Expression Tokenizer & Parser ✅ COMPLETED (commit: daa9c51)
 **هدف:** پیاده‌سازی Expression Compiler
 
 **Tasks:**
-- [ ] طراحی AST برای expressions
-- [ ] پیاده‌سازی Tokenizer
-- [ ] پیاده‌سازی Parser
-- [ ] Unit tests برای parsing
+- [x] طراحی AST برای expressions (12 variants, 14 BinaryOps)
+- [x] پیاده‌سازی Tokenizer (350+ lines, 30+ token types, 6 tests)
+- [x] پیاده‌سازی Parser (440+ lines, recursive descent, 9 tests)
+- [x] Unit tests برای parsing (18 tests total - all passing)
 
 **Files:**
 ```
@@ -1184,14 +1184,17 @@ pub fn evaluate_expression(expr: &Expr, context: &Context) -> Result<Value, Stri
 
 ---
 
-#### Day 7-8: Pipe Operators
-**هدف:** پیاده‌سازی pipe syntax
+#### Day 7-8: Expression Evaluator & Pipe Operators
+**هدف:** پیاده‌سازی expression evaluation و pipe syntax
 
 **Tasks:**
-- [ ] Parser برای `|` operator
-- [ ] پیاده‌سازی built-in pipe functions
+- [ ] Evaluator implementation برای همه Expr variants
+- [ ] Support برای 14 binary operators (+, -, *, /, %, **, ==, !=, <, <=, >, >=, &&, ||)
+- [ ] Variable lookup و type coercion
+- [ ] Function call execution
+- [ ] پیاده‌سازی built-in pipe functions (upper, lower, trim, replace, etc.)
 - [ ] Registry برای custom pipe functions
-- [ ] Tests
+- [ ] Comprehensive tests (10+ tests)
 
 **کد نمونه:**
 ```rust
