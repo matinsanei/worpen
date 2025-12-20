@@ -74,25 +74,15 @@ Server starts on `http://127.0.0.1:3000`
 Create `hello.yaml`:
 
 ```yaml
-name: Hello World API
-description: A simple greeting endpoint
-path: /api/hello
+name: My First API
+path: /hello
 method: GET
-parameters: []
 
 logic:
-  - !Set
-    var: greeting
-    value: "Hello from Worpen!"
-  
   - !Return
     value:
-      message: "{{greeting}}"
-      timestamp: "{{now}}"
-      powered_by: "Rust + YAML"
-
-enabled: true
-version: 1.0.0
+      message: "Hello, World!"
+      time: "{{now()}}"
 ```
 
 ### 3. Register & Use It
@@ -104,15 +94,14 @@ curl -X POST http://127.0.0.1:3000/api/v1/dynamic-routes/register \
   --data-binary @hello.yaml
 
 # Call your new API
-curl http://127.0.0.1:3000/api/hello
+curl http://127.0.0.1:3000/hello
 ```
 
 **Response:**
 ```json
 {
-  "message": "Hello from Worpen!",
-  "timestamp": "2025-12-20T10:30:00Z",
-  "powered_by": "Rust + YAML"
+  "message": "Hello, World!",
+  "time": "2025-12-20T10:30:00Z"
 }
 ```
 
