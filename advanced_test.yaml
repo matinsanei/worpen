@@ -1,0 +1,55 @@
+name: Advanced YAML Test - All Features
+description: Testing QueryDb, If, Loop, MathOp, StringOp, Set, Get
+path: /api/test/advanced
+method: POST
+parameters:
+  - name: numbers
+    param_type: body
+    data_type: array
+    required: true
+  - name: multiplier
+    param_type: body
+    data_type: number
+    required: false
+logic:
+  - !Set
+    var: result_sum
+    value: 0
+  - !MathOp
+    operation: sum
+    args: [10, 20, 30]
+  - !Set
+    var: result_sum
+    value: "{{math_result}}"
+  - !MathOp
+    operation: multiply
+    args: ["{{result_sum}}", 2]
+  - !Set
+    var: doubled
+    value: "{{math_result}}"
+  - !StringOp
+    operation: upper
+    input: hello world
+    args: []
+  - !Set
+    var: greeting
+    value: "{{string_result}}"
+  - !If
+    condition: "{{doubled}} > 100"
+    then:
+      - !Set
+        var: status
+        value: high
+    else:
+      - !Set
+        var: status
+        value: low
+  - !Return
+    value:
+      sum: "{{result_sum}}"
+      doubled: "{{doubled}}"
+      greeting: "{{greeting}}"
+      status: "{{status}}"
+      message: All operations completed successfully
+enabled: true
+version: 1.0.0
