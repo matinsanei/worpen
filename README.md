@@ -602,14 +602,52 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 <div align="center">
 
-### ⭐ If you find Worpen useful, please star the repo! ⭐
+## 📜 License & Attribution
 
-**Built with 🦀 Rust • Powered by Logic-as-Data**
+**WORPEN** is licensed under **MIT with Attribution** - see [LICENSE](LICENSE) for details.
 
-[Documentation](documentation/) • [Examples](documentation/12-complete-examples.md) • [Roadmap](ROADMAP.md) • [Contributing](#-contributing)
+### 🎯 Attribution Required
+
+When using WORPEN in your projects:
+- ✅ Include attribution to **Matin Sanei**
+- ✅ Link to: https://github.com/matinsanei/worpen
+- ✅ Maintain attribution in derivative works
+
+*This helps with portfolio visibility and professional networking!*
 
 ---
 
+## 🤝 Contributing
+
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
+- Development setup
+- Code style guidelines
+- Pull request process
+- How to get help
+
+---
+
+### 👨‍💻 Author
+
+**Matin Sanei**
+- GitHub: [@matinsanei](https://github.com/matinsanei)
+- Portfolio: Built for migration & professional showcase
+- Email: matinsanei@gmail.com
+
+### ⭐ Show Your Support
+
+If WORPEN helps your project, please:
+- ⭐ Star the repository
+- 🔗 Share with attribution
+- 💬 Give feedback via issues
+- 🤝 Contribute improvements
+
+---
+
+**Built with 🦀 Rust • Powered by Logic-as-Data • Designed for Innovation**
+
 *"The best API is the one you don't have to code."*
+
+</div>
 
 </div>
