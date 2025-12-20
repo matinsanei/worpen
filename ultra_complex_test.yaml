@@ -163,15 +163,23 @@ logic:
         else: []
     else: []
   
-  # Step 9: No need for message variable, use direct interpolation in return
+  # Step 9: Create message text
+  - !Set
+    var: message_text
+    value: "Student achieved grade {{grade}} with {{status_text}} performance"
   
-  # Step 10: Return all data
+  # Step 10: Set total_operations
+  - !Set
+    var: total_operations
+    value: 30
+  
+  # Step 11: Return all data
   - !Return
     value:
       grade: "{{grade}}"
       status: "{{status_text}}"
       average: "{{average}}"
-      total: "{{total}}"
+      total: "{{total_score}}"
       multiplier: "{{multiplier}}"
       bonus_score: "{{bonus_score}}"
       final_score: "{{final_score}}"
@@ -179,8 +187,8 @@ logic:
       bonus_amount: "{{bonus_amount}}"
       reward: "{{reward}}"
       level: "{{level}}"
-      message: "Grade {{grade}} achieved with status {{status_text}}"
-      calculations: 30
+      message: "{{message_text}}"
+      calculations: "{{total_operations}}"
 
 enabled: true
 version: 1.0.0
