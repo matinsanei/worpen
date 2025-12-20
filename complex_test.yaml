@@ -1,0 +1,40 @@
+name: Complex E-commerce Order
+description: Full workflow with DB, conditions, loops
+path: /api/orders/process
+method: POST
+parameters:
+  - name: user_id
+    param_type: body
+    data_type: integer
+    required: true
+  - name: items
+    param_type: body
+    data_type: array
+    required: true
+logic:
+  - !QueryDb
+    query: SELECT * FROM users WHERE id = ?
+    params: ["{{user_id}}"]
+  - !If
+    condition: "db_result.rows.length === 0"
+    then:
+      - !Return
+        value:
+          error: User not found
+          code: 404
+    else: []
+  - !Set
+    var: total_price
+    value: 0
+  - !Set
+    var: item_count
+    value: 0
+  - !Return
+    value:
+      success: true
+      message: Order would be processed
+      total_price: "{{total_price}}"
+      items_count: "{{item_count}}"
+      user_id: "{{user_id}}"
+enabled: true
+version: 1.0.0
