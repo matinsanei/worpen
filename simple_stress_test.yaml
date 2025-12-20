@@ -1,0 +1,38 @@
+name: Simple Stress Test
+description: Test core features without complex nesting
+path: /api/test/simple-stress
+method: POST
+enabled: true
+version: 1.0.0
+auth_required: false
+
+parameters:
+  - name: amount
+    param_type: body
+    data_type: number
+    required: true
+
+logic:
+  # Simple variable
+  - set:
+      var: result
+      value: 0
+  
+  # Basic condition
+  - if:
+      condition: body.amount > 100
+      then:
+        - set:
+            var: result
+            value: 200
+      otherwise:
+        - set:
+            var: result
+            value: 50
+  
+  # Return
+  - return:
+      value:
+        success: true
+        calculated: "{{result}}"
+        message: Test completed

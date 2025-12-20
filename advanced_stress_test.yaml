@@ -1,0 +1,187 @@
+name: Advanced Programming Test
+description: Complex test with nested logic, loops, conditions, DB, HTTP, error handling
+path: /api/test/advanced
+method: POST
+enabled: true
+version: 1.0.0
+auth_required: false
+
+parameters:
+  - name: user_id
+    param_type: body
+    data_type: number
+    required: true
+  - name: items
+    param_type: body
+    data_type: array
+    required: true
+
+logic:
+  # Step 1: Variable initialization and validation
+  - set:
+      var: total_price
+      value: 0
+  
+  - set:
+      var: processed_items
+      value: []
+  
+  - set:
+      var: failed_items
+      value: []
+
+  # Step 2: Database query with error handling
+  - try:
+      body:
+        - query_db:
+            query: SELECT balance, status FROM users WHERE id = $1
+            params:
+              - "{{body.user_id}}"
+        
+        - set:
+            var: user_balance
+            value: "{{db_result[0].balance}}"
+        
+        - set:
+            var: user_status
+            value: "{{db_result[0].status}}"
+      
+      catch:
+        - set:
+            var: user_balance
+            value: 0
+        
+        - set:
+            var: user_status
+            value: inactive
+
+  # Step 3: Nested loop with conditions
+  - loop:
+      collection: "{{body.items}}"
+      var: item
+      body:
+        # Calculate item price
+        - set:
+            var: item_price
+            value: "{{item.quantity * item.unit_price}}"
+        
+        # Check stock availability with HTTP request
+        - try:
+            body:
+              - http_request:
+                  url: "https://api.inventory.com/check/{{item.id}}"
+                  method: GET
+                  headers:
+                    Accept: application/json
+                  timeout_ms: 2000
+              
+              - set:
+                  var: stock_available
+                  value: "{{http_response.available}}"
+            
+            catch:
+              - set:
+                  var: stock_available
+                  value: true
+        
+        # Conditional processing
+        - if:
+            condition: stock_available && item_price > 0
+            then:
+              - set:
+                  var: total_price
+                  value: "{{total_price + item_price}}"
+              
+              - set:
+                  var: processed_items
+                  value: "{{processed_items + [item]}}"
+              
+              # Apply discount for bulk orders
+              - if:
+                  condition: item.quantity >= 10
+                  then:
+                    - set:
+                        var: discount
+                        value: "{{item_price * 0.15}}"
+                    
+                    - set:
+                        var: total_price
+                        value: "{{total_price - discount}}"
+            
+            otherwise:
+              - set:
+                  var: failed_items
+                  value: "{{failed_items + [item]}}"
+
+  # Step 4: Balance check with nested conditions
+  - if:
+      condition: user_status == 'active'
+      then:
+        - if:
+            condition: user_balance >= total_price
+            then:
+              # Process payment
+              - http_request:
+                  url: "https://api.payment.com/charge"
+                  method: POST
+                  headers:
+                    Content-Type: application/json
+                  body:
+                    user_id: "{{body.user_id}}"
+                    amount: "{{total_price}}"
+                    currency: USD
+              
+              # Insert order with multiple items
+              - query_db:
+                  query: "INSERT INTO orders (user_id, total, status, items_count) VALUES ($1, $2, $3, $4) RETURNING id"
+                  params:
+                    - "{{body.user_id}}"
+                    - "{{total_price}}"
+                    - completed
+                    - "{{processed_items.length}}"
+              
+              - set:
+                  var: order_id
+                  value: "{{db_result.id}}"
+              
+              # Loop to insert order items
+              - loop:
+                  collection: "{{processed_items}}"
+                  var: item
+                  body:
+                    - query_db:
+                        query: "INSERT INTO order_items (order_id, item_id, quantity, price) VALUES ($1, $2, $3, $4)"
+                        params:
+                          - "{{order_id}}"
+                          - "{{item.id}}"
+                          - "{{item.quantity}}"
+                          - "{{item.quantity * item.unit_price}}"
+              
+              # Success response
+              - return:
+                  value:
+                    success: true
+                    order_id: "{{order_id}}"
+                    total_price: "{{total_price}}"
+                    processed_count: "{{processed_items.length}}"
+                    failed_count: "{{failed_items.length}}"
+                    message: Order completed successfully
+            
+            otherwise:
+              # Insufficient balance
+              - return:
+                  value:
+                    success: false
+                    error: Insufficient balance
+                    required: "{{total_price}}"
+                    available: "{{user_balance}}"
+                    shortage: "{{total_price - user_balance}}"
+      
+      otherwise:
+        # User not active
+        - return:
+            value:
+              success: false
+              error: User account is not active
+              user_status: "{{user_status}}"
+              message: Please activate your account first
