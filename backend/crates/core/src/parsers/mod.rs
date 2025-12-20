@@ -1,7 +1,7 @@
-/// Parsers module for Dynamic Routes Engine
-/// 
-/// This module provides parsing functionality for route definitions
-/// in both JSON and YAML formats with automatic format detection.
+//! Parsers module for Dynamic Routes Engine
+//!
+//! This module provides parsing functionality for route definitions
+//! in both JSON and YAML formats with automatic format detection.
 
 pub mod detector;
 pub mod route_parser;

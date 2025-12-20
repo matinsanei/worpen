@@ -1,12 +1,12 @@
-/// Helper functions library for YAML Dynamic Routes
-/// 
-/// Provides reusable utility functions for common operations:
-/// - UUID generation
-/// - Password hashing
-/// - Date/time operations
-/// - Random value generation
-/// - Encoding/decoding
-/// - JSON operations
+//! Helper functions library for YAML Dynamic Routes
+//!
+//! Provides reusable utility functions for common operations:
+//! - UUID generation
+//! - Password hashing
+//! - Date/time operations
+//! - Random value generation
+//! - Encoding/decoding
+//! - JSON operations
 
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -89,12 +89,10 @@ pub fn now_time() -> String {
 /// Generate random integer between min and max (inclusive)
 pub fn random_int(min: i64, max: i64) -> i64 {
     use std::collections::hash_map::RandomState;
-    use std::hash::{BuildHasher, Hash, Hasher};
+    use std::hash::BuildHasher;
     
     let random_state = RandomState::new();
-    let mut hasher = random_state.build_hasher();
-    Utc::now().timestamp_nanos_opt().unwrap_or(0).hash(&mut hasher);
-    let hash = hasher.finish();
+    let hash = random_state.hash_one(Utc::now().timestamp_nanos_opt().unwrap_or(0));
     
     min + ((hash % ((max - min + 1) as u64)) as i64)
 }
@@ -108,12 +106,10 @@ pub fn random_float(min: f64, max: f64) -> f64 {
 /// Generate random float between 0.0 and 1.0
 fn random_float_01() -> f64 {
     use std::collections::hash_map::RandomState;
-    use std::hash::{BuildHasher, Hash, Hasher};
+    use std::hash::BuildHasher;
     
     let random_state = RandomState::new();
-    let mut hasher = random_state.build_hasher();
-    Utc::now().timestamp_nanos_opt().unwrap_or(0).hash(&mut hasher);
-    let hash = hasher.finish();
+    let hash = random_state.hash_one(Utc::now().timestamp_nanos_opt().unwrap_or(0));
     
     (hash as f64) / (u64::MAX as f64)
 }
@@ -499,13 +495,13 @@ mod tests {
     #[test]
     fn test_random_int() {
         let num = random_int(1, 10);
-        assert!(num >= 1 && num <= 10);
+        assert!((1..=10).contains(&num));
     }
 
     #[test]
     fn test_random_float() {
         let num = random_float(0.0, 1.0);
-        assert!(num >= 0.0 && num <= 1.0);
+        assert!((0.0..=1.0).contains(&num));
     }
 
     #[test]

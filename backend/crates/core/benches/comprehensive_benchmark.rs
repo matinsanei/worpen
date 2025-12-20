@@ -1,11 +1,11 @@
-/// Performance Benchmarks for Dynamic Routes Engine
-/// 
-/// Measures:
-/// - JSON vs YAML parsing speed
-/// - Expression evaluation performance
-/// - Pipe operator overhead
-/// - Route execution time
-/// - Complex operation benchmarks
+//! Performance Benchmarks for Dynamic Routes Engine
+//!
+//! Measures:
+//! - JSON vs YAML parsing speed
+//! - Expression evaluation performance
+//! - Pipe operator overhead
+//! - Route execution time
+//! - Complex operation benchmarks
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use core::parsers::route_parser::parse_route;

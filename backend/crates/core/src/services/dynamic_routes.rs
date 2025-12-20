@@ -12,6 +12,12 @@ pub struct DynamicRouteService {
     routes: Arc<std::sync::RwLock<HashMap<String, RouteDefinition>>>,
 }
 
+impl Default for DynamicRouteService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DynamicRouteService {
     pub fn new() -> Self {
         Self {

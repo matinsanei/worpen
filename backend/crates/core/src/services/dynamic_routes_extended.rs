@@ -286,7 +286,7 @@ pub async fn execute_logic_extended(
                 steps.push(format!("Parallel execution of {} tasks", tasks.len()));
                 
                 let mut futures = vec![];
-                for (_i, task) in tasks.iter().enumerate() {
+                for task in tasks.iter() {
                     let task_context = context.clone();
                     let task_ops = task.clone();
                     let mut task_steps = vec![];
@@ -307,7 +307,7 @@ pub async fn execute_logic_extended(
                 }
                 
                 last_result = Value::Array(success_results);
-                steps.push(format!("Parallel execution completed"));
+                steps.push("Parallel execution completed".to_string());
             },
             
             // ===== FUNCTION DEFINITION =====
@@ -348,19 +348,15 @@ pub async fn execute_logic_extended(
                 
                 last_result = match operation.as_str() {
                     "split" => {
-                        let delimiter = args.get(0).and_then(|v| v.as_str()).unwrap_or(",");
+                        let delimiter = args.first().and_then(|v| v.as_str()).unwrap_or(",");
                         let parts: Vec<Value> = input_str.split(delimiter).map(|s| Value::String(s.to_string())).collect();
                         Value::Array(parts)
                     },
                     "join" => {
-                        let delimiter = args.get(0).and_then(|v| v.as_str()).unwrap_or("");
-                        if let Some(arr_str) = context.variables.get(input) {
-                            if let Value::Array(arr) = arr_str {
-                                let joined = arr.iter().filter_map(|v| v.as_str()).collect::<Vec<&str>>().join(delimiter);
-                                Value::String(joined)
-                            } else {
-                                Value::String(input_str)
-                            }
+                        let delimiter = args.first().and_then(|v| v.as_str()).unwrap_or("");
+                        if let Some(Value::Array(arr)) = context.variables.get(input) {
+                            let joined = arr.iter().filter_map(|v| v.as_str()).collect::<Vec<&str>>().join(delimiter);
+                            Value::String(joined)
                         } else {
                             Value::String(input_str)
                         }
@@ -369,7 +365,7 @@ pub async fn execute_logic_extended(
                     "lower" => Value::String(input_str.to_lowercase()),
                     "trim" => Value::String(input_str.trim().to_string()),
                     "replace" => {
-                        let from = args.get(0).and_then(|v| v.as_str()).unwrap_or("");
+                        let from = args.first().and_then(|v| v.as_str()).unwrap_or("");
                         let to = args.get(1).and_then(|v| v.as_str()).unwrap_or("");
                         Value::String(input_str.replace(from, to))
                     },
@@ -410,28 +406,28 @@ pub async fn execute_logic_extended(
                         Value::Number(serde_json::Number::from_f64(max).unwrap())
                     },
                     "round" => {
-                        let val = numbers.get(0).unwrap_or(&0.0).round();
+                        let val = numbers.first().unwrap_or(&0.0).round();
                         Value::Number(serde_json::Number::from_f64(val).unwrap())
                     },
                     "floor" => {
-                        let val = numbers.get(0).unwrap_or(&0.0).floor();
+                        let val = numbers.first().unwrap_or(&0.0).floor();
                         Value::Number(serde_json::Number::from_f64(val).unwrap())
                     },
                     "ceil" => {
-                        let val = numbers.get(0).unwrap_or(&0.0).ceil();
+                        let val = numbers.first().unwrap_or(&0.0).ceil();
                         Value::Number(serde_json::Number::from_f64(val).unwrap())
                     },
                     "abs" => {
-                        let val = numbers.get(0).unwrap_or(&0.0).abs();
+                        let val = numbers.first().unwrap_or(&0.0).abs();
                         Value::Number(serde_json::Number::from_f64(val).unwrap())
                     },
                     "pow" => {
-                        let base = numbers.get(0).unwrap_or(&0.0);
+                        let base = numbers.first().unwrap_or(&0.0);
                         let exp = numbers.get(1).unwrap_or(&1.0);
                         Value::Number(serde_json::Number::from_f64(base.powf(*exp)).unwrap())
                     },
                     "sqrt" => {
-                        let val = numbers.get(0).unwrap_or(&0.0).sqrt();
+                        let val = numbers.first().unwrap_or(&0.0).sqrt();
                         Value::Number(serde_json::Number::from_f64(val).unwrap())
                     },
                     "subtract" => {
@@ -502,7 +498,7 @@ pub async fn execute_logic_extended(
                         }
                     },
                     "get_path" => {
-                        let path = args.get(0).and_then(|v| v.as_str()).unwrap_or("");
+                        let path = args.first().and_then(|v| v.as_str()).unwrap_or("");
                         get_json_path(&input_val, path)
                     },
                     _ => Value::Null,

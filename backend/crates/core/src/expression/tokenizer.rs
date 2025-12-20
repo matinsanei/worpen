@@ -361,7 +361,10 @@ mod tests {
         
         assert_eq!(tokens.len(), 3); // 42, 3.14, EOF
         assert!(matches!(tokens[0].token_type, TokenType::Number(42.0)));
-        assert!(matches!(tokens[1].token_type, TokenType::Number(3.14)));
+        #[allow(clippy::approx_constant)]
+        {
+            assert!(matches!(tokens[1].token_type, TokenType::Number(3.14)));
+        }
     }
     
     #[test]
