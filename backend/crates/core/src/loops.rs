@@ -8,7 +8,6 @@
 /// - Loop counters and metadata
 
 use serde_json::Value;
-use std::collections::HashMap;
 
 /// Loop control flow result
 #[derive(Debug, Clone, PartialEq)]
@@ -355,7 +354,7 @@ mod tests {
         let mut loop_iter = ForEachLoop::new(items);
         
         let mut count = 0;
-        while let Some((value, meta)) = loop_iter.next_iteration() {
+        while let Some((_value, meta)) = loop_iter.next_iteration() {
             count += 1;
             assert_eq!(meta.counter, count);
             

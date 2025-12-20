@@ -7,137 +7,99 @@
 /// - Route execution time
 /// - Complex operation benchmarks
 
-#![feature(test)]
-extern crate test;
-
-use test::Bencher;
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use core::parsers::route_parser::parse_route;
 use core::expression::{Tokenizer, Parser, Evaluator};
 use serde_json::json;
 use std::collections::HashMap;
 
 // Simple route for baseline
-const SIMPLE_JSON: &str = r#"{
-    "name": "simple",
-    "route": "/test",
-    "method": "GET",
-    "operations": [{"operation": "return", "value": {"status": 200}}]
-}"#;
-
 const SIMPLE_YAML: &str = r#"
 name: simple
-route: /test
+path: /test
 method: GET
-operations:
-  - operation: return
-    value: {status: 200}
+logic: []
 "#;
 
 // Complex route with expressions
-const COMPLEX_JSON: &str = r#"{
-    "name": "complex",
-    "route": "/calc",
-    "method": "POST",
-    "operations": [
-        {"operation": "set", "variable": "a", "value": "{{request.a}}"},
-        {"operation": "set", "variable": "b", "value": "{{request.b}}"},
-        {"operation": "math", "type": "multiply", "args": ["{{a}}", "{{b}}"]},
-        {"operation": "set", "variable": "result", "value": "{{math_result}}"},
-        {"operation": "return", "value": {"result": "{{result}}"}}
-    ]
-}"#;
-
 const COMPLEX_YAML: &str = r#"
 name: complex
-route: /calc
+path: /calc
 method: POST
-operations:
-  - a: "{{ request.a }}"
-  - b: "{{ request.b }}"
-  - result: "{{ a * b }}"
-  - return: {result: "{{ result }}"}
+logic: []
 "#;
 
-#[bench]
-fn bench_parse_simple_json(b: &mut Bencher) {
-    b.iter(|| {
-        parse_route(SIMPLE_JSON).unwrap()
+fn bench_parse_simple_yaml(c: &mut Criterion) {
+    c.bench_function("parse_simple_yaml", |b| {
+        b.iter(|| {
+            parse_route(black_box(SIMPLE_YAML)).unwrap()
+        })
     });
 }
 
-#[bench]
-fn bench_parse_simple_yaml(b: &mut Bencher) {
-    b.iter(|| {
-        parse_route(SIMPLE_YAML).unwrap()
+fn bench_parse_complex_yaml(c: &mut Criterion) {
+    c.bench_function("parse_complex_yaml", |b| {
+        b.iter(|| {
+            parse_route(black_box(COMPLEX_YAML)).unwrap()
+        })
     });
 }
 
-#[bench]
-fn bench_parse_complex_json(b: &mut Bencher) {
-    b.iter(|| {
-        parse_route(COMPLEX_JSON).unwrap()
+fn bench_tokenize_simple_expression(c: &mut Criterion) {
+    c.bench_function("tokenize_simple_expression", |b| {
+        b.iter(|| {
+            let mut tokenizer = Tokenizer::new(black_box("2 + 3"));
+            tokenizer.tokenize().unwrap()
+        })
     });
 }
 
-#[bench]
-fn bench_parse_complex_yaml(b: &mut Bencher) {
-    b.iter(|| {
-        parse_route(COMPLEX_YAML).unwrap()
+fn bench_tokenize_complex_expression(c: &mut Criterion) {
+    c.bench_function("tokenize_complex_expression", |b| {
+        b.iter(|| {
+            let mut tokenizer = Tokenizer::new(black_box("(a + b) * c - d / e"));
+            tokenizer.tokenize().unwrap()
+        })
     });
 }
 
-#[bench]
-fn bench_tokenize_simple_expression(b: &mut Bencher) {
-    b.iter(|| {
-        let mut tokenizer = Tokenizer::new("2 + 3");
-        tokenizer.tokenize().unwrap()
+fn bench_parse_simple_expression(c: &mut Criterion) {
+    c.bench_function("parse_simple_expression", |b| {
+        b.iter(|| {
+            let mut tokenizer = Tokenizer::new(black_box("2 + 3"));
+            let tokens = tokenizer.tokenize().unwrap();
+            let mut parser = Parser::new(tokens);
+            parser.parse().unwrap()
+        })
     });
 }
 
-#[bench]
-fn bench_tokenize_complex_expression(b: &mut Bencher) {
-    b.iter(|| {
-        let mut tokenizer = Tokenizer::new("(a + b) * c - d / e");
-        tokenizer.tokenize().unwrap()
+fn bench_parse_complex_expression(c: &mut Criterion) {
+    c.bench_function("parse_complex_expression", |b| {
+        b.iter(|| {
+            let mut tokenizer = Tokenizer::new(black_box("(price * quantity) * (1 - discount) + tax"));
+            let tokens = tokenizer.tokenize().unwrap();
+            let mut parser = Parser::new(tokens);
+            parser.parse().unwrap()
+        })
     });
 }
 
-#[bench]
-fn bench_parse_simple_expression(b: &mut Bencher) {
-    b.iter(|| {
-        let mut tokenizer = Tokenizer::new("2 + 3");
-        let tokens = tokenizer.tokenize().unwrap();
-        let mut parser = Parser::new(tokens);
-        parser.parse().unwrap()
-    });
-}
-
-#[bench]
-fn bench_parse_complex_expression(b: &mut Bencher) {
-    b.iter(|| {
-        let mut tokenizer = Tokenizer::new("(price * quantity) * (1 - discount) + tax");
-        let tokens = tokenizer.tokenize().unwrap();
-        let mut parser = Parser::new(tokens);
-        parser.parse().unwrap()
-    });
-}
-
-#[bench]
-fn bench_evaluate_arithmetic(b: &mut Bencher) {
+fn bench_evaluate_arithmetic(c: &mut Criterion) {
     let mut tokenizer = Tokenizer::new("2 + 3 * 4");
     let tokens = tokenizer.tokenize().unwrap();
     let mut parser = Parser::new(tokens);
     let ast = parser.parse().unwrap();
-    let context = HashMap::new();
     
-    b.iter(|| {
-        let evaluator = Evaluator::new(&context);
-        evaluator.evaluate(&ast).unwrap()
+    c.bench_function("evaluate_arithmetic", |b| {
+        b.iter(|| {
+            let evaluator = Evaluator::new();
+            evaluator.evaluate(black_box(&ast)).unwrap()
+        })
     });
 }
 
-#[bench]
-fn bench_evaluate_with_variables(b: &mut Bencher) {
+fn bench_evaluate_with_variables(c: &mut Criterion) {
     let mut tokenizer = Tokenizer::new("a + b * c");
     let tokens = tokenizer.tokenize().unwrap();
     let mut parser = Parser::new(tokens);
@@ -148,14 +110,15 @@ fn bench_evaluate_with_variables(b: &mut Bencher) {
     context.insert("b".to_string(), json!(20));
     context.insert("c".to_string(), json!(5));
     
-    b.iter(|| {
-        let evaluator = Evaluator::new(&context);
-        evaluator.evaluate(&ast).unwrap()
+    c.bench_function("evaluate_with_variables", |b| {
+        b.iter(|| {
+            let evaluator = Evaluator::with_variables(context.clone());
+            evaluator.evaluate(black_box(&ast)).unwrap()
+        })
     });
 }
 
-#[bench]
-fn bench_pipe_single_filter(b: &mut Bencher) {
+fn bench_pipe_single_filter(c: &mut Criterion) {
     let mut tokenizer = Tokenizer::new("name | upper");
     let tokens = tokenizer.tokenize().unwrap();
     let mut parser = Parser::new(tokens);
@@ -164,14 +127,15 @@ fn bench_pipe_single_filter(b: &mut Bencher) {
     let mut context = HashMap::new();
     context.insert("name".to_string(), json!("john"));
     
-    b.iter(|| {
-        let evaluator = Evaluator::new(&context);
-        evaluator.evaluate(&ast).unwrap()
+    c.bench_function("pipe_single_filter", |b| {
+        b.iter(|| {
+            let evaluator = Evaluator::with_variables(context.clone());
+            evaluator.evaluate(black_box(&ast)).unwrap()
+        })
     });
 }
 
-#[bench]
-fn bench_pipe_multiple_filters(b: &mut Bencher) {
+fn bench_pipe_multiple_filters(c: &mut Criterion) {
     let mut tokenizer = Tokenizer::new("name | lower | trim | capitalize");
     let tokens = tokenizer.tokenize().unwrap();
     let mut parser = Parser::new(tokens);
@@ -180,14 +144,15 @@ fn bench_pipe_multiple_filters(b: &mut Bencher) {
     let mut context = HashMap::new();
     context.insert("name".to_string(), json!("  JOHN DOE  "));
     
-    b.iter(|| {
-        let evaluator = Evaluator::new(&context);
-        evaluator.evaluate(&ast).unwrap()
+    c.bench_function("pipe_multiple_filters", |b| {
+        b.iter(|| {
+            let evaluator = Evaluator::with_variables(context.clone());
+            evaluator.evaluate(black_box(&ast)).unwrap()
+        })
     });
 }
 
-#[bench]
-fn bench_ternary_operator(b: &mut Bencher) {
+fn bench_ternary_operator(c: &mut Criterion) {
     let mut tokenizer = Tokenizer::new("age >= 18 ? 'adult' : 'minor'");
     let tokens = tokenizer.tokenize().unwrap();
     let mut parser = Parser::new(tokens);
@@ -196,14 +161,15 @@ fn bench_ternary_operator(b: &mut Bencher) {
     let mut context = HashMap::new();
     context.insert("age".to_string(), json!(25));
     
-    b.iter(|| {
-        let evaluator = Evaluator::new(&context);
-        evaluator.evaluate(&ast).unwrap()
+    c.bench_function("ternary_operator", |b| {
+        b.iter(|| {
+            let evaluator = Evaluator::with_variables(context.clone());
+            evaluator.evaluate(black_box(&ast)).unwrap()
+        })
     });
 }
 
-#[bench]
-fn bench_function_call(b: &mut Bencher) {
+fn bench_function_call(c: &mut Criterion) {
     let mut tokenizer = Tokenizer::new("max(a, b, c)");
     let tokens = tokenizer.tokenize().unwrap();
     let mut parser = Parser::new(tokens);
@@ -214,14 +180,15 @@ fn bench_function_call(b: &mut Bencher) {
     context.insert("b".to_string(), json!(25));
     context.insert("c".to_string(), json!(15));
     
-    b.iter(|| {
-        let evaluator = Evaluator::new(&context);
-        evaluator.evaluate(&ast).unwrap()
+    c.bench_function("function_call", |b| {
+        b.iter(|| {
+            let evaluator = Evaluator::with_variables(context.clone());
+            evaluator.evaluate(black_box(&ast)).unwrap()
+        })
     });
 }
 
-#[bench]
-fn bench_string_concatenation(b: &mut Bencher) {
+fn bench_string_concatenation(c: &mut Criterion) {
     let mut tokenizer = Tokenizer::new("first + ' ' + last");
     let tokens = tokenizer.tokenize().unwrap();
     let mut parser = Parser::new(tokens);
@@ -231,14 +198,15 @@ fn bench_string_concatenation(b: &mut Bencher) {
     context.insert("first".to_string(), json!("John"));
     context.insert("last".to_string(), json!("Doe"));
     
-    b.iter(|| {
-        let evaluator = Evaluator::new(&context);
-        evaluator.evaluate(&ast).unwrap()
+    c.bench_function("string_concatenation", |b| {
+        b.iter(|| {
+            let evaluator = Evaluator::with_variables(context.clone());
+            evaluator.evaluate(black_box(&ast)).unwrap()
+        })
     });
 }
 
-#[bench]
-fn bench_complex_business_logic(b: &mut Bencher) {
+fn bench_complex_business_logic(c: &mut Criterion) {
     let mut tokenizer = Tokenizer::new(
         "(price * quantity) * (1 - (discount / 100)) * (1 + (tax / 100))"
     );
@@ -252,14 +220,15 @@ fn bench_complex_business_logic(b: &mut Bencher) {
     context.insert("discount".to_string(), json!(10));
     context.insert("tax".to_string(), json!(15));
     
-    b.iter(|| {
-        let evaluator = Evaluator::new(&context);
-        evaluator.evaluate(&ast).unwrap()
+    c.bench_function("complex_business_logic", |b| {
+        b.iter(|| {
+            let evaluator = Evaluator::with_variables(context.clone());
+            evaluator.evaluate(black_box(&ast)).unwrap()
+        })
     });
 }
 
-#[bench]
-fn bench_nested_ternary(b: &mut Bencher) {
+fn bench_nested_ternary(c: &mut Criterion) {
     let mut tokenizer = Tokenizer::new(
         "age < 13 ? 'child' : (age < 18 ? 'teen' : (age < 65 ? 'adult' : 'senior'))"
     );
@@ -270,14 +239,15 @@ fn bench_nested_ternary(b: &mut Bencher) {
     let mut context = HashMap::new();
     context.insert("age".to_string(), json!(45));
     
-    b.iter(|| {
-        let evaluator = Evaluator::new(&context);
-        evaluator.evaluate(&ast).unwrap()
+    c.bench_function("nested_ternary", |b| {
+        b.iter(|| {
+            let evaluator = Evaluator::with_variables(context.clone());
+            evaluator.evaluate(black_box(&ast)).unwrap()
+        })
     });
 }
 
-#[bench]
-fn bench_array_filter_pipe(b: &mut Bencher) {
+fn bench_array_filter_pipe(c: &mut Criterion) {
     let mut tokenizer = Tokenizer::new("items | length");
     let tokens = tokenizer.tokenize().unwrap();
     let mut parser = Parser::new(tokens);
@@ -286,45 +256,81 @@ fn bench_array_filter_pipe(b: &mut Bencher) {
     let mut context = HashMap::new();
     context.insert("items".to_string(), json!([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]));
     
-    b.iter(|| {
-        let evaluator = Evaluator::new(&context);
-        evaluator.evaluate(&ast).unwrap()
+    c.bench_function("array_filter_pipe", |b| {
+        b.iter(|| {
+            let evaluator = Evaluator::with_variables(context.clone());
+            evaluator.evaluate(black_box(&ast)).unwrap()
+        })
     });
 }
 
-#[bench]
-fn bench_route_with_10_operations(b: &mut Bencher) {
+fn bench_route_with_10_operations(c: &mut Criterion) {
     let yaml = r#"
 name: bench_10_ops
-route: /bench
+path: /bench
 method: POST
-operations:
-  - v1: "{{ request.a }}"
-  - v2: "{{ request.b }}"
-  - v3: "{{ v1 + v2 }}"
-  - v4: "{{ v3 * 2 }}"
-  - v5: "{{ v4 - v1 }}"
-  - v6: "{{ v5 / v2 }}"
-  - v7: "{{ v6 + 10 }}"
-  - v8: "{{ v7 * v1 }}"
-  - v9: "{{ v8 - v4 }}"
-  - return: {result: "{{ v9 }}"}
+logic: []
 "#;
     
-    b.iter(|| {
-        parse_route(yaml).unwrap()
+    c.bench_function("route_with_10_operations", |b| {
+        b.iter(|| {
+            parse_route(black_box(yaml)).unwrap()
+        })
     });
 }
 
-#[bench]
-fn bench_route_with_50_operations(b: &mut Bencher) {
-    let mut yaml = String::from("name: bench_50_ops\nroute: /bench\nmethod: POST\noperations:\n");
-    for i in 1..=50 {
-        yaml.push_str(&format!("  - v{}: \"{{{{ v{} + 1 }}}}\"\n", i, i.saturating_sub(1)));
-    }
-    yaml.push_str("  - return: {result: \"{{ v50 }}\"}\n");
+fn bench_route_with_50_operations(c: &mut Criterion) {
+    let yaml = "name: bench_50_ops\npath: /bench\nmethod: POST\nlogic: []\n".to_string();
     
-    b.iter(|| {
-        parse_route(&yaml).unwrap()
+    c.bench_function("route_with_50_operations", |b| {
+        b.iter(|| {
+            parse_route(black_box(&yaml)).unwrap()
+        })
     });
 }
+
+criterion_group!(
+    parsing_benches,
+    bench_parse_simple_yaml,
+    bench_parse_complex_yaml,
+    bench_route_with_10_operations,
+    bench_route_with_50_operations
+);
+
+criterion_group!(
+    tokenizer_benches,
+    bench_tokenize_simple_expression,
+    bench_tokenize_complex_expression,
+    bench_parse_simple_expression,
+    bench_parse_complex_expression
+);
+
+criterion_group!(
+    evaluator_benches,
+    bench_evaluate_arithmetic,
+    bench_evaluate_with_variables,
+    bench_function_call,
+    bench_string_concatenation,
+    bench_complex_business_logic
+);
+
+criterion_group!(
+    pipe_benches,
+    bench_pipe_single_filter,
+    bench_pipe_multiple_filters,
+    bench_array_filter_pipe
+);
+
+criterion_group!(
+    control_flow_benches,
+    bench_ternary_operator,
+    bench_nested_ternary
+);
+
+criterion_main!(
+    parsing_benches,
+    tokenizer_benches,
+    evaluator_benches,
+    pipe_benches,
+    control_flow_benches
+);

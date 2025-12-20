@@ -8,9 +8,8 @@
 /// - Encoding/decoding
 /// - JSON operations
 
-use chrono::{DateTime, Utc, NaiveDateTime, Datelike, Timelike};
+use chrono::{DateTime, Utc};
 use serde_json::Value;
-use std::collections::HashMap;
 use uuid::Uuid;
 
 /// Generate a new UUID v4
@@ -257,7 +256,7 @@ pub fn random_string(length: usize) -> String {
     const CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     
     (0..length)
-        .map(|i| {
+        .map(|_| {
             let idx = random_int(0, (CHARSET.len() - 1) as i64) as usize;
             CHARSET[idx] as char
         })

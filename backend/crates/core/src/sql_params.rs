@@ -112,11 +112,11 @@ impl NamedQuery {
     /// 
     /// let query = NamedQuery::parse("INSERT INTO logs (message, created_at) VALUES (:msg, :time)");
     /// let mut params = HashMap::new();
-    /// params.insert("msg".to_string(), json!("{{ 'Hello ' + user.name }}"));
+    /// params.insert("msg".to_string(), json!("{{ 'Hello ' + name }}"));
     /// params.insert("time".to_string(), json!("{{ now() }}"));
     /// 
     /// let mut context = HashMap::new();
-    /// context.insert("user".to_string(), json!({"name": "Alice"}));
+    /// context.insert("name".to_string(), json!("Alice"));
     /// 
     /// let values = query.bind_params_with_eval(&params, &context).unwrap();
     /// // values[0] will be evaluated expression result
