@@ -1,0 +1,13 @@
+name: Test YAML Route  
+description: Testing YAML format
+path: /api/custom/yaml-test
+method: GET
+logic:
+  - !Return
+    value:
+      message: Hello from YAML!
+      format: yaml
+      test: success
+parameters: []
+enabled: true
+version: 1.0.0

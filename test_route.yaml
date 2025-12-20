@@ -1,0 +1,12 @@
+name: Hello Worpen
+description: Test route
+path: /api/custom/hello
+method: GET
+logic:
+  - return:
+      value:
+        message: Hello from Worpen!
+        status: success
+        powered_by: Worpen Dynamic Routes
+parameters: []
+enabled: true

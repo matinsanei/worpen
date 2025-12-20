@@ -2,10 +2,13 @@
 
 use proto::models::RegisterRouteRequest;
 use crate::parsers::detector::{detect_format, InputFormat};
+use crate::parsers::yaml_normalizer::yaml_to_json;
 
 /// Parse route definition from JSON or YAML string
 /// 
 /// Automatically detects format and parses accordingly.
+/// For YAML, it normalizes the structure to be JSON-compatible
+/// before deserialization to handle enum variants properly.
 /// 
 /// # Arguments
 /// 
@@ -27,17 +30,7 @@ use crate::parsers::detector::{detect_format, InputFormat};
 /// ```
 pub fn parse_route(content: &str) -> Result<RegisterRouteRequest, String> {
     let format = detect_format(content);
-    
-    match format {
-        InputFormat::Json => {
-            serde_json::from_str::<RegisterRouteRequest>(content)
-                .map_err(|e| format!("JSON parse error: {}", e))
-        }
-        InputFormat::Yaml => {
-            serde_yaml::from_str::<RegisterRouteRequest>(content)
-                .map_err(|e| format!("YAML parse error: {}", e))
-        }
-    }
+    parse_route_with_format(content, format)
 }
 
 /// Parse route definition with explicit format
@@ -53,8 +46,12 @@ pub fn parse_route_with_format(
                 .map_err(|e| format!("JSON parse error: {}", e))
         }
         InputFormat::Yaml => {
-            serde_yaml::from_str::<RegisterRouteRequest>(content)
-                .map_err(|e| format!("YAML parse error: {}", e))
+            // Convert YAML to JSON first to handle enum variants properly
+            let json_str = yaml_to_json(content)?;
+            
+            // Now parse as JSON
+            serde_json::from_str::<RegisterRouteRequest>(&json_str)
+                .map_err(|e| format!("YAML structure error: {}", e))
         }
     }
 }

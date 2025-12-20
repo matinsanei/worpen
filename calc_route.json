@@ -1,0 +1,23 @@
+{
+  "name": "Calculator API",
+  "path": "/api/custom/calc",
+  "method": "POST",
+  "description": "Simple calculator using expressions",
+  "logic": [
+    {
+      "return": {
+        "value": {
+          "result": "Calculation result",
+          "operations": {
+            "addition": "5 + 3 = 8",
+            "multiplication": "5 * 3 = 15",
+            "power": "2^8 = 256"
+          },
+          "status": "success"
+        }
+      }
+    }
+  ],
+  "parameters": [],
+  "enabled": true
+}

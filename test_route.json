@@ -1,0 +1,27 @@
+{
+  "path": "/api/custom/hello",
+  "method": "GET",
+  "logic": [
+    {
+      "variable": "message",
+      "value": "{{ 'Hello from Worpen!' | upper }}"
+    },
+    {
+      "variable": "timestamp",
+      "value": "{{ now_iso() }}"
+    },
+    {
+      "variable": "random_number",
+      "value": "{{ random_int(1, 100) }}"
+    }
+  ],
+  "response": {
+    "status": 200,
+    "body": {
+      "message": "{{ message }}",
+      "timestamp": "{{ timestamp }}",
+      "lucky_number": "{{ random_number }}",
+      "powered_by": "Worpen Dynamic Routes"
+    }
+  }
+}

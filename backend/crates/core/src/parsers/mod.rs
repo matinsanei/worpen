@@ -5,7 +5,9 @@
 
 pub mod detector;
 pub mod route_parser;
+pub mod yaml_normalizer;
 
 // Re-export commonly used items
 pub use detector::{detect_format, InputFormat};
 pub use route_parser::{parse_route, parse_route_with_format};
+pub use yaml_normalizer::yaml_to_json;

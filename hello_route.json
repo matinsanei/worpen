@@ -1,0 +1,29 @@
+{
+  "name": "Hello Worpen API",
+  "path": "/api/custom/hello-worpen",
+  "method": "GET",
+  "description": "Simple hello world",
+  "logic": [
+    {
+      "return": {
+        "value": {
+          "message": "Hello from Worpen Dynamic Routes!",
+          "features": [
+            "Zero-code API creation",
+            "YAML & JSON support",
+            "250K routes/second",
+            "Expression engine with 30+ filters"
+          ],
+          "performance": {
+            "parsing": "4-5 microseconds",
+            "throughput": "250,000 routes/sec"
+          },
+          "powered_by": "Rust + Axum",
+          "version": "1.0.0"
+        }
+      }
+    }
+  ],
+  "parameters": [],
+  "enabled": true
+}
