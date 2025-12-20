@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { PageTransition } from './components/PageTransition';
 import { ViewState } from './types';
@@ -61,10 +62,41 @@ const IncidentsView: React.FC = () => (
 );
 
 const AppContent: React.FC = () => {
-  const [currentView, setCurrentView] = useState<ViewState>('DASHBOARD');
+  const navigate = useNavigate();
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+
+  // Map URL paths to ViewState
+  const pathToView: Record<string, ViewState> = {
+    '/': 'DASHBOARD',
+    '/fleet': 'FLEET',
+    '/containers': 'DOCKER',
+    '/auto-healing': 'AUTOMATION',
+    '/artifacts': 'DEPENDENCY',
+    '/pipeline': 'CICD',
+    '/route-builder': 'DYNAMIC_ROUTES',
+    '/incidents': 'INCIDENTS',
+    '/settings': 'SETTINGS',
+  };
+
+  const currentView = pathToView[location.pathname] || 'DASHBOARD';
+
+  const handleViewChange = (view: ViewState) => {
+    const viewToPath: Record<ViewState, string> = {
+      'DASHBOARD': '/',
+      'FLEET': '/fleet',
+      'DOCKER': '/containers',
+      'AUTOMATION': '/auto-healing',
+      'DEPENDENCY': '/artifacts',
+      'CICD': '/pipeline',
+      'DYNAMIC_ROUTES': '/route-builder',
+      'INCIDENTS': '/incidents',
+      'SETTINGS': '/settings',
+    };
+    navigate(viewToPath[view]);
+  };
 
   // Inject startup notification
   const { addNotification } = useNotifications();
@@ -104,7 +136,7 @@ const AppContent: React.FC = () => {
       <LeftSidebar
         isOpen={sidebarOpen}
         currentView={currentView}
-        onNavigate={setCurrentView}
+        onViewChange={handleViewChange}
       />
 
       {/* MAIN CONTENT */}
@@ -160,16 +192,18 @@ const AppContent: React.FC = () => {
         {/* VIEWPORT */}
         <main className="flex-1 overflow-y-auto custom-scrollbar relative p-1 overflow-x-hidden">
           <AnimatePresence mode="wait">
-            <PageTransition key={currentView} className="h-full">
-              {currentView === 'DASHBOARD' && <Dashboard />}
-              {currentView === 'FLEET' && <Fleet />}
-              {currentView === 'DOCKER' && <DockerView />}
-              {currentView === 'AUTOMATION' && <AutomationView />}
-              {currentView === 'DEPENDENCY' && <DependencyView />}
-              {currentView === 'CICD' && <CicdView />}
-              {currentView === 'INCIDENTS' && <IncidentsView />}
-              {currentView === 'DYNAMIC_ROUTES' && <DynamicRoutesView />}
-              {currentView === 'SETTINGS' && <SettingsView />}
+            <PageTransition key={location.pathname} className="h-full">
+              <Routes location={location}>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/fleet" element={<Fleet />} />
+                <Route path="/containers" element={<DockerView />} />
+                <Route path="/auto-healing" element={<AutomationView />} />
+                <Route path="/artifacts" element={<DependencyView />} />
+                <Route path="/pipeline" element={<CicdView />} />
+                <Route path="/route-builder" element={<DynamicRoutesView />} />
+                <Route path="/incidents" element={<IncidentsView />} />
+                <Route path="/settings" element={<SettingsView />} />
+              </Routes>
             </PageTransition>
           </AnimatePresence>
         </main>
@@ -204,9 +238,11 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <NotificationProvider>
-      <AppContent />
-    </NotificationProvider>
+    <BrowserRouter>
+      <NotificationProvider>
+        <AppContent />
+      </NotificationProvider>
+    </BrowserRouter>
   );
 };
 

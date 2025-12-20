@@ -85,12 +85,40 @@ export const DynamicRoutesView: React.FC = () => {
     const [testResult, setTestResult] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<'editor' | 'test'>('editor');
+    const [sidebarWidth, setSidebarWidth] = useState(33); // Percentage
+    const [isDragging, setIsDragging] = useState(false);
+    const [sidebarVisible, setSidebarVisible] = useState(true);
 
     useEffect(() => {
         fetchRoutes();
         const interval = setInterval(fetchRoutes, 5000);
         return () => clearInterval(interval);
     }, []);
+
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!isDragging || !sidebarVisible) return;
+            const container = document.getElementById('routes-container');
+            if (!container) return;
+            const containerRect = container.getBoundingClientRect();
+            const newWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+            setSidebarWidth(Math.min(Math.max(newWidth, 20), 60)); // Between 20% and 60%
+        };
+
+        const handleMouseUp = () => {
+            setIsDragging(false);
+        };
+
+        if (isDragging) {
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+        }
+
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isDragging, sidebarVisible]);
 
     const fetchRoutes = async () => {
         try {
@@ -173,57 +201,40 @@ export const DynamicRoutesView: React.FC = () => {
         setRouteDefinition(template.json);
     };
 
+
     return (
-        <div className="p-6 space-y-6 max-w-[1800px] mx-auto pb-20">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-white/5 pb-6">
-                <div>
-                    <h1 className="text-3xl font-bold text-white tracking-tight mb-2">Dynamic Routes</h1>
-                    <div className="flex items-center gap-6 text-sm text-gray-500 font-mono">
-                        <span className="flex items-center gap-2">
-                            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                            ENGINE: ACTIVE
-                        </span>
-                        <span className="flex items-center gap-2">
-                            <Globe size={14} />
-                            JSON-DRIVEN API
-                        </span>
-                        <span className="flex items-center gap-2">
-                            <Clock size={14} />
-                            0ms EXECUTION
-                        </span>
-                    </div>
-                </div>
-
-                <div className="flex gap-2">
-                    <button 
-                        onClick={fetchRoutes}
-                        className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono text-gray-300 rounded hover:text-white transition-colors flex items-center gap-2"
-                    >
-                        <RefreshCw size={14} />
-                        REFRESH
-                    </button>
-                    <button 
-                        onClick={() => setActiveTab('editor')}
-                        className="px-4 py-2 bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 text-xs font-mono text-green-400 rounded hover:text-green-300 transition-colors flex items-center gap-2"
-                    >
-                        <Plus size={14} />
-                        NEW ROUTE
-                    </button>
-                </div>
-            </div>
-
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <StatCard icon={Activity} value={routes.length} label="Active Routes" color="green" />
-                <StatCard icon={Zap} value="0ms" label="Execution" color="blue" />
-                <StatCard icon={Terminal} value="11" label="Logic Ops" color="purple" />
-            </div>
+        <div className="max-w-[1800px] mx-auto h-full overflow-hidden flex flex-col relative">
+            {/* Toggle Sidebar Button - Fixed at top */}
+            <button
+                onClick={() => setSidebarVisible(!sidebarVisible)}
+                className="absolute left-4 top-4 z-50 p-2.5 bg-green-500/10 hover:bg-green-500/20 border-2 border-green-500/30 hover:border-green-500/50 text-green-400 rounded-lg transition-all duration-300 shadow-lg hover:shadow-green-500/20 hover:scale-110 active:scale-95"
+                title={sidebarVisible ? "Hide Sidebar" : "Show Sidebar"}
+            >
+                <svg 
+                    width="18" 
+                    height="18" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2.5"
+                    className="transition-transform duration-300"
+                    style={{ transform: sidebarVisible ? 'rotate(0deg)' : 'rotate(180deg)' }}
+                >
+                    <path d="M15 18l-6-6 6-6" />
+                </svg>
+            </button>
 
             {/* Main Content */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div id="routes-container" className="flex gap-0 h-full relative pt-16">
                 {/* Templates + Routes List */}
-                <div className="lg:col-span-1 space-y-4">
+                {sidebarVisible && (
+                    <div 
+                        className="space-y-4 overflow-y-auto custom-scrollbar pr-4" 
+                        style={{ 
+                            width: `${sidebarWidth}%`,
+                            transition: isDragging ? 'none' : 'width 0.5s ease-in-out'
+                        }}
+                    >
                     {/* Quick Start Templates */}
                     <div className="bg-[#0a0a0a]/50 backdrop-blur-sm border border-white/5 rounded-lg p-4">
                         <div className="flex items-center gap-2 mb-4">
@@ -247,13 +258,29 @@ export const DynamicRoutesView: React.FC = () => {
                     </div>
 
                     {/* Your Routes */}
-                    <div className="bg-[#0a0a0a]/50 backdrop-blur-sm border border-white/5 rounded-lg p-4">
+                    <div className="bg-[#0a0a0a]/50 backdrop-blur-sm border border-white/5 rounded-lg p-4 flex-1 flex flex-col overflow-hidden">
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
                                 <Terminal size={16} className="text-green-500" />
-                                <h3 className="text-sm font-bold text-white uppercase tracking-wide">Your Routes</h3>
+                                <h3 className="text-sm font-bold text-white uppercase tracking-wide">Routes</h3>
                             </div>
-                            <span className="text-xs font-mono text-gray-500 bg-white/5 px-2 py-1 rounded">{routes.length}</span>
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    onClick={fetchRoutes}
+                                    className="p-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 rounded hover:text-white transition-colors"
+                                    title="Refresh"
+                                >
+                                    <RefreshCw size={12} />
+                                </button>
+                                <button 
+                                    onClick={() => setActiveTab('editor')}
+                                    className="p-1.5 bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 text-green-400 rounded hover:text-green-300 transition-colors"
+                                    title="New Route"
+                                >
+                                    <Plus size={12} />
+                                </button>
+                                <span className="text-xs font-mono text-gray-500 bg-white/5 px-2 py-1 rounded">{routes.length}</span>
+                            </div>
                         </div>
                         <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
                             {routes.map((route) => (
@@ -294,10 +321,38 @@ export const DynamicRoutesView: React.FC = () => {
                         </div>
                     </div>
                 </div>
+                )}
+
+                {/* Resize Handle */}
+                {sidebarVisible && (
+                    <div 
+                        className={`w-1 cursor-col-resize relative group ${
+                            isDragging 
+                                ? 'bg-green-500/50 w-2 shadow-[0_0_10px_rgba(34,197,94,0.5)]' 
+                                : 'bg-white/5 hover:bg-green-500/30'
+                        }`}
+                        style={{ transition: isDragging ? 'none' : 'all 0.3s' }}
+                        onMouseDown={(e) => {
+                            e.preventDefault();
+                            setIsDragging(true);
+                        }}
+                    >
+                        <div className="absolute inset-y-0 -left-2 -right-2 flex items-center justify-center">
+                            <div className={`w-1.5 h-16 rounded-full transition-all duration-300 ${
+                                isDragging 
+                                    ? 'bg-green-500/80 h-24 shadow-[0_0_15px_rgba(34,197,94,0.6)]' 
+                                    : 'bg-green-500/0 group-hover:bg-green-500/60 group-hover:h-20'
+                            }`}></div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Editor / Test Panel */}
-                <div className="lg:col-span-2">
-                    <div className="bg-[#0a0a0a]/50 backdrop-blur-sm border border-white/5 rounded-lg overflow-hidden">
+                <div 
+                    className="overflow-hidden flex-1"
+                    style={{ transition: isDragging ? 'none' : 'all 0.5s ease-in-out' }}
+                >
+                    <div className="bg-[#0a0a0a]/50 backdrop-blur-sm border border-white/5 rounded-lg overflow-hidden h-full flex flex-col">
                         {/* Tabs */}
                         <div className="flex border-b border-white/5 bg-black/20">
                             <button
@@ -327,34 +382,72 @@ export const DynamicRoutesView: React.FC = () => {
 
                         {/* Editor Tab */}
                         {activeTab === 'editor' && (
-                            <div className="p-4 space-y-4">
+                            <div className="p-4 space-y-4 flex-1 flex flex-col overflow-hidden">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2 text-xs text-gray-500 font-mono">
                                         <Terminal size={14} />
-                                        JSON EDITOR
+                                        JSON/YAML EDITOR
                                     </div>
-                                    <button
-                                        onClick={registerRoute}
-                                        disabled={loading || !routeDefinition.trim()}
-                                        className="px-3 py-1.5 bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 text-xs font-mono text-green-400 rounded hover:text-green-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                                    >
-                                        {loading ? <RefreshCw size={12} className="animate-spin" /> : <Save size={12} />}
-                                        {loading ? 'REGISTERING...' : 'REGISTER ROUTE'}
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => window.open('https://github.com/matinsanei/worpen/blob/main/DYNAMIC_ROUTES_GUIDE.md', '_blank')}
+                                            className="px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-xs font-mono text-blue-400 rounded hover:text-blue-300 transition-colors flex items-center gap-2"
+                                        >
+                                            <FileJson size={12} />
+                                            DOCUMENTATION
+                                        </button>
+                                        <button
+                                            onClick={registerRoute}
+                                            disabled={loading || !routeDefinition.trim()}
+                                            className="px-3 py-1.5 bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 text-xs font-mono text-green-400 rounded hover:text-green-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                        >
+                                            {loading ? <RefreshCw size={12} className="animate-spin" /> : <Save size={12} />}
+                                            {loading ? 'REGISTERING...' : 'REGISTER ROUTE'}
+                                        </button>
+                                    </div>
                                 </div>
-                                <textarea
-                                    value={routeDefinition}
-                                    onChange={(e) => setRouteDefinition(e.target.value)}
-                                    placeholder="Paste your JSON route definition here..."
-                                    className="w-full h-[500px] bg-black/50 border border-white/10 rounded p-4 text-xs font-mono text-gray-300 focus:outline-none focus:border-green-500/30 focus:ring-1 focus:ring-green-500/20 resize-none"
-                                />
+                                
+                                {/* Enhanced Code Editor with Line Numbers */}
+                                <div className="relative group flex-1 overflow-hidden">
+                                    {/* Line Numbers */}
+                                    <div className="absolute left-0 top-0 bottom-0 w-12 bg-black/80 border-r border-white/10 flex flex-col pt-4 pb-4 text-[10px] font-mono text-gray-600 select-none overflow-hidden">
+                                        {routeDefinition.split('\n').map((_, i) => (
+                                            <div key={i} className="h-[18px] px-2 text-right leading-[18px]">
+                                                {i + 1}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    
+                                    {/* Editor */}
+                                    <textarea
+                                        value={routeDefinition}
+                                        onChange={(e) => setRouteDefinition(e.target.value)}
+                                        placeholder={`Paste your JSON route definition here...\n\nExample:\n{\n  "name": "Hello API",\n  "path": "/api/hello",\n  "method": "GET",\n  "logic": [\n    { "return": { "value": { "message": "Hello World" } } }\n  ]\n}`}
+                                        className="w-full h-full bg-black/50 border border-white/10 rounded p-4 pl-16 text-xs font-mono text-gray-300 focus:outline-none focus:border-green-500/30 focus:ring-2 focus:ring-green-500/10 resize-none leading-[18px] group-hover:border-green-500/20 transition-colors"
+                                        style={{ 
+                                            tabSize: 2,
+                                            fontFamily: "'JetBrains Mono', 'Fira Code', 'Consolas', monospace"
+                                        }}
+                                        spellCheck={false}
+                                    />
+                                    
+                                    {/* Syntax Hints */}
+                                    <div className="absolute top-4 right-4 flex gap-2">
+                                        <div className="px-2 py-1 bg-green-500/10 border border-green-500/20 rounded text-[10px] font-mono text-green-400">
+                                            JSON
+                                        </div>
+                                        <div className="px-2 py-1 bg-blue-500/10 border border-blue-500/20 rounded text-[10px] font-mono text-blue-400">
+                                            YAML
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         )}
 
                         {/* Test Tab */}
                         {activeTab === 'test' && selectedRoute && (
-                            <div className="p-4 space-y-4">
-                                <div className="bg-black/30 border border-white/10 rounded p-4 space-y-2">
+                            <div className="p-4 space-y-4 flex-1 overflow-y-auto custom-scrollbar">
+                                <div className="bg-black/30 border border-white/10 rounded p-0 space-y-2">
                                     <div className="flex items-center justify-between">
                                         <div className="text-xs font-mono text-gray-500">SELECTED ROUTE</div>
                                         <span className="text-[10px] font-mono px-2 py-1 bg-green-500/10 text-green-400 rounded border border-green-500/20">

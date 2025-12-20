@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import {
     LayoutGrid, Server, AlertTriangle, Settings,
     Box, Bot, Layers, GitBranch, Hexagon, Zap, Code
@@ -9,17 +10,31 @@ import { ViewState } from '../types';
 interface LeftSidebarProps {
     isOpen: boolean;
     currentView: ViewState;
-    onNavigate: (view: ViewState) => void;
+    onViewChange: (view: ViewState) => void;
 }
 
-export const LeftSidebar: React.FC<LeftSidebarProps> = ({ isOpen, currentView, onNavigate }) => {
+export const LeftSidebar: React.FC<LeftSidebarProps> = ({ isOpen, currentView, onViewChange }) => {
+
+    const viewToPath: Record<ViewState, string> = {
+        'DASHBOARD': '/',
+        'FLEET': '/fleet',
+        'DOCKER': '/containers',
+        'AUTOMATION': '/auto-healing',
+        'DEPENDENCY': '/artifacts',
+        'CICD': '/pipeline',
+        'DYNAMIC_ROUTES': '/route-builder',
+        'INCIDENTS': '/incidents',
+        'SETTINGS': '/settings',
+    };
 
     const NavItem = ({ view, icon: Icon, label, alert }: { view: ViewState, icon: any, label: string, alert?: boolean }) => {
         const active = currentView === view;
+        const path = viewToPath[view];
 
         return (
-            <button
-                onClick={() => onNavigate(view)}
+            <Link
+                to={path}
+                onClick={() => onViewChange(view)}
                 className={`
           w-full flex items-center px-3 py-2 rounded-lg transition-all duration-300 group relative overflow-hidden
           ${active ? 'bg-green-500/10 text-green-400' : 'text-gray-400 hover:text-white hover:bg-white/5'}
@@ -48,7 +63,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ isOpen, currentView, o
                         </div>
                     )}
                 </div>
-            </button>
+            </Link>
         );
     };
 
@@ -124,7 +139,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ isOpen, currentView, o
                     <NavItem view="AUTOMATION" icon={Bot} label="Auto-Healing" />
                     <NavItem view="DEPENDENCY" icon={Layers} label="Artifacts" />
                     <NavItem view="CICD" icon={GitBranch} label="Pipeline" />
-                    <NavItem view="DYNAMIC_ROUTES" icon={Code} label="Dynamic Routes" />
+                    <NavItem view="DYNAMIC_ROUTES" icon={Code} label="Route Builder" />
                 </NavGroup>
 
                 <NavGroup label="System">
