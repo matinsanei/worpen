@@ -3,12 +3,131 @@ import {
     Code, Play, Plus, Trash2, CheckCircle, XCircle, 
     Zap, FileJson, Activity, Terminal, Copy, RefreshCw, Globe, Clock, Save
 } from 'lucide-react';
+import { CodeEditor } from '../components/SyntaxHighlighter';
 
 const API_BASE_URL = 'http://127.0.0.1:3000';
 
 const ROUTE_TEMPLATES = {
+  yamlSimple: {
+    name: "YAML: Hello World",
+    json: `name: Hello World API
+description: Simple greeting endpoint
+path: /api/custom/hello
+method: GET
+enabled: true
+version: 1.0.0
+auth_required: false
+
+logic:
+  - return:
+      value:
+        message: Hello from Worpen!
+        timestamp: "{{now()}}"
+        status: success`
+  },
+  yamlConditional: {
+    name: "YAML: Age Checker",
+    json: `name: Age Verification
+description: Check if user is adult
+path: /api/custom/verify-age
+method: POST
+enabled: true
+
+parameters:
+  - name: age
+    param_type: body
+    data_type: number
+    required: true
+
+logic:
+  - if:
+      condition: age >= 18
+      then:
+        - return:
+            value:
+              status: adult
+              message: Access granted
+              can_vote: true
+      otherwise:
+        - return:
+            value:
+              status: minor
+              message: Access denied
+              can_vote: false`
+  },
+  yamlDatabase: {
+    name: "YAML: DB Query",
+    json: `name: User Lookup
+description: Find user by ID
+path: /api/custom/user/:id
+method: GET
+enabled: true
+
+parameters:
+  - name: id
+    param_type: path
+    data_type: number
+    required: true
+
+logic:
+  - query_db:
+      query: SELECT * FROM agents WHERE id = $1 LIMIT 1
+      params:
+        - "{{path.id}}"
+  
+  - if:
+      condition: db_result.length > 0
+      then:
+        - return:
+            value:
+              found: true
+              user: "{{db_result[0]}}"
+      otherwise:
+        - return:
+            value:
+              found: false
+              error: User not found`
+  },
+  yamlLoop: {
+    name: "YAML: Loop Example",
+    json: `name: Batch Processor
+description: Process multiple items
+path: /api/custom/process-batch
+method: POST
+enabled: true
+
+parameters:
+  - name: items
+    param_type: body
+    data_type: array
+    required: true
+
+logic:
+  - set:
+      var: results
+      value: []
+  
+  - for_each:
+      collection: "{{body.items}}"
+      operations:
+        - set:
+            var: processed
+            value:
+              id: "{{item.id}}"
+              status: processed
+              timestamp: "{{now()}}"
+        
+        - set:
+            var: results
+            value: "{{results + [processed]}}"
+  
+  - return:
+      value:
+        total: "{{body.items.length}}"
+        processed: "{{results}}"`
+  },
   simple: {
-    name: "Simple Echo",
+    name: "JSON: Simple Echo",
     json: JSON.stringify({
       name: "Echo API",
       description: "Returns your input",
@@ -59,6 +178,86 @@ const ROUTE_TEMPLATES = {
       version: "1.0.0",
       auth_required: false
     }, null, 2)
+  },
+  advanced: {
+    name: "Advanced Showcase",
+    json: JSON.stringify({
+      name: "Order Processing API",
+      description: "Complex order processing with all features",
+      path: "/api/custom/process-order",
+      method: "POST",
+      logic: [
+        {
+          "set": {
+            "var": "user_id",
+            "value": "{{body.user_id}}"
+          }
+        },
+        {
+          "query_db": {
+            "query": "SELECT balance FROM users WHERE id = $1",
+            "params": ["{{user_id}}"]
+          }
+        },
+        {
+          "set": {
+            "var": "balance",
+            "value": "{{db_result[0].balance}}"
+          }
+        },
+        {
+          "if": {
+            "condition": "balance >= body.amount",
+            "then": [
+              {
+                "http_request": {
+                  "url": "https://api.payment.com/charge",
+                  "method": "POST",
+                  "body": {
+                    "user_id": "{{user_id}}",
+                    "amount": "{{body.amount}}"
+                  }
+                }
+              },
+              {
+                "query_db": {
+                  "query": "INSERT INTO orders (user_id, amount, status) VALUES ($1, $2, $3)",
+                  "params": ["{{user_id}}", "{{body.amount}}", "completed"]
+                }
+              },
+              {
+                "return": {
+                  "value": {
+                    "success": true,
+                    "order_id": "{{db_result.id}}",
+                    "message": "Order processed successfully"
+                  }
+                }
+              }
+            ],
+            "otherwise": [
+              {
+                "return": {
+                  "value": {
+                    "success": false,
+                    "error": "Insufficient balance",
+                    "required": "{{body.amount}}",
+                    "available": "{{balance}}"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ],
+      parameters: [
+        { "name": "user_id", "param_type": "body", "data_type": "number", "required": true },
+        { "name": "amount", "param_type": "body", "data_type": "number", "required": true }
+      ],
+      enabled: true,
+      version: "1.0.0",
+      auth_required: true
+    }, null, 2)
   }
 };
 
@@ -88,6 +287,7 @@ export const DynamicRoutesView: React.FC = () => {
     const [sidebarWidth, setSidebarWidth] = useState(33); // Percentage
     const [isDragging, setIsDragging] = useState(false);
     const [sidebarVisible, setSidebarVisible] = useState(true);
+    const [registrationError, setRegistrationError] = useState<string | null>(null);
 
     useEffect(() => {
         fetchRoutes();
@@ -134,10 +334,16 @@ export const DynamicRoutesView: React.FC = () => {
         if (!routeDefinition.trim()) return;
 
         setLoading(true);
+        setRegistrationError(null);
         try {
-            const response = await fetch(`${API_BASE_URL}/api/v1/dynamic-routes`, {
+            // Detect if it's YAML or JSON
+            const isYAML = !routeDefinition.trim().startsWith('{') && !routeDefinition.trim().startsWith('[');
+            const contentType = isYAML ? 'application/x-yaml' : 'application/json';
+
+            // Use /register endpoint which supports both YAML and JSON
+            const response = await fetch(`${API_BASE_URL}/api/v1/dynamic-routes/register`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': contentType },
                 body: routeDefinition,
             });
             
@@ -145,8 +351,18 @@ export const DynamicRoutesView: React.FC = () => {
                 await fetchRoutes();
                 setRouteDefinition('');
                 setActiveTab('editor');
+                setRegistrationError(null);
+            } else {
+                const errorText = await response.text();
+                try {
+                    const errorData = JSON.parse(errorText);
+                    setRegistrationError(errorData.error || errorData.details || errorData.message || 'Failed to register route');
+                } catch {
+                    setRegistrationError(errorText || 'Failed to register route');
+                }
             }
         } catch (error: any) {
+            setRegistrationError(error.message || 'Network error occurred');
             console.error(error);
         } finally {
             setLoading(false);
@@ -199,6 +415,7 @@ export const DynamicRoutesView: React.FC = () => {
     const loadTemplate = (key: string) => {
         const template = ROUTE_TEMPLATES[key as keyof typeof ROUTE_TEMPLATES];
         setRouteDefinition(template.json);
+        setRegistrationError(null); // Clear any previous errors
     };
 
 
@@ -286,14 +503,16 @@ export const DynamicRoutesView: React.FC = () => {
                             {routes.map((route) => (
                                 <div
                                     key={route.id}
-                                    onClick={() => setSelectedRoute(route)}
-                                    className={`flex items-center justify-between p-3 border rounded transition-all cursor-pointer ${
+                                    className={`flex items-center justify-between p-3 border rounded transition-all ${
                                         selectedRoute?.id === route.id
                                             ? 'bg-green-500/10 border-green-500/30'
                                             : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04] hover:border-green-500/20'
                                     }`}
                                 >
-                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                    <div 
+                                        className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+                                        onClick={() => setSelectedRoute(route)}
+                                    >
                                         <span className="text-[10px] font-mono px-2 py-1 bg-green-500/10 text-green-400 rounded border border-green-500/20">
                                             {route.method}
                                         </span>
@@ -302,15 +521,42 @@ export const DynamicRoutesView: React.FC = () => {
                                             <div className="text-[10px] text-gray-500 font-mono truncate">{route.path}</div>
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            deleteRoute(route.id);
-                                        }}
-                                        className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
-                                    >
-                                        <Trash2 size={12} />
-                                    </button>
+                                    <div className="flex items-center gap-1">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                // Load route into editor
+                                                const routeJson = JSON.stringify({
+                                                    name: route.name,
+                                                    description: route.description,
+                                                    path: route.path,
+                                                    method: route.method,
+                                                    logic: route.logic,
+                                                    parameters: route.parameters || [],
+                                                    enabled: route.enabled,
+                                                    version: route.version,
+                                                    auth_required: route.auth_required
+                                                }, null, 2);
+                                                setRouteDefinition(routeJson);
+                                                setActiveTab('editor');
+                                                setRegistrationError(null);
+                                            }}
+                                            className="p-1.5 text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 rounded transition-colors"
+                                            title="View/Edit Code"
+                                        >
+                                            <Code size={12} />
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                deleteRoute(route.id);
+                                            }}
+                                            className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                                            title="Delete"
+                                        >
+                                            <Trash2 size={12} />
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
                             {routes.length === 0 && (
@@ -386,7 +632,16 @@ export const DynamicRoutesView: React.FC = () => {
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2 text-xs text-gray-500 font-mono">
                                         <Terminal size={14} />
-                                        JSON/YAML EDITOR
+                                        <span>EDITOR</span>
+                                        {routeDefinition.trim() && (
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                                routeDefinition.trim().startsWith('{') || routeDefinition.trim().startsWith('[')
+                                                    ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                                                    : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                                            }`}>
+                                                {routeDefinition.trim().startsWith('{') || routeDefinition.trim().startsWith('[') ? 'JSON' : 'YAML'}
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <button
@@ -407,40 +662,31 @@ export const DynamicRoutesView: React.FC = () => {
                                     </div>
                                 </div>
                                 
-                                {/* Enhanced Code Editor with Line Numbers */}
-                                <div className="relative group flex-1 overflow-hidden">
-                                    {/* Line Numbers */}
-                                    <div className="absolute left-0 top-0 bottom-0 w-12 bg-black/80 border-r border-white/10 flex flex-col pt-4 pb-4 text-[10px] font-mono text-gray-600 select-none overflow-hidden">
-                                        {routeDefinition.split('\n').map((_, i) => (
-                                            <div key={i} className="h-[18px] px-2 text-right leading-[18px]">
-                                                {i + 1}
-                                            </div>
-                                        ))}
-                                    </div>
-                                    
-                                    {/* Editor */}
-                                    <textarea
-                                        value={routeDefinition}
-                                        onChange={(e) => setRouteDefinition(e.target.value)}
-                                        placeholder={`Paste your JSON route definition here...\n\nExample:\n{\n  "name": "Hello API",\n  "path": "/api/hello",\n  "method": "GET",\n  "logic": [\n    { "return": { "value": { "message": "Hello World" } } }\n  ]\n}`}
-                                        className="w-full h-full bg-black/50 border border-white/10 rounded p-4 pl-16 text-xs font-mono text-gray-300 focus:outline-none focus:border-green-500/30 focus:ring-2 focus:ring-green-500/10 resize-none leading-[18px] group-hover:border-green-500/20 transition-colors"
-                                        style={{ 
-                                            tabSize: 2,
-                                            fontFamily: "'JetBrains Mono', 'Fira Code', 'Consolas', monospace"
-                                        }}
-                                        spellCheck={false}
-                                    />
-                                    
-                                    {/* Syntax Hints */}
-                                    <div className="absolute top-4 right-4 flex gap-2">
-                                        <div className="px-2 py-1 bg-green-500/10 border border-green-500/20 rounded text-[10px] font-mono text-green-400">
-                                            JSON
+                                {/* Registration Error Display */}
+                                {registrationError && (
+                                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start gap-3">
+                                        <XCircle size={16} className="text-red-400 flex-shrink-0 mt-0.5" />
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-xs font-bold text-red-400 mb-1">Registration Failed</div>
+                                            <div className="text-xs text-red-300 font-mono break-words">{registrationError}</div>
                                         </div>
-                                        <div className="px-2 py-1 bg-blue-500/10 border border-blue-500/20 rounded text-[10px] font-mono text-blue-400">
-                                            YAML
-                                        </div>
+                                        <button
+                                            onClick={() => setRegistrationError(null)}
+                                            className="text-red-400 hover:text-red-300 transition-colors"
+                                        >
+                                            <XCircle size={14} />
+                                        </button>
                                     </div>
-                                </div>
+                                )}
+
+                                {/* Enhanced Code Editor with Syntax Highlighting */}
+                                <CodeEditor
+                                    value={routeDefinition}
+                                    onChange={setRouteDefinition}
+                                    placeholder={`Paste your JSON route definition here...\n\nExample:\n{\n  "name": "Hello API",\n  "path": "/api/hello",\n  "method": "GET",\n  "logic": [\n    { "return": { "value": { "message": "Hello World" } } }\n  ]\n}`}
+                                    className="flex-1 bg-black/50 border border-white/10 rounded group-hover:border-green-500/20 transition-colors overflow-hidden"
+                                    language="json"
+                                />
                             </div>
                         )}
 

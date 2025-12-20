@@ -1,0 +1,14 @@
+name: Hello World API
+description: Simple greeting endpoint
+path: /api/custom/hello
+method: GET
+enabled: true
+version: 1.0.0
+auth_required: false
+
+logic:
+  - return:
+      value:
+        message: Hello from Worpen!
+        timestamp: "{{now()}}"
+        status: success
