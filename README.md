@@ -12,6 +12,7 @@
 ### ᴛʜᴇ ᴅɪɢɪᴛᴀʟ ɴᴇʀᴠᴏᴜs sʏsᴛᴇᴍ
 
 [![Core](https://img.shields.io/badge/CORE-RUST_1.75+-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
+[![CI](https://github.com/matinsanei/worpen/actions/workflows/ci.yml/badge.svg)](https://github.com/matinsanei/worpen/actions/workflows/ci.yml)
 [![Tests](https://img.shields.io/badge/TESTS-262_PASSING-green?style=for-the-badge&logo=github-actions)](backend/tests)
 [![Performance](https://img.shields.io/badge/LATENCY-<%201ms-green?style=for-the-badge&logo=speedtest)](https://github.com/worpen/core)
 [![License](https://img.shields.io/badge/LICENSE-MIT-blue?style=for-the-badge&logo=open-source-initiative)](LICENSE)
