@@ -1,4 +1,4 @@
-/// Route parser with support for both JSON and YAML formats
+//! Route parser with support for both JSON and YAML formats
 
 use proto::models::RegisterRouteRequest;
 use crate::parsers::detector::{detect_format, InputFormat};

@@ -2,6 +2,12 @@ use proto::models::{Pipeline, PipelineStatus, PipelineStage};
 
 pub struct PipelineService;
 
+impl Default for PipelineService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PipelineService {
     pub fn new() -> Self {
         Self

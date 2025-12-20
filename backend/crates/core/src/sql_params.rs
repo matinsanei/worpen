@@ -1,12 +1,12 @@
-/// SQL Named Parameters Parser and Replacer
-/// 
-/// Phase 3 Day 14: Support for named parameters in SQL queries
-/// 
-/// Features:
-/// - Parse :param_name syntax in SQL
-/// - Replace with actual values from context
-/// - Support expression evaluation in parameters
-/// - Type-safe parameter binding
+//! SQL Named Parameters Parser and Replacer
+//!
+//! Phase 3 Day 14: Support for named parameters in SQL queries
+//!
+//! Features:
+//! - Parse :param_name syntax in SQL
+//! - Replace with actual values from context
+//! - Support expression evaluation in parameters
+//! - Type-safe parameter binding
 
 use serde_json::Value;
 use std::collections::HashMap;

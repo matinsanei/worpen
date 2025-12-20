@@ -1,7 +1,7 @@
-/// YAML Normalizer - Converts YAML to JSON-compatible structure
-/// 
-/// This module handles the serde_yaml enum limitation by converting
-/// YAML structure to a format that can be deserialized properly.
+//! YAML Normalizer - Converts YAML to JSON-compatible structure
+//!
+//! This module handles the serde_yaml enum limitation by converting
+//! YAML structure to a format that can be deserialized properly.
 
 use serde_json::Value as JsonValue;
 use serde_yaml::Value as YamlValue;
@@ -74,8 +74,8 @@ fn yaml_to_json_value(yaml: &YamlValue) -> Result<JsonValue, String> {
             };
             
             // Remove ! prefix if present and convert to snake_case
-            let variant_name = if tag_name.starts_with('!') {
-                convert_to_snake_case(&tag_name[1..])
+            let variant_name = if let Some(stripped) = tag_name.strip_prefix('!') {
+                convert_to_snake_case(stripped)
             } else {
                 convert_to_snake_case(&tag_name)
             };
@@ -101,7 +101,7 @@ fn convert_to_snake_case(s: &str) -> String {
             // Add underscore before uppercase if:
             // 1. Not at start (i > 0)
             // 2. Previous was lowercase OR next is lowercase (to handle acronyms like "JSONOp" → "json_op")
-            let next_is_lower = s.chars().nth(i + 1).map_or(false, |next| next.is_lowercase());
+            let next_is_lower = s.chars().nth(i + 1).is_some_and(|next| next.is_lowercase());
             
             if i > 0 && (!prev_was_upper || next_is_lower) {
                 result.push('_');

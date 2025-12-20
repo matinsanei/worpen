@@ -1,4 +1,4 @@
-/// Enhanced dynamic routes handlers with YAML support
+//! Enhanced dynamic routes handlers with YAML support
 
 use axum::{
     extract::State,

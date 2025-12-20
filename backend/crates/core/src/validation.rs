@@ -1,7 +1,7 @@
-/// JSON Schema validation for YAML route inputs
-/// 
-/// Validates request data against JSON Schema definitions
-/// defined in YAML routes.
+//! JSON Schema validation for YAML route inputs
+//!
+//! Validates request data against JSON Schema definitions
+//! defined in YAML routes.
 
 use jsonschema::{Draft, JSONSchema};
 use serde_json::Value;
@@ -358,7 +358,7 @@ mod tests {
         let invalid_data = json!({"age": -5});
         let result = validate_with_details(&invalid_data, &schema);
         assert!(!result.valid);
-        assert!(result.errors.len() > 0);
+        assert!(!result.errors.is_empty());
     }
 
     #[test]

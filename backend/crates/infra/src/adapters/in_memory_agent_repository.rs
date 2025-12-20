@@ -8,7 +8,13 @@ use std::pin::Pin;
 
 #[derive(Clone)]
 pub struct InMemoryAgentRepository {
-    agents: Arc<DashMap<Uuid, Agent>>,
+    agents: Arc<DashMap<String, Agent>>,
+}
+
+impl Default for InMemoryAgentRepository {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl InMemoryAgentRepository {
@@ -23,7 +29,7 @@ impl AgentRepository for InMemoryAgentRepository {
     fn save(&self, agent: Agent) -> Pin<Box<dyn Future<Output = Result<(), String>> + Send>> {
         let agents = self.agents.clone();
         Box::pin(async move {
-            agents.insert(agent.id, agent);
+            agents.insert(agent.id.to_string(), agent);
             Ok(())
         })
     }
@@ -31,7 +37,7 @@ impl AgentRepository for InMemoryAgentRepository {
     fn find_by_id(&self, id: Uuid) -> Pin<Box<dyn Future<Output = Result<Option<Agent>, String>> + Send>> {
         let agents = self.agents.clone();
         Box::pin(async move {
-            let agent = agents.get(&id).map(|a| a.clone());
+            let agent = agents.get(&id.to_string()).map(|a| a.clone());
             Ok(agent)
         })
     }
@@ -47,7 +53,7 @@ impl AgentRepository for InMemoryAgentRepository {
     fn delete(&self, id: Uuid) -> Pin<Box<dyn Future<Output = Result<(), String>> + Send>> {
         let agents = self.agents.clone();
         Box::pin(async move {
-            agents.remove(&id);
+            agents.remove(&id.to_string());
             Ok(())
         })
     }

@@ -1,14 +1,14 @@
-/// Error Handling and Edge Case Tests
-/// 
-/// Tests robustness and error recovery:
-/// - Invalid syntax
-/// - Type mismatches
-/// - Missing variables
-/// - Division by zero
-/// - SQL errors
-/// - Validation failures
-/// - Malformed expressions
-/// - Resource limits
+//! Error Handling and Edge Case Tests
+//!
+//! Tests robustness and error recovery:
+//! - Invalid syntax
+//! - Type mismatches
+//! - Missing variables
+//! - Division by zero
+//! - SQL errors
+//! - Validation failures
+//! - Malformed expressions
+//! - Resource limits
 
 #[cfg(test)]
 mod error_handling_tests {
@@ -71,7 +71,7 @@ method: GET
         let mut tokenizer = Tokenizer::new(expr);
         let result = tokenizer.tokenize();
         // Should handle gracefully or error clearly
-        assert!(result.is_err() || result.unwrap().len() > 0);
+        assert!(result.is_err() || !result.unwrap().is_empty());
     }
 
     #[test]

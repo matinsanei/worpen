@@ -7,9 +7,11 @@ use crate::helpers;
 use serde_json::{Value, Number};
 use std::collections::HashMap;
 
+type EvaluatorFunction = Box<dyn Fn(Vec<Value>) -> Result<Value, String>>;
+
 pub struct Evaluator {
     variables: HashMap<String, Value>,
-    functions: HashMap<String, Box<dyn Fn(Vec<Value>) -> Result<Value, String>>>,
+    functions: HashMap<String, EvaluatorFunction>,
 }
 
 impl Evaluator {
@@ -551,7 +553,7 @@ impl Evaluator {
         
         // Formatting functions
         self.register_function("format_number", |args| {
-            if args.len() < 1 || args.len() > 2 {
+            if args.is_empty() || args.len() > 2 {
                 return Err("format_number requires 1 or 2 arguments".to_string());
             }
             let number = args[0].as_f64().ok_or("format_number requires number")?;
@@ -796,13 +798,13 @@ mod tests {
     #[test]
     fn test_eval_truthy_values() {
         let evaluator = Evaluator::new();
-        assert_eq!(evaluator.is_truthy(&Value::Bool(true)), true);
-        assert_eq!(evaluator.is_truthy(&Value::Bool(false)), false);
-        assert_eq!(evaluator.is_truthy(&Value::Null), false);
-        assert_eq!(evaluator.is_truthy(&Value::Number(Number::from(0))), false);
-        assert_eq!(evaluator.is_truthy(&Value::Number(Number::from(1))), true);
-        assert_eq!(evaluator.is_truthy(&Value::String("".to_string())), false);
-        assert_eq!(evaluator.is_truthy(&Value::String("hello".to_string())), true);
+        assert!(evaluator.is_truthy(&Value::Bool(true)));
+        assert!(!evaluator.is_truthy(&Value::Bool(false)));
+        assert!(!evaluator.is_truthy(&Value::Null));
+        assert!(!evaluator.is_truthy(&Value::Number(Number::from(0))));
+        assert!(evaluator.is_truthy(&Value::Number(Number::from(1))));
+        assert!(!evaluator.is_truthy(&Value::String("".to_string())));
+        assert!(evaluator.is_truthy(&Value::String("hello".to_string())));
     }
     
     // Advanced filter integration tests

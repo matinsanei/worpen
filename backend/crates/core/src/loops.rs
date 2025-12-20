@@ -1,15 +1,13 @@
-/// Loop Enhancements - Phase 3 Day 15
-/// 
-/// Advanced loop constructs:
-/// - While loops with condition
-/// - Until loops (inverse of while)
-/// - Nested loops
-/// - Break/Continue statements
-/// - Loop counters and metadata
+//! Loop Enhancements - Phase 3 Day 15
+//!
+//! Advanced loop constructs:
+//! - While loops with condition
+//! - Until loops (inverse of while)
+//! - Nested loops
+//! - Break/Continue statements
+//! - Loop counters and metadata
 
-use serde_json::Value;
-
-/// Loop control flow result
+use serde_json::Value;/// Loop control flow result
 #[derive(Debug, Clone, PartialEq)]
 pub enum LoopControl {
     /// Continue normal execution
