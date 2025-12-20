@@ -111,7 +111,7 @@ export const SettingsView: React.FC = () => {
                     </div>
                     <input 
                       type="text" 
-                      defaultValue="https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX"
+                      placeholder="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
                       className="w-full bg-black border border-green-900 text-gray-500 p-2 text-xs font-mono focus:border-green-500 outline-none"
                     />
                 </div>

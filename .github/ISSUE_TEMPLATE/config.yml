@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📚 Documentation
+    url: https://github.com/matinsanei/worpen/tree/main/documentation
+    about: Check the comprehensive documentation first
+  - name: 💬 GitHub Discussions
+    url: https://github.com/matinsanei/worpen/discussions
+    about: Ask questions and discuss ideas with the community
+  - name: 🔒 Security Issue
+    url: https://github.com/matinsanei/worpen/security/advisories/new
+    about: Report a security vulnerability privately
