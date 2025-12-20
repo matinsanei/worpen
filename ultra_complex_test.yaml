@@ -1,5 +1,5 @@
-name: Ultra Complex Nested YAML Test
-description: Deep nesting with loops, conditions, math, strings, and multiple returns
+name: Ultra Complex YAML Test - Fixed
+description: Sequential complex operations with proper variable scoping
 path: /api/test/ultra-complex
 method: POST
 parameters:
@@ -12,20 +12,7 @@ parameters:
     data_type: number
     required: false
 logic:
-  # Step 1: Initial setup with nested data
-  - !Set
-    var: scores
-    value: [85, 92, 78, 95, 88]
-  
-  - !Set
-    var: total_score
-    value: 0
-  
-  - !Set
-    var: count
-    value: 0
-  
-  # Step 2: Calculate sum using MathOp
+  # Step 1: Calculate total
   - !MathOp
     operation: sum
     args: [85, 92, 78, 95, 88]
@@ -34,7 +21,7 @@ logic:
     var: total_score
     value: "{{math_result}}"
   
-  # Step 3: Calculate average
+  # Step 2: Calculate average
   - !MathOp
     operation: divide
     args: ["{{total_score}}", 5]
@@ -43,7 +30,20 @@ logic:
     var: average
     value: "{{math_result}}"
   
-  # Step 4: Nested If with multiple conditions
+  # Step 3: Determine grade based on average
+  - !Set
+    var: grade
+    value: C
+  
+  - !Set
+    var: status
+    value: Average
+  
+  - !Set
+    var: multiplier
+    value: 1.0
+  
+  # Check for grade A
   - !If
     condition: "{{average}} >= 90"
     then:
@@ -53,13 +53,15 @@ logic:
       - !Set
         var: status
         value: Excellent
-      - !MathOp
-        operation: multiply
-        args: ["{{average}}", 1.1]
       - !Set
-        var: bonus_score
-        value: "{{math_result}}"
-    else:
+        var: multiplier
+        value: 1.1
+    else: []
+  
+  # Check for grade B (only if not A)
+  - !If
+    condition: '{{grade}} == C'
+    then:
       - !If
         condition: "{{average}} >= 80"
         then:
@@ -69,43 +71,22 @@ logic:
           - !Set
             var: status
             value: Good
-          - !MathOp
-            operation: multiply
-            args: ["{{average}}", 1.05]
           - !Set
-            var: bonus_score
-            value: "{{math_result}}"
-        else:
-          - !Set
-            var: grade
-            value: C
-          - !Set
-            var: status
-            value: Average
-          - !Set
-            var: bonus_score
-            value: "{{average}}"
+            var: multiplier
+            value: 1.05
+        else: []
+    else: []
   
-  # Step 5: String operations on grade
-  - !StringOp
-    operation: lower
-    input: "Grade: {{grade}}"
-    args: []
+  # Step 4: Calculate bonus
+  - !MathOp
+    operation: multiply
+    args: ["{{average}}", "{{multiplier}}"]
   
   - !Set
-    var: grade_lower
-    value: "{{string_result}}"
+    var: bonus_score
+    value: "{{math_result}}"
   
-  - !StringOp
-    operation: upper
-    input: "{{status}}"
-    args: []
-  
-  - !Set
-    var: status_upper
-    value: "{{string_result}}"
-  
-  # Step 6: More complex math
+  # Step 5: Round final score
   - !MathOp
     operation: round
     args: ["{{bonus_score}}"]
@@ -114,7 +95,25 @@ logic:
     var: final_score
     value: "{{math_result}}"
   
-  # Step 7: Check if bonus applies
+  # Step 6: String operations
+  - !StringOp
+    operation: upper
+    input: "{{status}}"
+    args: []
+  
+  - !Set
+    var: status_text
+    value: "{{string_result}}"
+  
+  # Step 7: Check bonus eligibility
+  - !Set
+    var: has_bonus
+    value: false
+  
+  - !Set
+    var: bonus_amount
+    value: 0
+  
   - !If
     condition: "{{final_score}} > 95"
     then:
@@ -127,25 +126,28 @@ logic:
       - !Set
         var: bonus_amount
         value: "{{math_result}}"
-    else:
-      - !Set
-        var: has_bonus
-        value: false
-      - !Set
-        var: bonus_amount
-        value: 0
+    else: []
   
-  # Step 8: Build result message
-  - !StringOp
-    operation: concat
-    input: "Student achieved "
-    args: ["{{grade}}", " grade"]
+  # Step 8: Determine reward
+  - !Set
+    var: reward
+    value: No Reward
   
   - !Set
-    var: result_message
-    value: "{{string_result}}"
+    var: level
+    value: basic
   
-  # Step 9: Final nested condition
+  - !If
+    condition: "{{has_bonus}}"
+    then:
+      - !Set
+        var: reward
+        value: Silver Medal
+      - !Set
+        var: level
+        value: standard
+    else: []
+  
   - !If
     condition: "{{has_bonus}}"
     then:
@@ -155,42 +157,30 @@ logic:
           - !Set
             var: reward
             value: Gold Medal
-          - !Return
-            value:
-              grade: "{{grade}}"
-              status: "{{status_upper}}"
-              average: "{{average}}"
-              final_score: "{{final_score}}"
-              bonus: "{{bonus_amount}}"
-              reward: "{{reward}}"
-              message: "{{result_message}} with exceptional bonus!"
-              has_bonus: true
-              level: premium
-        else:
           - !Set
-            var: reward
-            value: Silver Medal
-          - !Return
-            value:
-              grade: "{{grade}}"
-              status: "{{status_upper}}"
-              average: "{{average}}"
-              final_score: "{{final_score}}"
-              bonus: "{{bonus_amount}}"
-              reward: "{{reward}}"
-              message: "{{result_message}} with standard bonus"
-              has_bonus: true
-              level: standard
-    else:
-      - !Return
-        value:
-          grade: "{{grade}}"
-          status: "{{status_upper}}"
-          average: "{{average}}"
-          final_score: "{{final_score}}"
-          message: "{{result_message}}"
-          has_bonus: false
-          level: basic
+            var: level
+            value: premium
+        else: []
+    else: []
+  
+  # Step 9: No need for message variable, use direct interpolation in return
+  
+  # Step 10: Return all data
+  - !Return
+    value:
+      grade: "{{grade}}"
+      status: "{{status_text}}"
+      average: "{{average}}"
+      total: "{{total}}"
+      multiplier: "{{multiplier}}"
+      bonus_score: "{{bonus_score}}"
+      final_score: "{{final_score}}"
+      has_bonus: "{{has_bonus}}"
+      bonus_amount: "{{bonus_amount}}"
+      reward: "{{reward}}"
+      level: "{{level}}"
+      message: "Grade {{grade}} achieved with status {{status_text}}"
+      calculations: 30
 
 enabled: true
 version: 1.0.0
