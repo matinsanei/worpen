@@ -1,0 +1,92 @@
+name: Nested Operations Test
+description: Test nested If with proper variable flow
+path: /api/test/nested
+method: POST
+parameters:
+  - name: score
+    param_type: body
+    data_type: number
+    required: true
+logic:
+  # Calculate score
+  - !Set
+    var: base_score
+    value: "{{score}}"
+  
+  - !MathOp
+    operation: multiply
+    args: ["{{base_score}}", 2]
+  
+  - !Set
+    var: doubled
+    value: "{{math_result}}"
+  
+  # First level condition
+  - !If
+    condition: "{{doubled}} > 100"
+    then:
+      - !Set
+        var: level_1
+        value: high
+      - !MathOp
+        operation: add
+        args: ["{{doubled}}", 50]
+      - !Set
+        var: level_1_bonus
+        value: "{{math_result}}"
+      # Nested second level
+      - !If
+        condition: "{{level_1_bonus}} > 150"
+        then:
+          - !Set
+            var: level_2
+            value: premium
+          - !MathOp
+            operation: multiply
+            args: ["{{level_1_bonus}}", 1.5]
+          - !Set
+            var: final_result
+            value: "{{math_result}}"
+        else:
+          - !Set
+            var: level_2
+            value: standard
+          - !Set
+            var: final_result
+            value: "{{level_1_bonus}}"
+    else:
+      - !Set
+        var: level_1
+        value: low
+      - !Set
+        var: level_1_bonus
+        value: "{{doubled}}"
+      - !Set
+        var: level_2
+        value: basic
+      - !Set
+        var: final_result
+        value: "{{doubled}}"
+  
+  # Build message
+  - !StringOp
+    operation: concat
+    input: "Level "
+    args: ["{{level_1}}", " achieved"]
+  
+  - !Set
+    var: message
+    value: "{{string_result}}"
+  
+  - !Return
+    value:
+      input_score: "{{base_score}}"
+      doubled_score: "{{doubled}}"
+      level_1: "{{level_1}}"
+      level_1_bonus: "{{level_1_bonus}}"
+      level_2: "{{level_2}}"
+      final_result: "{{final_result}}"
+      message: "{{message}}"
+
+enabled: true
+version: 1.0.0

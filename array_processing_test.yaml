@@ -1,0 +1,154 @@
+name: Array Processing Test
+description: Test complex array operations and transformations
+path: /api/test/array-processing
+method: POST
+parameters:
+  - name: items
+    param_type: body
+    data_type: array
+    required: true
+logic:
+  # Setup initial data
+  - !Set
+    var: products
+    value: [100, 200, 300, 400, 500]
+  
+  # Calculate total
+  - !MathOp
+    operation: sum
+    args: [100, 200, 300, 400, 500]
+  
+  - !Set
+    var: total
+    value: "{{math_result}}"
+  
+  # Calculate average
+  - !MathOp
+    operation: divide
+    args: ["{{total}}", 5]
+  
+  - !Set
+    var: average
+    value: "{{math_result}}"
+  
+  # Find max
+  - !MathOp
+    operation: max
+    args: [100, 200, 300, 400, 500]
+  
+  - !Set
+    var: max_value
+    value: "{{math_result}}"
+  
+  # Find min
+  - !MathOp
+    operation: min
+    args: [100, 200, 300, 400, 500]
+  
+  - !Set
+    var: min_value
+    value: "{{math_result}}"
+  
+  # Calculate range
+  - !MathOp
+    operation: subtract
+    args: ["{{max_value}}", "{{min_value}}"]
+  
+  - !Set
+    var: range
+    value: "{{math_result}}"
+  
+  # Apply discount
+  - !MathOp
+    operation: multiply
+    args: ["{{total}}", 0.9]
+  
+  - !Set
+    var: discounted_total
+    value: "{{math_result}}"
+  
+  # Calculate savings
+  - !MathOp
+    operation: subtract
+    args: ["{{total}}", "{{discounted_total}}"]
+  
+  - !Set
+    var: savings
+    value: "{{math_result}}"
+  
+  # Build summary message
+  - !StringOp
+    operation: concat
+    input: "Processed "
+    args: ["5", " items"]
+  
+  - !Set
+    var: summary
+    value: "{{string_result}}"
+  
+  # Check if discount is significant
+  - !If
+    condition: "{{savings}} > 100"
+    then:
+      - !Set
+        var: discount_level
+        value: high
+      - !StringOp
+        operation: upper
+        input: great savings
+        args: []
+      - !Set
+        var: promo_message
+        value: "{{string_result}}"
+    else:
+      - !Set
+        var: discount_level
+        value: low
+      - !Set
+        var: promo_message
+        value: Regular discount
+  
+  # Calculate percentages
+  - !MathOp
+    operation: divide
+    args: ["{{savings}}", "{{total}}"]
+  
+  - !Set
+    var: discount_ratio
+    value: "{{math_result}}"
+  
+  - !MathOp
+    operation: multiply
+    args: ["{{discount_ratio}}", 100]
+  
+  - !Set
+    var: discount_percent
+    value: "{{math_result}}"
+  
+  - !MathOp
+    operation: round
+    args: ["{{discount_percent}}"]
+  
+  - !Set
+    var: discount_rounded
+    value: "{{math_result}}"
+  
+  # Return comprehensive result
+  - !Return
+    value:
+      item_count: 5
+      original_total: "{{total}}"
+      discounted_total: "{{discounted_total}}"
+      savings: "{{savings}}"
+      discount_percent: "{{discount_rounded}}"
+      average_price: "{{average}}"
+      max_price: "{{max_value}}"
+      min_price: "{{min_value}}"
+      price_range: "{{range}}"
+      discount_level: "{{discount_level}}"
+      promo_message: "{{promo_message}}"
+      summary: "{{summary}}"
+      calculations_performed: 12
+
+enabled: true
+version: 1.0.0
