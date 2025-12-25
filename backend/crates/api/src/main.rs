@@ -1,5 +1,6 @@
 use axum::{routing::{get, post}, Router};
-use std::net::SocketAddr;
+use std::net::{SocketAddr, IpAddr};
+use std::io::{self, Write};
 use infra::{adapters::SqliteAgentRepository, initialize_db};
 use core::services::AgentService;
 use state::AppState;
@@ -123,10 +124,68 @@ async fn main() {
         .layer(cors)
         .with_state(state);
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    tracing::info!("listening on {}", addr);
+    let mut ip_str = String::new();
+    let mut port_str = String::new();
     
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    let (addr, listener) = loop {
+        println!("\n🔍 Available local IP addresses:");
+        println!("  - 127.0.0.1 (Localhost)");
+        println!("  - 0.0.0.0 (All interfaces)");
+        
+        // Manual tip based on common interfaces
+        println!("💡 Tip: Based on your system, you might want: 192.168.1.100 or 192.168.183.1");
+
+        print!("\n🌐 Enter IP address to listen on (default 127.0.0.1): ");
+        io::stdout().flush().unwrap();
+        ip_str.clear();
+        io::stdin().read_line(&mut ip_str).unwrap();
+        let ip_trimmed = ip_str.trim();
+        
+        let ip = if ip_trimmed.is_empty() {
+            "127.0.0.1".parse::<IpAddr>().unwrap()
+        } else {
+            match ip_trimmed.parse::<IpAddr>() {
+                Ok(ip) => ip,
+                Err(_) => {
+                    println!("❌ Invalid IP address format. Please try again.");
+                    continue;
+                }
+            }
+        };
+
+        print!("🔌 Enter Port (default 3000): ");
+        io::stdout().flush().unwrap();
+        port_str.clear();
+        io::stdin().read_line(&mut port_str).unwrap();
+        let port_trimmed = port_str.trim();
+        
+        let port = if port_trimmed.is_empty() {
+            3000
+        } else {
+            match port_trimmed.parse::<u16>() {
+                Ok(p) => p,
+                Err(_) => {
+                    println!("❌ Invalid port number. Please try again.");
+                    continue;
+                }
+            }
+        };
+
+        let addr = SocketAddr::new(ip, port);
+        
+        match tokio::net::TcpListener::bind(addr).await {
+            Ok(listener) => {
+                println!("🚀 Successfully bound to {}", addr);
+                break (addr, listener);
+            },
+            Err(e) => {
+                println!("❌ Could not bind to {}: {}", addr, e);
+                println!("   (Make sure the IP belongs to this machine and the port is not in use)");
+            }
+        }
+    };
+
+    tracing::info!("listening on {}", addr);
     axum::serve(listener, app).await.unwrap();
 }
 
