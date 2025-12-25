@@ -72,6 +72,8 @@ cargo run --release -p api
 
 Server starts on `http://127.0.0.1:3000`
 
+> Tip: The frontend dev server port is configured in `vite.config.ts` and can be overridden with the `VITE_PORT` (or `PORT`) environment variable. For example: `VITE_PORT=5000 npm run dev`
+
 ### 2. Define Your First API (YAML)
 
 Create `hello.yaml`:

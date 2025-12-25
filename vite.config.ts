@@ -6,7 +6,8 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
       server: {
-        port: 3000,
+        // Allow overriding dev server port via VITE_PORT or PORT env vars (e.g., VITE_PORT=5000)
+        port: Number(env.VITE_PORT) || Number(process.env.PORT) || 3000,
         host: '0.0.0.0',
       },
       plugins: [react()],
