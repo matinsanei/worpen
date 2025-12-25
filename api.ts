@@ -1,15 +1,25 @@
 /// <reference types="vite/client" />
 
 // API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:3000';
+export const getApiBaseUrl = () => {
+  let url = 'http://127.0.0.1:3000';
+  if (typeof window !== 'undefined') {
+    url = localStorage.getItem('WORPEN_API_URL') || import.meta.env.VITE_API_URL || 'http://127.0.0.1:3000';
+  } else {
+    url = import.meta.env.VITE_API_URL || 'http://127.0.0.1:3000';
+  }
+  const finalized = url.replace(/\/$/, "");
+  // console.log("WORPEN API URL:", finalized); // Debugging
+  return finalized;
+};
 
 // API Helper
 async function apiRequest<T>(
   endpoint: string,
   options?: RequestInit
 ): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
-  
+  const url = `${getApiBaseUrl()}${endpoint}`;
+
   const response = await fetch(url, {
     ...options,
     headers: {
@@ -145,16 +155,16 @@ export const logsApi = {
 export const terminalApi = {
   listSessions: () => apiRequest('/api/v1/terminal/sessions'),
   connectContainer: (containerId: string) => {
-    const wsUrl = API_BASE_URL.replace('http', 'ws');
+    const wsUrl = getApiBaseUrl().replace('http', 'ws');
     return new WebSocket(`${wsUrl}/api/v1/terminal/container/${containerId}`);
   },
   connectAgent: (agentId: string) => {
-    const wsUrl = API_BASE_URL.replace('http', 'ws');
+    const wsUrl = getApiBaseUrl().replace('http', 'ws');
     return new WebSocket(`${wsUrl}/api/v1/terminal/agent/${agentId}`);
   },
 };
 
 // Health Check
 export const healthApi = {
-  check: () => fetch(`${API_BASE_URL}/health`).then(r => r.text()),
+  check: () => fetch(`${getApiBaseUrl()}/health`).then(r => r.text()),
 };

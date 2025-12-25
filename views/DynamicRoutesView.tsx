@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    Code, Play, Plus, Trash2, CheckCircle, XCircle, 
+import {
+    Code, Play, Plus, Trash2, CheckCircle, XCircle,
     Zap, FileJson, Activity, Terminal, Copy, RefreshCw, Globe, Clock, Save
 } from 'lucide-react';
 import { CodeEditor } from '../components/SyntaxHighlighter';
-
-const API_BASE_URL = 'http://127.0.0.1:3000';
+import { getApiBaseUrl } from '../api';
 
 const ROUTE_TEMPLATES = {
-  yamlSimple: {
-    name: "YAML: Hello World",
-    json: `name: Hello World API
+    yamlSimple: {
+        name: "YAML: Hello World",
+        json: `name: Hello World API
 description: Simple greeting endpoint
 path: /api/custom/hello
 method: GET
@@ -24,10 +23,10 @@ logic:
         message: Hello from Worpen!
         timestamp: "{{now()}}"
         status: success`
-  },
-  yamlConditional: {
-    name: "YAML: Age Checker",
-    json: `name: Age Verification
+    },
+    yamlConditional: {
+        name: "YAML: Age Checker",
+        json: `name: Age Verification
 description: Check if user is adult
 path: /api/custom/verify-age
 method: POST
@@ -54,10 +53,10 @@ logic:
               status: minor
               message: Access denied
               can_vote: false`
-  },
-  yamlDatabase: {
-    name: "YAML: DB Query",
-    json: `name: User Lookup
+    },
+    yamlDatabase: {
+        name: "YAML: DB Query",
+        json: `name: User Lookup
 description: Find user by ID
 path: /api/custom/user/:id
 method: GET
@@ -87,10 +86,10 @@ logic:
             value:
               found: false
               error: User not found`
-  },
-  yamlLoop: {
-    name: "YAML: Loop Example",
-    json: `name: Batch Processor
+    },
+    yamlLoop: {
+        name: "YAML: Loop Example",
+        json: `name: Batch Processor
 description: Process multiple items
 path: /api/custom/process-batch
 method: POST
@@ -125,140 +124,140 @@ logic:
       value:
         total: "{{body.items.length}}"
         processed: "{{results}}"`
-  },
-  simple: {
-    name: "JSON: Simple Echo",
-    json: JSON.stringify({
-      name: "Echo API",
-      description: "Returns your input",
-      path: "/api/custom/echo",
-      method: "POST",
-      logic: [{
-        "return": { "value": { "message": "{{input}}" } }
-      }],
-      parameters: [],
-      enabled: true,
-      version: "1.0.0",
-      auth_required: false
-    }, null, 2)
-  },
-  database: {
-    name: "Database Query",
-    json: JSON.stringify({
-      name: "Users API",
-      description: "Get users from database",
-      path: "/api/custom/users",
-      method: "GET",
-      logic: [
-        { "query_db": { "query": "SELECT * FROM agents LIMIT 10", "params": [] } },
-        { "return": { "value": { "users": "{{db_result}}" } } }
-      ],
-      parameters: [],
-      enabled: true,
-      version: "1.0.0",
-      auth_required: false
-    }, null, 2)
-  },
-  conditional: {
-    name: "Conditional Logic",
-    json: JSON.stringify({
-      name: "Age Check API",
-      description: "Check if user is adult",
-      path: "/api/custom/age-check",
-      method: "POST",
-      logic: [{
-        "if": {
-          "condition": "age >= 18",
-          "then": [{ "return": { "value": { "status": "adult", "can_vote": true } } }],
-          "otherwise": [{ "return": { "value": { "status": "minor", "can_vote": false } } }]
-        }
-      }],
-      parameters: [{ "name": "age", "param_type": "body", "data_type": "number", "required": true }],
-      enabled: true,
-      version: "1.0.0",
-      auth_required: false
-    }, null, 2)
-  },
-  advanced: {
-    name: "Advanced Showcase",
-    json: JSON.stringify({
-      name: "Order Processing API",
-      description: "Complex order processing with all features",
-      path: "/api/custom/process-order",
-      method: "POST",
-      logic: [
-        {
-          "set": {
-            "var": "user_id",
-            "value": "{{body.user_id}}"
-          }
-        },
-        {
-          "query_db": {
-            "query": "SELECT balance FROM users WHERE id = $1",
-            "params": ["{{user_id}}"]
-          }
-        },
-        {
-          "set": {
-            "var": "balance",
-            "value": "{{db_result[0].balance}}"
-          }
-        },
-        {
-          "if": {
-            "condition": "balance >= body.amount",
-            "then": [
-              {
-                "http_request": {
-                  "url": "https://api.payment.com/charge",
-                  "method": "POST",
-                  "body": {
-                    "user_id": "{{user_id}}",
-                    "amount": "{{body.amount}}"
-                  }
-                }
-              },
-              {
-                "query_db": {
-                  "query": "INSERT INTO orders (user_id, amount, status) VALUES ($1, $2, $3)",
-                  "params": ["{{user_id}}", "{{body.amount}}", "completed"]
-                }
-              },
-              {
-                "return": {
-                  "value": {
-                    "success": true,
-                    "order_id": "{{db_result.id}}",
-                    "message": "Order processed successfully"
-                  }
-                }
-              }
+    },
+    simple: {
+        name: "JSON: Simple Echo",
+        json: JSON.stringify({
+            name: "Echo API",
+            description: "Returns your input",
+            path: "/api/custom/echo",
+            method: "POST",
+            logic: [{
+                "return": { "value": { "message": "{{input}}" } }
+            }],
+            parameters: [],
+            enabled: true,
+            version: "1.0.0",
+            auth_required: false
+        }, null, 2)
+    },
+    database: {
+        name: "Database Query",
+        json: JSON.stringify({
+            name: "Users API",
+            description: "Get users from database",
+            path: "/api/custom/users",
+            method: "GET",
+            logic: [
+                { "query_db": { "query": "SELECT * FROM agents LIMIT 10", "params": [] } },
+                { "return": { "value": { "users": "{{db_result}}" } } }
             ],
-            "otherwise": [
-              {
-                "return": {
-                  "value": {
-                    "success": false,
-                    "error": "Insufficient balance",
-                    "required": "{{body.amount}}",
-                    "available": "{{balance}}"
-                  }
+            parameters: [],
+            enabled: true,
+            version: "1.0.0",
+            auth_required: false
+        }, null, 2)
+    },
+    conditional: {
+        name: "Conditional Logic",
+        json: JSON.stringify({
+            name: "Age Check API",
+            description: "Check if user is adult",
+            path: "/api/custom/age-check",
+            method: "POST",
+            logic: [{
+                "if": {
+                    "condition": "age >= 18",
+                    "then": [{ "return": { "value": { "status": "adult", "can_vote": true } } }],
+                    "otherwise": [{ "return": { "value": { "status": "minor", "can_vote": false } } }]
                 }
-              }
-            ]
-          }
-        }
-      ],
-      parameters: [
-        { "name": "user_id", "param_type": "body", "data_type": "number", "required": true },
-        { "name": "amount", "param_type": "body", "data_type": "number", "required": true }
-      ],
-      enabled: true,
-      version: "1.0.0",
-      auth_required: true
-    }, null, 2)
-  }
+            }],
+            parameters: [{ "name": "age", "param_type": "body", "data_type": "number", "required": true }],
+            enabled: true,
+            version: "1.0.0",
+            auth_required: false
+        }, null, 2)
+    },
+    advanced: {
+        name: "Advanced Showcase",
+        json: JSON.stringify({
+            name: "Order Processing API",
+            description: "Complex order processing with all features",
+            path: "/api/custom/process-order",
+            method: "POST",
+            logic: [
+                {
+                    "set": {
+                        "var": "user_id",
+                        "value": "{{body.user_id}}"
+                    }
+                },
+                {
+                    "query_db": {
+                        "query": "SELECT balance FROM users WHERE id = $1",
+                        "params": ["{{user_id}}"]
+                    }
+                },
+                {
+                    "set": {
+                        "var": "balance",
+                        "value": "{{db_result[0].balance}}"
+                    }
+                },
+                {
+                    "if": {
+                        "condition": "balance >= body.amount",
+                        "then": [
+                            {
+                                "http_request": {
+                                    "url": "https://api.payment.com/charge",
+                                    "method": "POST",
+                                    "body": {
+                                        "user_id": "{{user_id}}",
+                                        "amount": "{{body.amount}}"
+                                    }
+                                }
+                            },
+                            {
+                                "query_db": {
+                                    "query": "INSERT INTO orders (user_id, amount, status) VALUES ($1, $2, $3)",
+                                    "params": ["{{user_id}}", "{{body.amount}}", "completed"]
+                                }
+                            },
+                            {
+                                "return": {
+                                    "value": {
+                                        "success": true,
+                                        "order_id": "{{db_result.id}}",
+                                        "message": "Order processed successfully"
+                                    }
+                                }
+                            }
+                        ],
+                        "otherwise": [
+                            {
+                                "return": {
+                                    "value": {
+                                        "success": false,
+                                        "error": "Insufficient balance",
+                                        "required": "{{body.amount}}",
+                                        "available": "{{balance}}"
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
+            ],
+            parameters: [
+                { "name": "user_id", "param_type": "body", "data_type": "number", "required": true },
+                { "name": "amount", "param_type": "body", "data_type": "number", "required": true }
+            ],
+            enabled: true,
+            version: "1.0.0",
+            auth_required: true
+        }, null, 2)
+    }
 };
 
 const StatCard = ({ icon: Icon, value, label, color = "green" }: any) => (
@@ -322,7 +321,7 @@ export const DynamicRoutesView: React.FC = () => {
 
     const fetchRoutes = async () => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/v1/dynamic-routes`);
+            const response = await fetch(`${getApiBaseUrl()}/api/v1/dynamic-routes`);
             const data = await response.json();
             setRoutes(data);
         } catch (error) {
@@ -341,12 +340,12 @@ export const DynamicRoutesView: React.FC = () => {
             const contentType = isYAML ? 'application/x-yaml' : 'application/json';
 
             // Use /register endpoint which supports both YAML and JSON
-            const response = await fetch(`${API_BASE_URL}/api/v1/dynamic-routes/register`, {
+            const response = await fetch(`${getApiBaseUrl()}/api/v1/dynamic-routes/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': contentType },
                 body: routeDefinition,
             });
-            
+
             if (response.ok) {
                 await fetchRoutes();
                 setRouteDefinition('');
@@ -373,10 +372,10 @@ export const DynamicRoutesView: React.FC = () => {
         if (!confirm('Delete this route?')) return;
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/v1/dynamic-routes/${routeId}`, {
+            const response = await fetch(`${getApiBaseUrl()}/api/v1/dynamic-routes/${routeId}`, {
                 method: 'DELETE',
             });
-            
+
             if (response.ok) {
                 await fetchRoutes();
                 if (selectedRoute?.id === routeId) {
@@ -393,7 +392,7 @@ export const DynamicRoutesView: React.FC = () => {
 
         setLoading(true);
         try {
-            const response = await fetch(`${API_BASE_URL}/api/v1/dynamic-routes/test`, {
+            const response = await fetch(`${getApiBaseUrl()}/api/v1/dynamic-routes/test`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -402,7 +401,7 @@ export const DynamicRoutesView: React.FC = () => {
                     test_params: {}
                 }),
             });
-            
+
             const data = await response.json();
             setTestResult(data);
         } catch (error: any) {
@@ -427,12 +426,12 @@ export const DynamicRoutesView: React.FC = () => {
                 className="absolute left-4 top-4 z-50 p-2.5 bg-green-500/10 hover:bg-green-500/20 border-2 border-green-500/30 hover:border-green-500/50 text-green-400 rounded-lg transition-all duration-300 shadow-lg hover:shadow-green-500/20 hover:scale-110 active:scale-95"
                 title={sidebarVisible ? "Hide Sidebar" : "Show Sidebar"}
             >
-                <svg 
-                    width="18" 
-                    height="18" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
+                <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
                     strokeWidth="2.5"
                     className="transition-transform duration-300"
                     style={{ transform: sidebarVisible ? 'rotate(0deg)' : 'rotate(180deg)' }}
@@ -445,138 +444,136 @@ export const DynamicRoutesView: React.FC = () => {
             <div id="routes-container" className="flex gap-0 h-full relative pt-16">
                 {/* Templates + Routes List */}
                 {sidebarVisible && (
-                    <div 
-                        className="space-y-4 overflow-y-auto custom-scrollbar pr-4" 
-                        style={{ 
+                    <div
+                        className="space-y-4 overflow-y-auto custom-scrollbar pr-4"
+                        style={{
                             width: `${sidebarWidth}%`,
                             transition: isDragging ? 'none' : 'width 0.5s ease-in-out'
                         }}
                     >
-                    {/* Quick Start Templates */}
-                    <div className="bg-[#0a0a0a]/50 backdrop-blur-sm border border-white/5 rounded-lg p-4">
-                        <div className="flex items-center gap-2 mb-4">
-                            <FileJson size={16} className="text-green-500" />
-                            <h3 className="text-sm font-bold text-white uppercase tracking-wide">Quick Start</h3>
+                        {/* Quick Start Templates */}
+                        <div className="bg-[#0a0a0a]/50 backdrop-blur-sm border border-white/5 rounded-lg p-4">
+                            <div className="flex items-center gap-2 mb-4">
+                                <FileJson size={16} className="text-green-500" />
+                                <h3 className="text-sm font-bold text-white uppercase tracking-wide">Quick Start</h3>
+                            </div>
+                            <div className="space-y-2">
+                                {Object.entries(ROUTE_TEMPLATES).map(([key, template]) => (
+                                    <button
+                                        key={key}
+                                        onClick={() => loadTemplate(key)}
+                                        className="w-full flex items-center gap-3 p-3 bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] hover:border-green-500/20 transition-all group rounded text-left"
+                                    >
+                                        <div className="p-2 rounded bg-black/50 border border-white/10 text-green-500">
+                                            <Code size={14} />
+                                        </div>
+                                        <span className="text-xs font-bold text-gray-300 group-hover:text-white">{template.name}</span>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                        <div className="space-y-2">
-                            {Object.entries(ROUTE_TEMPLATES).map(([key, template]) => (
-                                <button
-                                    key={key}
-                                    onClick={() => loadTemplate(key)}
-                                    className="w-full flex items-center gap-3 p-3 bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] hover:border-green-500/20 transition-all group rounded text-left"
-                                >
-                                    <div className="p-2 rounded bg-black/50 border border-white/10 text-green-500">
-                                        <Code size={14} />
-                                    </div>
-                                    <span className="text-xs font-bold text-gray-300 group-hover:text-white">{template.name}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
 
-                    {/* Your Routes */}
-                    <div className="bg-[#0a0a0a]/50 backdrop-blur-sm border border-white/5 rounded-lg p-4 flex-1 flex flex-col overflow-hidden">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                                <Terminal size={16} className="text-green-500" />
-                                <h3 className="text-sm font-bold text-white uppercase tracking-wide">Routes</h3>
+                        {/* Your Routes */}
+                        <div className="bg-[#0a0a0a]/50 backdrop-blur-sm border border-white/5 rounded-lg p-4 flex-1 flex flex-col overflow-hidden">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <Terminal size={16} className="text-green-500" />
+                                    <h3 className="text-sm font-bold text-white uppercase tracking-wide">Routes</h3>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={fetchRoutes}
+                                        className="p-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 rounded hover:text-white transition-colors"
+                                        title="Refresh"
+                                    >
+                                        <RefreshCw size={12} />
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('editor')}
+                                        className="p-1.5 bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 text-green-400 rounded hover:text-green-300 transition-colors"
+                                        title="New Route"
+                                    >
+                                        <Plus size={12} />
+                                    </button>
+                                    <span className="text-xs font-mono text-gray-500 bg-white/5 px-2 py-1 rounded">{routes.length}</span>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <button 
-                                    onClick={fetchRoutes}
-                                    className="p-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 rounded hover:text-white transition-colors"
-                                    title="Refresh"
-                                >
-                                    <RefreshCw size={12} />
-                                </button>
-                                <button 
-                                    onClick={() => setActiveTab('editor')}
-                                    className="p-1.5 bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 text-green-400 rounded hover:text-green-300 transition-colors"
-                                    title="New Route"
-                                >
-                                    <Plus size={12} />
-                                </button>
-                                <span className="text-xs font-mono text-gray-500 bg-white/5 px-2 py-1 rounded">{routes.length}</span>
-                            </div>
-                        </div>
-                        <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
-                            {routes.map((route) => (
-                                <div
-                                    key={route.id}
-                                    className={`flex items-center justify-between p-3 border rounded transition-all ${
-                                        selectedRoute?.id === route.id
+                            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                                {routes.map((route) => (
+                                    <div
+                                        key={route.id}
+                                        className={`flex items-center justify-between p-3 border rounded transition-all ${selectedRoute?.id === route.id
                                             ? 'bg-green-500/10 border-green-500/30'
                                             : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04] hover:border-green-500/20'
-                                    }`}
-                                >
-                                    <div 
-                                        className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
-                                        onClick={() => setSelectedRoute(route)}
+                                            }`}
                                     >
-                                        <span className="text-[10px] font-mono px-2 py-1 bg-green-500/10 text-green-400 rounded border border-green-500/20">
-                                            {route.method}
-                                        </span>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="text-xs font-bold text-white truncate">{route.name}</div>
-                                            <div className="text-[10px] text-gray-500 font-mono truncate">{route.path}</div>
+                                        <div
+                                            className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+                                            onClick={() => setSelectedRoute(route)}
+                                        >
+                                            <span className="text-[10px] font-mono px-2 py-1 bg-green-500/10 text-green-400 rounded border border-green-500/20">
+                                                {route.method}
+                                            </span>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-xs font-bold text-white truncate">{route.name}</div>
+                                                <div className="text-[10px] text-gray-500 font-mono truncate">{route.path}</div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    // Load route into editor
+                                                    const routeJson = JSON.stringify({
+                                                        name: route.name,
+                                                        description: route.description,
+                                                        path: route.path,
+                                                        method: route.method,
+                                                        logic: route.logic,
+                                                        parameters: route.parameters || [],
+                                                        enabled: route.enabled,
+                                                        version: route.version,
+                                                        auth_required: route.auth_required
+                                                    }, null, 2);
+                                                    setRouteDefinition(routeJson);
+                                                    setActiveTab('editor');
+                                                    setRegistrationError(null);
+                                                }}
+                                                className="p-1.5 text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 rounded transition-colors"
+                                                title="View/Edit Code"
+                                            >
+                                                <Code size={12} />
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    deleteRoute(route.id);
+                                                }}
+                                                className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                                                title="Delete"
+                                            >
+                                                <Trash2 size={12} />
+                                            </button>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-1">
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                // Load route into editor
-                                                const routeJson = JSON.stringify({
-                                                    name: route.name,
-                                                    description: route.description,
-                                                    path: route.path,
-                                                    method: route.method,
-                                                    logic: route.logic,
-                                                    parameters: route.parameters || [],
-                                                    enabled: route.enabled,
-                                                    version: route.version,
-                                                    auth_required: route.auth_required
-                                                }, null, 2);
-                                                setRouteDefinition(routeJson);
-                                                setActiveTab('editor');
-                                                setRegistrationError(null);
-                                            }}
-                                            className="p-1.5 text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 rounded transition-colors"
-                                            title="View/Edit Code"
-                                        >
-                                            <Code size={12} />
-                                        </button>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                deleteRoute(route.id);
-                                            }}
-                                            className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
-                                            title="Delete"
-                                        >
-                                            <Trash2 size={12} />
-                                        </button>
+                                ))}
+                                {routes.length === 0 && (
+                                    <div className="text-center py-8 text-gray-600 text-xs">
+                                        No routes yet. Create one using templates above.
                                     </div>
-                                </div>
-                            ))}
-                            {routes.length === 0 && (
-                                <div className="text-center py-8 text-gray-600 text-xs">
-                                    No routes yet. Create one using templates above.
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
                 )}
 
                 {/* Resize Handle */}
                 {sidebarVisible && (
-                    <div 
-                        className={`w-1 cursor-col-resize relative group ${
-                            isDragging 
-                                ? 'bg-green-500/50 w-2 shadow-[0_0_10px_rgba(34,197,94,0.5)]' 
-                                : 'bg-white/5 hover:bg-green-500/30'
-                        }`}
+                    <div
+                        className={`w-1 cursor-col-resize relative group ${isDragging
+                            ? 'bg-green-500/50 w-2 shadow-[0_0_10px_rgba(34,197,94,0.5)]'
+                            : 'bg-white/5 hover:bg-green-500/30'
+                            }`}
                         style={{ transition: isDragging ? 'none' : 'all 0.3s' }}
                         onMouseDown={(e) => {
                             e.preventDefault();
@@ -584,17 +581,16 @@ export const DynamicRoutesView: React.FC = () => {
                         }}
                     >
                         <div className="absolute inset-y-0 -left-2 -right-2 flex items-center justify-center">
-                            <div className={`w-1.5 h-16 rounded-full transition-all duration-300 ${
-                                isDragging 
-                                    ? 'bg-green-500/80 h-24 shadow-[0_0_15px_rgba(34,197,94,0.6)]' 
-                                    : 'bg-green-500/0 group-hover:bg-green-500/60 group-hover:h-20'
-                            }`}></div>
+                            <div className={`w-1.5 h-16 rounded-full transition-all duration-300 ${isDragging
+                                ? 'bg-green-500/80 h-24 shadow-[0_0_15px_rgba(34,197,94,0.6)]'
+                                : 'bg-green-500/0 group-hover:bg-green-500/60 group-hover:h-20'
+                                }`}></div>
                         </div>
                     </div>
                 )}
 
                 {/* Editor / Test Panel */}
-                <div 
+                <div
                     className="overflow-hidden flex-1"
                     style={{ transition: isDragging ? 'none' : 'all 0.5s ease-in-out' }}
                 >
@@ -603,22 +599,20 @@ export const DynamicRoutesView: React.FC = () => {
                         <div className="flex border-b border-white/5 bg-black/20">
                             <button
                                 onClick={() => setActiveTab('editor')}
-                                className={`flex items-center gap-2 px-4 py-3 text-xs font-mono transition-colors ${
-                                    activeTab === 'editor'
-                                        ? 'bg-green-500/10 text-green-400 border-b-2 border-green-500'
-                                        : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
-                                }`}
+                                className={`flex items-center gap-2 px-4 py-3 text-xs font-mono transition-colors ${activeTab === 'editor'
+                                    ? 'bg-green-500/10 text-green-400 border-b-2 border-green-500'
+                                    : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
+                                    }`}
                             >
                                 <Code size={14} />
                                 Editor
                             </button>
                             <button
                                 onClick={() => setActiveTab('test')}
-                                className={`flex items-center gap-2 px-4 py-3 text-xs font-mono transition-colors ${
-                                    activeTab === 'test'
-                                        ? 'bg-green-500/10 text-green-400 border-b-2 border-green-500'
-                                        : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
-                                }`}
+                                className={`flex items-center gap-2 px-4 py-3 text-xs font-mono transition-colors ${activeTab === 'test'
+                                    ? 'bg-green-500/10 text-green-400 border-b-2 border-green-500'
+                                    : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
+                                    }`}
                                 disabled={!selectedRoute}
                             >
                                 <Play size={14} />
@@ -634,11 +628,10 @@ export const DynamicRoutesView: React.FC = () => {
                                         <Terminal size={14} />
                                         <span>EDITOR</span>
                                         {routeDefinition.trim() && (
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                                routeDefinition.trim().startsWith('{') || routeDefinition.trim().startsWith('[')
-                                                    ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                                                    : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                                            }`}>
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${routeDefinition.trim().startsWith('{') || routeDefinition.trim().startsWith('[')
+                                                ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                                                : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                                                }`}>
                                                 {routeDefinition.trim().startsWith('{') || routeDefinition.trim().startsWith('[') ? 'JSON' : 'YAML'}
                                             </span>
                                         )}
@@ -661,7 +654,7 @@ export const DynamicRoutesView: React.FC = () => {
                                         </button>
                                     </div>
                                 </div>
-                                
+
                                 {/* Registration Error Display */}
                                 {registrationError && (
                                     <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start gap-3">
@@ -739,9 +732,8 @@ export const DynamicRoutesView: React.FC = () => {
                                             )}
                                             <label className="text-xs font-mono text-gray-500">RESULT</label>
                                         </div>
-                                        <pre className={`w-full h-48 bg-black/50 border rounded p-4 text-xs font-mono overflow-auto ${
-                                            testResult.success ? 'border-green-500/30 text-green-400' : 'border-red-500/30 text-red-400'
-                                        }`}>
+                                        <pre className={`w-full h-48 bg-black/50 border rounded p-4 text-xs font-mono overflow-auto ${testResult.success ? 'border-green-500/30 text-green-400' : 'border-red-500/30 text-red-400'
+                                            }`}>
                                             {JSON.stringify(testResult, null, 2)}
                                         </pre>
                                     </div>
