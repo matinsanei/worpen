@@ -3,11 +3,13 @@ import {
     Code, Play, Plus, Trash2, CheckCircle, XCircle,
     Zap, FileJson, Activity, Terminal, Copy, RefreshCw, Globe, Clock, Save,
     File, ChevronDown, ChevronRight, Settings, Maximize2, Minimize2,
-    Search, GitBranch, Braces, Layout, PanelLeft
+    Search, GitBranch, Braces, Layout, PanelLeft,
+    X
 } from 'lucide-react';
-import Editor from "@monaco-editor/react";
+import Editor, { loader } from "@monaco-editor/react";
 import { CodeEditor } from '../components/SyntaxHighlighter';
 import { getApiBaseUrl } from '../api';
+import { ALL_THEMES, IDETheme, worpenDark } from '../src/themes/ide';
 
 const ROUTE_TEMPLATES = {
     yamlSimple: {
@@ -298,6 +300,58 @@ export const DynamicRoutesView: React.FC = () => {
     const [registrationError, setRegistrationError] = useState<string | null>(null);
     const [activeActivityId, setActiveActivityId] = useState<'explorer' | 'search' | 'git' | 'debug' | 'settings'>('explorer');
     const [expandedFolders, setExpandedFolders] = useState<string[]>(['templates', 'active-routes']);
+    const [currentTheme, setCurrentTheme] = useState<IDETheme>(() => {
+        const saved = localStorage.getItem('worpen_ide_theme');
+        if (saved) {
+            const theme = ALL_THEMES.find(t => t.id === saved);
+            if (theme) return theme;
+        }
+        return worpenDark;
+    });
+
+    const AVAILABLE_FONTS = [
+        { name: 'JetBrains Mono', family: '"JetBrains Mono", monospace' },
+        { name: 'Fira Code', family: '"Fira Code", monospace' },
+        { name: 'IBM Plex Mono', family: '"IBM Plex Mono", monospace' },
+        { name: 'Roboto Mono', family: '"Roboto Mono", monospace' },
+        { name: 'Source Code Pro', family: '"Source Code Pro", monospace' },
+        { name: 'Inconsolata', family: '"Inconsolata", monospace' },
+        { name: 'Courier Prime', family: '"Courier Prime", monospace' },
+        { name: 'Ubuntu Mono', family: '"Ubuntu Mono", monospace' },
+        { name: 'Anonymous Pro', family: '"Anonymous Pro", monospace' },
+        { name: 'Space Mono', family: '"Space Mono", monospace' },
+        { name: 'Nanum Gothic Coding', family: '"Nanum Gothic Coding", monospace' },
+        { name: 'Overpass Mono', family: '"Overpass Mono", monospace' },
+        { name: 'Cutive Mono', family: '"Cutive Mono", monospace' },
+        { name: 'Nova Mono', family: '"Nova Mono", monospace' },
+    ];
+
+    const [currentFont, setCurrentFont] = useState(() => {
+        return localStorage.getItem('worpen_ide_font') || '"JetBrains Mono", monospace';
+    });
+
+    const [showSettingsModal, setShowSettingsModal] = useState(false);
+
+    useEffect(() => {
+        localStorage.setItem('worpen_ide_font', currentFont);
+    }, [currentFont]);
+
+    useEffect(() => {
+        loader.init().then(monaco => {
+            ALL_THEMES.forEach(theme => {
+                monaco.editor.defineTheme(theme.editor.monacoTheme, {
+                    base: theme.editor.monacoConfig.base,
+                    inherit: theme.editor.monacoConfig.inherit,
+                    rules: theme.editor.monacoConfig.rules as any,
+                    colors: theme.editor.monacoConfig.colors,
+                });
+            });
+        });
+    }, []);
+
+    useEffect(() => {
+        localStorage.setItem('worpen_ide_theme', currentTheme.id);
+    }, [currentTheme]);
 
     useEffect(() => {
         localStorage.setItem('worpen_builder_sidebar_width', sidebarWidth.toString());
@@ -438,11 +492,11 @@ export const DynamicRoutesView: React.FC = () => {
 
 
     return (
-        <div className="flex flex-col h-full w-full bg-[#1e1f22] text-[#dfe1e5] font-sans selection:bg-[#3574f030] overflow-hidden">
+        <div className="flex flex-col h-full w-full bg-[#1e1f22] text-[#dfe1e5] font-sans selection:bg-[#3574f030] overflow-hidden" style={{ backgroundColor: currentTheme.editor.bg }}>
             {/* IDE Main Workspace */}
             <div id="routes-container" className="flex flex-1 overflow-hidden">
                 {/* 1. Activity Bar (Far Left) */}
-                <div className="w-10 bg-[#2b2d30] flex flex-col items-center py-2 gap-2 border-r border-[#43454a]">
+                <div className="w-10 flex flex-col items-center py-2 gap-2 border-r" style={{ backgroundColor: currentTheme.activityBar.bg, borderColor: currentTheme.activityBar.border }}>
                     {[
                         { id: 'explorer', icon: File, label: 'Explorer' },
                         { id: 'search', icon: Search, label: 'Search' },
@@ -459,31 +513,173 @@ export const DynamicRoutesView: React.FC = () => {
                                     setSidebarVisible(true);
                                 }
                             }}
-                            className={`p-2 transition-all relative group rounded-[var(--radius)] mx-1 ${activeActivityId === item.id && sidebarVisible ? 'text-[#3574f0] bg-[#3574f015]' : 'text-[#6e7073] hover:text-[#dfe1e5] hover:bg-[#393b40]'
-                                }`}
+                            className={`p-2 transition-all relative group rounded-[var(--radius)] mx-1`}
+                            style={{
+                                color: activeActivityId === item.id && sidebarVisible ? currentTheme.activityBar.activeIcon : currentTheme.activityBar.inactiveIcon,
+                                backgroundColor: activeActivityId === item.id && sidebarVisible ? currentTheme.activityBar.activeBg : 'transparent'
+                            }}
+                            onMouseEnter={(e) => {
+                                if (!(activeActivityId === item.id && sidebarVisible)) {
+                                    e.currentTarget.style.backgroundColor = currentTheme.activityBar.hoverBg;
+                                    e.currentTarget.style.color = currentTheme.activityBar.activeIcon;
+                                }
+                            }}
+                            onMouseLeave={(e) => {
+                                if (!(activeActivityId === item.id && sidebarVisible)) {
+                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                    e.currentTarget.style.color = currentTheme.activityBar.inactiveIcon;
+                                }
+                            }}
                             title={item.label}
                         >
                             <item.icon size={20} strokeWidth={activeActivityId === item.id ? 2.5 : 2} />
                             {activeActivityId === item.id && sidebarVisible && (
-                                <div className="absolute left-[-4px] top-1/2 -translate-y-1/2 w-1 h-5 bg-[#3574f0] rounded-r-full shadow-[0_0_8px_rgba(53,116,240,0.3)]" />
+                                <div className="absolute left-[-4px] top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full shadow-[0_0_8px_rgba(53,116,240,0.3)]" style={{ backgroundColor: currentTheme.activityBar.indicator }} />
                             )}
                         </button>
                     ))}
-                    <div className="mt-auto flex flex-col gap-2 mb-1">
-                        <button className="p-2 text-[#6e7073] hover:text-[#dfe1e5] hover:bg-[#393b40] transition-all rounded-[var(--radius)] mx-1">
+                    <div className="mt-auto flex flex-col gap-2 mb-1 relative">
+                        <button
+                            onClick={() => setShowSettingsModal(true)}
+                            className="p-2 transition-all rounded-[var(--radius)] mx-1"
+                            style={{
+                                color: currentTheme.activityBar.inactiveIcon,
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = currentTheme.activityBar.hoverBg;
+                                e.currentTarget.style.color = currentTheme.activityBar.activeIcon;
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                                e.currentTarget.style.color = currentTheme.activityBar.inactiveIcon;
+                            }}
+                        >
                             <Settings size={20} strokeWidth={2} />
                         </button>
+
+                        {/* Settings Modal Overlay */}
+                        {showSettingsModal && (
+                            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-md animate-in fade-in duration-500">
+                                <div
+                                    className="w-[850px] h-[650px] rounded-2xl shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] border flex overflow-hidden animate-blur-in"
+                                    style={{ backgroundColor: currentTheme.sidebar.bg, borderColor: currentTheme.sidebar.border }}
+                                >
+                                    {/* Modal Sidebar */}
+                                    <div className="w-60 border-r flex flex-col animate-in fade-in duration-700 delay-150" style={{ borderColor: currentTheme.sidebar.border, backgroundColor: currentTheme.activityBar.bg }}>
+                                        <div className="p-8 border-b" style={{ borderColor: currentTheme.sidebar.border }}>
+                                            <h2 className="text-xl font-black flex items-center gap-3 tracking-tighter" style={{ color: currentTheme.sidebar.headerText }}>
+                                                <Settings size={24} className="opacity-80" /> Settings
+                                            </h2>
+                                        </div>
+                                        <div className="flex-1 py-6 px-3">
+                                            <div
+                                                className="px-5 py-3 flex items-center gap-4 text-[14px] font-bold rounded-xl transition-all"
+                                                style={{
+                                                    color: currentTheme.sidebar.activeItemText,
+                                                    backgroundColor: currentTheme.sidebar.activeItemBg,
+                                                }}
+                                            >
+                                                <Layout size={20} /> Appearance
+                                            </div>
+                                            <div className="mt-2 px-5 py-3 flex items-center gap-4 text-[14px] font-medium opacity-30 cursor-not-allowed" style={{ color: currentTheme.sidebar.itemText }}>
+                                                <Braces size={20} /> Editor Config
+                                            </div>
+                                            <div className="px-5 py-3 flex items-center gap-4 text-[14px] font-medium opacity-30 cursor-not-allowed" style={{ color: currentTheme.sidebar.itemText }}>
+                                                <GitBranch size={20} /> Version Control
+                                            </div>
+                                        </div>
+                                        <div className="p-8 text-[11px] font-bold opacity-30 tracking-widest" style={{ color: currentTheme.sidebar.itemText }}>
+                                            WORPEN CORE v1.0.4.5
+                                        </div>
+                                    </div>
+
+                                    {/* Modal Main Content */}
+                                    <div className="flex-1 flex flex-col overflow-hidden animate-in fade-in duration-700 delay-300" style={{ backgroundColor: currentTheme.editor.bg }}>
+                                        <div className="h-16 border-b flex items-center justify-between px-10" style={{ borderColor: currentTheme.sidebar.border }}>
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-black uppercase tracking-[3px] opacity-40" style={{ color: currentTheme.sidebar.headerText }}>Configuration</span>
+                                                <span className="text-sm font-bold" style={{ color: currentTheme.sidebar.headerText }}>Interface & Branding</span>
+                                            </div>
+                                            <button
+                                                onClick={() => setShowSettingsModal(false)}
+                                                className="hover:scale-110 transition-transform"
+                                                style={{ color: currentTheme.sidebar.headerText }}
+                                            >
+                                                <XCircle size={28} />
+                                            </button>
+                                        </div>
+
+                                        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                                            {/* Theme Selection */}
+                                            <section className="mb-10">
+                                                <h3 className="text-[12px] font-black uppercase tracking-widest mb-4 opacity-70" style={{ color: currentTheme.activityBar.indicator }}>Color Theme</h3>
+                                                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                                                    {ALL_THEMES.map(theme => (
+                                                        <button
+                                                            key={theme.id}
+                                                            onClick={() => setCurrentTheme(theme)}
+                                                            className="flex flex-col gap-3 p-4 rounded-lg border-2 transition-all hover:scale-[1.02]"
+                                                            style={{
+                                                                backgroundColor: currentTheme.id === theme.id ? theme.activityBar.bg : theme.activityBar.bg + '50',
+                                                                borderColor: currentTheme.id === theme.id ? currentTheme.activityBar.indicator : 'transparent'
+                                                            }}
+                                                        >
+                                                            <div className="flex items-center justify-between w-full">
+                                                                <span className="text-[13px] font-bold" style={{ color: theme.sidebar.activeItemText }}>{theme.name}</span>
+                                                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: theme.activityBar.indicator }} />
+                                                            </div>
+                                                            <div className="flex gap-1">
+                                                                <div className="w-4 h-4 rounded" style={{ backgroundColor: theme.editor.bg }} />
+                                                                <div className="w-4 h-4 rounded" style={{ backgroundColor: theme.sidebar.bg }} />
+                                                                <div className="w-4 h-4 rounded" style={{ backgroundColor: theme.statusBar.bg }} />
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </section>
+
+                                            <div className="h-[1px] mb-10 opacity-10" style={{ backgroundColor: currentTheme.sidebar.headerText }} />
+
+                                            {/* Font Selection */}
+                                            <section>
+                                                <h3 className="text-[12px] font-black uppercase tracking-widest mb-4 opacity-70" style={{ color: currentTheme.activityBar.indicator }}>Editor Font</h3>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    {AVAILABLE_FONTS.map(font => (
+                                                        <button
+                                                            key={font.family}
+                                                            onClick={() => setCurrentFont(font.family)}
+                                                            className="p-4 rounded-lg border-2 text-left transition-all hover:scale-[1.02]"
+                                                            style={{
+                                                                backgroundColor: currentFont === font.family ? currentTheme.activityBar.bg : currentTheme.activityBar.bg + '50',
+                                                                borderColor: currentFont === font.family ? currentTheme.activityBar.indicator : 'transparent',
+                                                                fontFamily: font.family
+                                                            }}
+                                                        >
+                                                            <div className="text-[14px] mb-1" style={{ color: currentTheme.sidebar.activeItemText }}>{font.name}</div>
+                                                            <div className="text-[11px] opacity-40 truncate" style={{ color: currentTheme.sidebar.itemText }}>
+                                                                const worpen = () =&gt; "IDE Experience";
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </section>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
                 {/* 2. Sidebar (Explorer/Search etc.) */}
                 {sidebarVisible && (
                     <div
-                        className="bg-[#2b2d30] flex flex-col border-r border-[#43454a] select-none group/sidebar relative"
-                        style={{ width: `${sidebarWidth}%`, minWidth: '180px' }}
+                        className="flex flex-col border-r select-none group/sidebar relative"
+                        style={{ width: `${sidebarWidth}%`, minWidth: '180px', backgroundColor: currentTheme.sidebar.bg, borderColor: currentTheme.sidebar.border }}
                     >
                         {/* Sidebar Header */}
-                        <div className="h-9 px-4 flex items-center justify-between text-[11px] uppercase tracking-wider text-[#6e7073] font-bold border-b border-[#43454a]">
+                        <div className="h-9 px-4 flex items-center justify-between text-[11px] uppercase tracking-wider font-bold border-b"
+                            style={{ color: currentTheme.sidebar.headerText, borderColor: currentTheme.sidebar.border }}>
                             <span>{activeActivityId}</span>
                         </div>
 
@@ -492,34 +688,44 @@ export const DynamicRoutesView: React.FC = () => {
                             {activeActivityId === 'explorer' && (
                                 <>
                                     {/* Templates Section */}
-                                    <div className="flex flex-col mb-2">
-                                        <button
-                                            onClick={() => setExpandedFolders(prev =>
-                                                prev.includes('templates') ? prev.filter(f => f !== 'templates') : [...prev, 'templates']
-                                            )}
-                                            className="h-7 px-2 flex items-center hover:bg-[#393b40] text-[11px] font-bold text-[#dfe1e5] transition-colors"
-                                        >
-                                            <div className="mr-1 shadow-sm">
-                                                {expandedFolders.includes('templates') ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                                            </div>
-                                            <span className="uppercase tracking-tight">ROUTE TEMPLATES</span>
-                                        </button>
-                                        {expandedFolders.includes('templates') && (
-                                            <div className="flex flex-col py-1">
-                                                {Object.entries(ROUTE_TEMPLATES).map(([key, template]) => (
-                                                    <button
-                                                        key={key}
-                                                        onClick={() => loadTemplate(key)}
-                                                        className="px-6 py-1.5 text-[12px] flex items-center gap-2 hover:bg-[#3574f015] hover:text-[#3574f0] text-[#dfe1e5] transition-all group text-left mx-1 rounded-[var(--radius)]"
-                                                    >
-                                                        <Braces size={14} className="text-[#3574f0] opacity-70" />
-                                                        <span className="truncate">{template.name}</span>
-                                                        <Plus size={12} className="ml-auto opacity-0 group-hover:opacity-100 text-[#59a869]" />
-                                                    </button>
-                                                ))}
-                                            </div>
+                                    <button
+                                        onClick={() => setExpandedFolders(prev =>
+                                            prev.includes('templates') ? prev.filter(f => f !== 'templates') : [...prev, 'templates']
                                         )}
-                                    </div>
+                                        className="h-7 px-2 flex items-center text-[11px] font-bold transition-colors"
+                                        style={{ color: currentTheme.sidebar.folderText }}
+                                        onMouseEnter={(e: any) => e.currentTarget.style.backgroundColor = currentTheme.sidebar.folderHoverBg}
+                                        onMouseLeave={(e: any) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                    >
+                                        <div className="mr-1 shadow-sm">
+                                            {expandedFolders.includes('templates') ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                        </div>
+                                        <span className="uppercase tracking-tight">ROUTE TEMPLATES</span>
+                                    </button>
+                                    {expandedFolders.includes('templates') && (
+                                        <div className="flex flex-col py-1">
+                                            {Object.entries(ROUTE_TEMPLATES).map(([key, template]) => (
+                                                <button
+                                                    key={key}
+                                                    onClick={() => loadTemplate(key)}
+                                                    className="px-6 py-1.5 text-[12px] flex items-center gap-2 transition-all group text-left mx-1 rounded-[var(--radius)]"
+                                                    style={{ color: currentTheme.sidebar.itemText }}
+                                                    onMouseEnter={(e) => {
+                                                        e.currentTarget.style.backgroundColor = currentTheme.sidebar.itemHoverBg;
+                                                        e.currentTarget.querySelector('span')!.style.color = currentTheme.activityBar.indicator;
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                                        e.currentTarget.querySelector('span')!.style.color = currentTheme.sidebar.itemText;
+                                                    }}
+                                                >
+                                                    <Braces size={14} style={{ color: currentTheme.activityBar.activeIcon, opacity: 0.7 }} />
+                                                    <span className="truncate">{template.name}</span>
+                                                    <Plus size={12} className="ml-auto opacity-0 group-hover:opacity-100" style={{ color: currentTheme.sidebar.iconEnabled }} />
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
 
                                     {/* Active Routes Section */}
                                     <div className="flex flex-col">
@@ -527,7 +733,10 @@ export const DynamicRoutesView: React.FC = () => {
                                             onClick={() => setExpandedFolders(prev =>
                                                 prev.includes('active-routes') ? prev.filter(f => f !== 'active-routes') : [...prev, 'active-routes']
                                             )}
-                                            className="h-7 px-2 flex items-center hover:bg-[#393b40] text-[11px] font-bold text-[#dfe1e5] transition-colors"
+                                            className="h-7 px-2 flex items-center text-[11px] font-bold transition-colors"
+                                            style={{ color: currentTheme.sidebar.folderText }}
+                                            onMouseEnter={(e: any) => e.currentTarget.style.backgroundColor = currentTheme.sidebar.folderHoverBg}
+                                            onMouseLeave={(e: any) => e.currentTarget.style.backgroundColor = 'transparent'}
                                         >
                                             <div className="mr-1 shadow-sm">
                                                 {expandedFolders.includes('active-routes') ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -544,25 +753,39 @@ export const DynamicRoutesView: React.FC = () => {
                                                     routes.map((route) => (
                                                         <div
                                                             key={route.id}
-                                                            className={`group px-6 py-1.5 text-[12px] flex items-center gap-2 cursor-pointer transition-all mx-1 rounded-[var(--radius)] ${selectedRoute?.id === route.id ? 'bg-[#3574f0] text-white shadow-md' : 'hover:bg-[#393b40] text-[#dfe1e5]'
-                                                                }`}
+                                                            className={`group px-6 py-1.5 text-[12px] flex items-center gap-2 cursor-pointer transition-all mx-1 rounded-[var(--radius)]`}
+                                                            style={{
+                                                                backgroundColor: selectedRoute?.id === route.id ? currentTheme.sidebar.activeItemBg : 'transparent',
+                                                                color: selectedRoute?.id === route.id ? currentTheme.sidebar.activeItemText : currentTheme.sidebar.itemText
+                                                            }}
+                                                            onMouseEnter={(e: any) => {
+                                                                if (selectedRoute?.id !== route.id) {
+                                                                    e.currentTarget.style.backgroundColor = currentTheme.sidebar.itemHoverBg;
+                                                                }
+                                                            }}
+                                                            onMouseLeave={(e: any) => {
+                                                                if (selectedRoute?.id !== route.id) {
+                                                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                                                }
+                                                            }}
                                                             onClick={() => {
                                                                 setSelectedRoute(route);
                                                                 setRouteDefinition(route.yaml_definition || JSON.stringify(route, null, 2));
                                                                 setActiveTab('editor');
                                                             }}
                                                         >
-                                                            <Globe size={14} className={selectedRoute?.id === route.id ? "text-white" : (route.enabled ? "text-[#59a869]" : "text-[#6e7073]")} />
+                                                            <Globe size={14} style={{ color: selectedRoute?.id === route.id ? currentTheme.sidebar.activeItemText : (route.enabled ? currentTheme.sidebar.iconEnabled : currentTheme.sidebar.iconDisabled) }} />
                                                             <div className="flex flex-col overflow-hidden">
                                                                 <span className="truncate font-medium">{route.name}</span>
-                                                                <span className={`truncate text-[10px] ${selectedRoute?.id === route.id ? 'text-white/70' : 'text-[#6e7073]'}`}>{route.path}</span>
+                                                                <span className="truncate text-[10px]" style={{ color: selectedRoute?.id === route.id ? 'rgba(255,255,255,0.7)' : currentTheme.sidebar.headerText }}>{route.path}</span>
                                                             </div>
                                                             <button
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     deleteRoute(route.id);
                                                                 }}
-                                                                className={`ml-auto opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/20 rounded transition-all ${selectedRoute?.id === route.id ? 'text-white' : 'text-[#e06c75]'}`}
+                                                                className={`ml-auto opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/20 rounded transition-all`}
+                                                                style={{ color: selectedRoute?.id === route.id ? currentTheme.sidebar.activeItemText : '#e06c75' }}
                                                             >
                                                                 <Trash2 size={12} />
                                                             </button>
@@ -579,35 +802,67 @@ export const DynamicRoutesView: React.FC = () => {
                         {/* Resize Handle */}
                         <div
                             onMouseDown={() => setIsDragging(true)}
-                            className={`absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-[#3574f050] transition-colors z-10 ${isDragging ? 'bg-[#3574f0]' : ''}`}
+                            className={`absolute right-0 top-0 bottom-0 w-1 cursor-col-resize transition-colors z-10`}
+                            style={{ backgroundColor: isDragging ? currentTheme.activityBar.indicator : 'transparent' }}
+                            onMouseEnter={(e: any) => { if (!isDragging) e.currentTarget.style.backgroundColor = `${currentTheme.activityBar.indicator}50` }}
+                            onMouseLeave={(e: any) => { if (!isDragging) e.currentTarget.style.backgroundColor = 'transparent' }}
                         />
                     </div>
                 )}
 
                 {/* 3. Main Editor Area */}
-                <div className="flex-1 flex flex-col bg-[#1e1f22] overflow-hidden m-1.5 rounded-[var(--radius)] border border-[#43454a] shadow-lg">
+                <div className="flex-1 flex flex-col overflow-hidden m-1.5 rounded-[var(--radius)] border shadow-lg"
+                    style={{ backgroundColor: currentTheme.editor.bg, borderColor: currentTheme.editor.border }}>
                     {/* Tabs / Breadcrumbs */}
-                    <div className="h-9 bg-[#2b2d30] flex items-center overflow-x-auto no-scrollbar border-b border-[#43454a]">
+                    <div className="h-9 flex items-center overflow-x-auto no-scrollbar border-b"
+                        style={{ backgroundColor: currentTheme.editor.tabBg, borderColor: currentTheme.editor.border }}>
                         <button
                             onClick={() => setActiveTab('editor')}
-                            className={`flex items-center gap-2 px-4 h-full text-[12px] font-medium transition-all relative ${activeTab === 'editor' ? 'bg-[#1e1f22] text-[#dfe1e5]' : 'text-[#6e7073] hover:bg-[#393b40] hover:text-[#dfe1e5]'
-                                }`}
+                            className={`flex items-center gap-2 px-4 h-full text-[12px] font-medium transition-all relative`}
+                            style={{
+                                backgroundColor: activeTab === 'editor' ? currentTheme.editor.tabActiveBg : 'transparent',
+                                color: activeTab === 'editor' ? currentTheme.editor.tabActiveText : currentTheme.editor.tabInactiveText
+                            }}
+                            onMouseEnter={(e: any) => {
+                                if (activeTab !== 'editor') {
+                                    e.currentTarget.style.backgroundColor = currentTheme.sidebar.folderHoverBg;
+                                }
+                            }}
+                            onMouseLeave={(e: any) => {
+                                if (activeTab !== 'editor') {
+                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                }
+                            }}
                         >
-                            <Braces size={14} className="text-[#3574f0] opacity-70" />
+                            <Braces size={14} style={{ color: currentTheme.activityBar.activeIcon, opacity: 0.7 }} />
                             <span>{selectedRoute ? `${selectedRoute.name}.yaml` : 'new-route.yaml'}</span>
                             {activeTab === 'editor' && (
-                                <div className="absolute top-0 inset-x-0 h-[2px] bg-[#3574f0]" />
+                                <div className="absolute top-0 inset-x-0 h-[2px]" style={{ backgroundColor: currentTheme.editor.tabIndicator }} />
                             )}
                         </button>
                         <button
                             onClick={() => setActiveTab('test')}
-                            className={`flex items-center gap-2 px-4 h-full text-[12px] font-medium transition-all relative border-l border-[#43454a] ${activeTab === 'test' ? 'bg-[#1e1f22] text-[#dfe1e5]' : 'text-[#6e7073] hover:bg-[#393b40] hover:text-[#dfe1e5]'
-                                }`}
+                            className={`flex items-center gap-2 px-4 h-full text-[12px] font-medium transition-all relative border-l`}
+                            style={{
+                                backgroundColor: activeTab === 'test' ? currentTheme.editor.tabActiveBg : 'transparent',
+                                color: activeTab === 'test' ? currentTheme.editor.tabActiveText : currentTheme.editor.tabInactiveText,
+                                borderColor: currentTheme.editor.border
+                            }}
+                            onMouseEnter={(e: any) => {
+                                if (activeTab !== 'test') {
+                                    e.currentTarget.style.backgroundColor = currentTheme.sidebar.folderHoverBg;
+                                }
+                            }}
+                            onMouseLeave={(e: any) => {
+                                if (activeTab !== 'test') {
+                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                }
+                            }}
                         >
-                            <Terminal size={14} className="text-[#59a869] opacity-70" />
+                            <Terminal size={14} style={{ color: currentTheme.sidebar.iconEnabled, opacity: 0.7 }} />
                             <span>Debug Console</span>
                             {activeTab === 'test' && (
-                                <div className="absolute top-0 inset-x-0 h-[2px] bg-[#3574f0]" />
+                                <div className="absolute top-0 inset-x-0 h-[2px]" style={{ backgroundColor: currentTheme.editor.tabIndicator }} />
                             )}
                         </button>
 
@@ -616,7 +871,10 @@ export const DynamicRoutesView: React.FC = () => {
                                 <button
                                     onClick={registerRoute}
                                     disabled={loading || !routeDefinition.trim()}
-                                    className="flex items-center gap-1.5 px-3 py-1 bg-[#3574f0] hover:bg-[#3574f0e0] disabled:bg-[#43454a] text-white text-[11px] font-bold rounded-[var(--radius)] transition-all shadow-md active:scale-95"
+                                    className="flex items-center gap-1.5 px-3 py-1 text-white text-[11px] font-bold rounded-[var(--radius)] transition-all shadow-md active:scale-95"
+                                    style={{
+                                        backgroundColor: loading || !routeDefinition.trim() ? currentTheme.sidebar.border : currentTheme.activityBar.indicator,
+                                    }}
                                 >
                                     {loading ? <RefreshCw size={12} className="animate-spin" /> : <Save size={12} />}
                                     DEPLOY
@@ -632,13 +890,13 @@ export const DynamicRoutesView: React.FC = () => {
                                 <Editor
                                     height="100%"
                                     defaultLanguage="yaml"
-                                    theme="vs-dark"
+                                    theme={currentTheme.editor.monacoTheme}
                                     value={routeDefinition}
                                     onChange={(val) => setRouteDefinition(val || '')}
                                     options={{
                                         minimap: { enabled: true },
                                         fontSize: 14,
-                                        fontFamily: 'JetBrains Mono, Menlo, Monaco, Courier New, monospace',
+                                        fontFamily: currentFont,
                                         lineNumbers: 'on',
                                         roundedSelection: true,
                                         scrollBeyondLastLine: false,
@@ -649,14 +907,19 @@ export const DynamicRoutesView: React.FC = () => {
                                     }}
                                 />
                                 {registrationError && (
-                                    <div className="absolute bottom-4 left-4 right-4 bg-[#e06c75] text-white p-4 rounded-[var(--radius)] shadow-2xl animate-fade-in flex items-start gap-4 z-20 border border-white/20">
-                                        <XCircle className="mt-0.5 shrink-0" size={20} />
-                                        <div className="flex-1">
-                                            <p className="text-[12px] font-bold uppercase mb-1 drop-shadow-sm">Deployment Failed</p>
-                                            <p className="text-[13px] font-medium leading-relaxed opacity-90">{registrationError}</p>
+                                    <div className="absolute bottom-6 left-6 right-6 bg-red-500/10 backdrop-blur-xl border border-red-500/20 p-5 rounded-2xl shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)] animate-blur-in flex items-start gap-5 z-20">
+                                        <div className="p-2 rounded-xl bg-red-500/20 border border-red-500/20 text-red-500">
+                                            <XCircle size={20} />
                                         </div>
-                                        <button onClick={() => setRegistrationError(null)} className="hover:bg-white/20 rounded p-1 transition-colors">
-                                            <XCircle size={18} />
+                                        <div className="flex-1">
+                                            <p className="text-[11px] font-black uppercase tracking-[2px] text-red-500 mb-1 opacity-80">Deployment Interface Error</p>
+                                            <p className="text-[13px] font-bold text-red-200/90 leading-relaxed">{registrationError}</p>
+                                        </div>
+                                        <button
+                                            onClick={() => setRegistrationError(null)}
+                                            className="hover:bg-white/10 rounded-xl p-2 transition-all text-red-200/50 hover:text-red-200"
+                                        >
+                                            <X size={18} />
                                         </button>
                                     </div>
                                 )}
@@ -692,12 +955,13 @@ export const DynamicRoutesView: React.FC = () => {
                                                 <Editor
                                                     height="100%"
                                                     defaultLanguage="json"
-                                                    theme="vs-dark"
+                                                    theme={currentTheme.editor.monacoTheme}
                                                     value={testPayload}
                                                     onChange={(val) => setTestPayload(val || '')}
                                                     options={{
                                                         minimap: { enabled: false },
                                                         fontSize: 13,
+                                                        fontFamily: currentFont,
                                                         lineNumbers: 'on',
                                                         scrollBeyondLastLine: false,
                                                         automaticLayout: true,
@@ -723,7 +987,7 @@ export const DynamicRoutesView: React.FC = () => {
                                             <div className={`flex-1 border rounded-[var(--radius)] bg-[#1e1f22] font-mono text-[13px] p-4 overflow-auto shadow-inner transition-colors ${testResult?.success ? 'border-[#59a86930] bg-[#59a86905]' : 'border-[#e06c7530] bg-[#e06c7505]'
                                                 }`}>
                                                 {testResult ? (
-                                                    <pre className={`custom-scrollbar ${testResult.success ? 'text-[#59a869]' : 'text-[#e06c75]'}`}>
+                                                    <pre className={`custom-scrollbar ${testResult.success ? 'text-[#59a869]' : 'text-[#e06c75]'}`} style={{ fontFamily: currentFont }}>
                                                         {JSON.stringify(testResult, null, 2)}
                                                     </pre>
                                                 ) : (
@@ -743,25 +1007,36 @@ export const DynamicRoutesView: React.FC = () => {
             </div>
 
             {/* 4. Status Bar (Bottom) */}
-            <div className="h-6 bg-[#3574f0] text-white flex items-center justify-between text-[11px] font-medium shadow-lg z-20 select-none">
+            <div className="h-6 flex items-center justify-between text-[11px] font-medium shadow-lg z-20 select-none border-t"
+                style={{ backgroundColor: currentTheme.statusBar.bg, color: currentTheme.statusBar.text, borderColor: currentTheme.statusBar.border }}>
                 <div className="flex items-center h-full">
-                    <div className="flex items-center gap-2 hover:bg-white/10 px-3 h-full cursor-pointer transition-colors border-r border-white/5">
+                    <div className="flex items-center gap-2 px-3 h-full cursor-pointer transition-colors border-r"
+                        style={{ borderColor: currentTheme.statusBar.border }}
+                        onMouseEnter={(e: any) => e.currentTarget.style.backgroundColor = currentTheme.statusBar.hoverBg}
+                        onMouseLeave={(e: any) => e.currentTarget.style.backgroundColor = 'transparent'}>
                         <GitBranch size={12} className="opacity-90" />
                         <span className="translate-y-[0.5px]">main*</span>
                     </div>
-                    <div className="flex items-center gap-2 hover:bg-white/10 px-3 h-full cursor-pointer transition-colors">
+                    <div className="flex items-center gap-2 px-3 h-full cursor-pointer transition-colors"
+                        onMouseEnter={(e: any) => e.currentTarget.style.backgroundColor = currentTheme.statusBar.hoverBg}
+                        onMouseLeave={(e: any) => e.currentTarget.style.backgroundColor = 'transparent'}>
                         <RefreshCw size={12} className={`${loading ? "animate-spin" : ""} opacity-90`} />
                         <span className="translate-y-[0.5px]">{routes.length} Active Endpoints</span>
                     </div>
                 </div>
                 <div className="flex items-center h-full">
-                    <div className="flex items-center gap-1.5 hover:bg-white/10 px-3 h-full cursor-pointer transition-colors">
+                    <div className="flex items-center gap-1.5 px-3 h-full cursor-pointer transition-colors"
+                        onMouseEnter={(e: any) => e.currentTarget.style.backgroundColor = currentTheme.statusBar.hoverBg}
+                        onMouseLeave={(e: any) => e.currentTarget.style.backgroundColor = 'transparent'}>
                         <span className="translate-y-[0.5px]">Ln {routeDefinition.split('\n').length}, Col 1</span>
                     </div>
-                    <div className="flex items-center hover:bg-white/10 px-3 h-full cursor-pointer uppercase transition-colors">
+                    <div className="flex items-center px-3 h-full cursor-pointer uppercase transition-colors"
+                        onMouseEnter={(e: any) => e.currentTarget.style.backgroundColor = currentTheme.statusBar.hoverBg}
+                        onMouseLeave={(e: any) => e.currentTarget.style.backgroundColor = 'transparent'}>
                         <span className="translate-y-[0.5px]">UTF-8</span>
                     </div>
-                    <div className="flex items-center gap-2 bg-white/15 px-4 h-full cursor-pointer shadow-inner border-l border-white/10">
+                    <div className="flex items-center gap-2 px-4 h-full cursor-pointer shadow-inner border-l"
+                        style={{ backgroundColor: 'rgba(255,255,255,0.15)', borderColor: currentTheme.statusBar.border }}>
                         <Zap size={12} className="fill-white" />
                         <span className="font-bold tracking-tight translate-y-[0.5px]">WORPEN IDE</span>
                     </div>

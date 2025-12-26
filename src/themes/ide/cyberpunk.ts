@@ -1,0 +1,68 @@
+import { IDETheme } from './types';
+
+export const cyberpunk: IDETheme = {
+    id: 'cyberpunk',
+    name: 'Cyberpunk Neon',
+    activityBar: {
+        bg: '#000000',
+        border: '#ff00ff',
+        activeIcon: '#00ffff',
+        activeBg: '#00ffff15',
+        inactiveIcon: '#ff00ff',
+        hoverBg: '#1a1a1a',
+        indicator: '#00ffff',
+    },
+    sidebar: {
+        bg: '#0a0a0a',
+        border: '#ff00ff40',
+        headerText: '#ff00ff',
+        folderText: '#00ffff',
+        folderHoverBg: '#1a1a1a',
+        itemText: '#ff00ffbb',
+        itemHoverBg: '#1a1a1a',
+        activeItemBg: '#ff00ff30',
+        activeItemText: '#00ffff',
+        iconEnabled: '#00ff00',
+        iconDisabled: '#444444',
+    },
+    editor: {
+        bg: '#050505',
+        border: '#ff00ff20',
+        tabBg: '#000000',
+        tabActiveBg: '#050505',
+        tabActiveText: '#00ffff',
+        tabInactiveText: '#ff00ff80',
+        tabBorder: '#ff00ff40',
+        tabIndicator: '#00ffff',
+        monacoTheme: 'cyberpunk',
+        monacoConfig: {
+            base: 'vs-dark',
+            inherit: true,
+            rules: [
+                { token: 'keyword', foreground: 'ff00ff', fontStyle: 'bold' },
+                { token: 'string', foreground: '00ff00' },
+                { token: 'number', foreground: 'ffff00' },
+                { token: 'comment', foreground: '444444', fontStyle: 'italic' },
+                { token: 'type', foreground: '00ffff' },
+                { token: 'function', foreground: '00ffff' },
+                { token: 'variable', foreground: 'ffffff' },
+                { token: 'operator', foreground: 'ff00ff' },
+                { token: 'identifier', foreground: 'ffffff' },
+            ],
+            colors: {
+                'editor.background': '#050505',
+                'editor.foreground': '#ffffff',
+                'editorLineNumber.foreground': '#444444',
+                'editorLineNumber.activeForeground': '#ff00ff',
+                'editorIndentGuide.background': '#1a1a1a',
+                'editor.selectionBackground': '#00ffff30',
+            }
+        },
+    },
+    statusBar: {
+        bg: '#ff00ff',
+        text: '#000000',
+        hoverBg: 'rgba(0, 0, 0, 0.2)',
+        border: 'rgba(0, 0, 0, 0.1)',
+    },
+};

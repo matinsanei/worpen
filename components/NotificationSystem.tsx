@@ -86,23 +86,19 @@ const Toast: React.FC<{ notification: Notification; onClose: () => void }> = ({ 
 
   const styles = {
     INFO: {
-      border: 'border-l-blue-500',
-      text: 'text-blue-500',
+      color: '#3b82f6',
       icon: Info
     },
     SUCCESS: {
-      border: 'border-l-green-500',
-      text: 'text-green-500',
+      color: '#10b981',
       icon: CheckCircle
     },
     WARNING: {
-      border: 'border-l-yellow-500',
-      text: 'text-yellow-500',
+      color: '#f59e0b',
       icon: AlertTriangle
     },
     ERROR: {
-      border: 'border-l-red-500',
-      text: 'text-red-500',
+      color: '#ef4444',
       icon: AlertOctagon
     }
   };
@@ -112,27 +108,31 @@ const Toast: React.FC<{ notification: Notification; onClose: () => void }> = ({ 
 
   return (
     <div className={`
-      relative overflow-hidden bg-[#0a0a0a] border border-white/10 border-l-2 ${style.border}
-      shadow-lg shadow-black/50 transition-all duration-300 ease-out
-      ${mounted ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-8'}
+      relative overflow-hidden bg-black/40 backdrop-blur-xl border border-white/10
+      rounded-2xl shadow-[0_16px_32px_-12px_rgba(0,0,0,0.5)] transition-all duration-500 ease-out
+      ${mounted ? 'animate-blur-in' : 'opacity-0 scale-95 blur-md'}
     `}>
-      <div className="flex items-start p-3 gap-3">
-        <div className={`mt-0.5 ${style.text}`}>
-          <Icon size={16} />
+      {/* Status indicator glow */}
+      <div className="absolute top-0 left-0 w-1 h-full opacity-60" style={{ backgroundColor: style.color }}></div>
+      <div className="absolute top-0 left-0 w-12 h-full bg-gradient-to-r from-[var(--color-status)] to-transparent opacity-[0.03]" style={{ '--color-status': style.color } as any}></div>
+
+      <div className="flex items-start p-4 gap-4">
+        <div className="mt-1 p-2 rounded-xl bg-white/5 border border-white/5" style={{ color: style.color }}>
+          <Icon size={18} />
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex justify-between items-start mb-1">
-            <span className={`text-xs font-bold font-mono ${style.text}`}>{notification.title}</span>
-            <button onClick={onClose} className="text-gray-600 hover:text-white transition-colors">
-              <X size={12} />
+            <span className="text-[13px] font-black tracking-tighter uppercase" style={{ color: style.color }}>{notification.title}</span>
+            <button onClick={onClose} className="text-white/20 hover:text-white transition-colors p-1">
+              <X size={14} />
             </button>
           </div>
-          <p className="text-xs text-gray-400 font-mono leading-relaxed">
+          <p className="text-[12px] text-gray-300 font-medium leading-relaxed">
             {notification.message}
           </p>
-          <div className="mt-2 pt-2 border-t border-white/5 flex justify-between items-center text-[9px] text-gray-600 font-mono">
-            <span>#{notification.id.toUpperCase()}</span>
+          <div className="mt-3 pt-3 border-t border-white/5 flex justify-between items-center text-[10px] text-gray-500 font-bold tracking-widest uppercase">
+            <span>#{notification.id.substr(0, 6).toUpperCase()}</span>
             <span>{new Date(notification.timestamp).toLocaleTimeString([], { hour12: false })}</span>
           </div>
         </div>

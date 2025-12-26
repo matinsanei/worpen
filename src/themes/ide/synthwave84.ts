@@ -1,0 +1,68 @@
+import { IDETheme } from './types';
+
+export const synthwave84: IDETheme = {
+    id: 'synthwave84',
+    name: "SynthWave '84",
+    activityBar: {
+        bg: '#252131',
+        border: '#3c354d',
+        activeIcon: '#f92aad',
+        activeBg: '#f92aad15',
+        inactiveIcon: '#8e8b91',
+        hoverBg: '#2d2b3b',
+        indicator: '#f92aad',
+    },
+    sidebar: {
+        bg: '#252131',
+        border: '#3c354d',
+        headerText: '#b180d7',
+        folderText: '#ffffff',
+        folderHoverBg: '#2d2b3b',
+        itemText: '#8e8b91',
+        itemHoverBg: '#2d2b3b',
+        activeItemBg: '#443d54',
+        activeItemText: '#ffffff',
+        iconEnabled: '#72f1b8',
+        iconDisabled: '#443d54',
+    },
+    editor: {
+        bg: '#252131',
+        border: '#3c354d',
+        tabBg: '#1f1c29',
+        tabActiveBg: '#252131',
+        tabActiveText: '#ffffff',
+        tabInactiveText: '#8e8b91',
+        tabBorder: '#3c354d',
+        tabIndicator: '#f92aad',
+        monacoTheme: 'synthwave84',
+        monacoConfig: {
+            base: 'vs-dark',
+            inherit: true,
+            rules: [
+                { token: 'keyword', foreground: 'f92aad', fontStyle: 'bold' },
+                { token: 'string', foreground: 'ff8b39' },
+                { token: 'number', foreground: 'f97e72' },
+                { token: 'comment', foreground: '495162', fontStyle: 'italic' },
+                { token: 'type', foreground: 'f0f0f0' },
+                { token: 'function', foreground: 'fff500' },
+                { token: 'variable', foreground: '36f9f6' },
+                { token: 'operator', foreground: 'f92aad' },
+                { token: 'identifier', foreground: 'ffffff' },
+            ],
+            colors: {
+                'editor.background': '#252131',
+                'editor.foreground': '#ffffff',
+                'editorLineNumber.foreground': '#5b4a72',
+                'editorLineNumber.activeForeground': '#f92aad',
+                'editorIndentGuide.background': '#3c354d',
+                'editor.selectionBackground': '#ffffff10',
+            }
+        },
+    },
+    statusBar: {
+        bg: '#f92aad',
+        text: '#252131',
+        hoverBg: 'rgba(0,0,0,0.1)',
+        border: 'rgba(0,0,0,0.05)',
+    },
+};
