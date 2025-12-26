@@ -3,51 +3,108 @@ import React, { useState, useEffect, useRef } from 'react';
 import { TerminalFrame } from '../components/TerminalFrame';
 import { MOCK_PIPELINES } from '../constants';
 import { Pipeline, PipelineStage } from '../types';
-import { GitBranch, PlayCircle, Clock, CheckCircle, XCircle, Loader2, ArrowRight, Terminal, Code } from 'lucide-react';
+import { GitBranch, PlayCircle, Clock, CheckCircle, XCircle, Loader2, ArrowRight, Terminal, Code, Cpu, Activity, ShieldCheck } from 'lucide-react';
 
 interface StageNodeProps {
   stage: PipelineStage;
-  isLast: boolean;
+  index: number;
 }
 
-const StageNode: React.FC<StageNodeProps> = ({ stage, isLast }) => {
-  const getStatusColor = (s: string) => {
+const StageNode: React.FC<StageNodeProps> = ({ stage, index }) => {
+  const getStatusStyles = (s: string) => {
     switch (s) {
-      case 'SUCCESS': return 'border-[#59a86940] text-[#59a869] bg-[#59a86910]';
-      case 'FAILED': return 'border-[#e06c7540] text-[#e06c75] bg-[#e06c7510]';
-      case 'RUNNING': return 'border-[#f2c55c40] text-[#f2c55c] bg-[#f2c55c10] animate-pulse';
-      default: return 'border-[#43454a] text-[#6e7073] bg-[#2b2d30]';
+      case 'SUCCESS': return {
+        border: 'border-[#59a86940]',
+        text: 'text-[#59a869]',
+        bg: 'bg-[#59a86910]',
+        glow: 'shadow-[0_0_15px_rgba(89,168,105,0.15)]',
+        icon: <CheckCircle size={14} className="text-[#59a869]" />
+      };
+      case 'FAILED': return {
+        border: 'border-[#e06c7540]',
+        text: 'text-[#e06c75]',
+        bg: 'bg-[#e06c7510]',
+        glow: 'shadow-[0_0_15px_rgba(224,108,117,0.15)]',
+        icon: <XCircle size={14} className="text-[#e06c75]" />
+      };
+      case 'RUNNING': return {
+        border: 'border-[#f2c55c60]',
+        text: 'text-[#f2c55c]',
+        bg: 'bg-[#f2c55c05]',
+        glow: 'shadow-[0_0_20px_rgba(242,197,92,0.2)]',
+        icon: <Loader2 size={14} className="text-[#f2c55c] animate-spin" />
+      };
+      default: return {
+        border: 'border-[#43454a]',
+        text: 'text-[#6e7073]',
+        bg: 'bg-[#2b2d3080]',
+        glow: '',
+        icon: <Activity size={14} className="text-[#6e7073]" />
+      };
     }
   };
 
-  const getIcon = (s: string) => {
-    switch (s) {
-      case 'SUCCESS': return <CheckCircle size={14} />;
-      case 'FAILED': return <XCircle size={14} />;
-      case 'RUNNING': return <Loader2 size={14} className="animate-spin" />;
-      default: return <div className="w-3 h-3 rounded-full border border-gray-600"></div>;
-    }
-  };
+  const styles = getStatusStyles(stage.status);
 
   return (
-    <div className="flex items-center">
-      <div className={`w-36 p-4 rounded-[var(--radius)] border ${getStatusColor(stage.status)} flex flex-col items-center gap-3 relative group cursor-pointer hover:scale-105 transition-all shadow-lg`}>
-        <div className="text-[11px] font-bold uppercase tracking-wider">{stage.name}</div>
-        <div className="p-2 rounded-full bg-current opacity-10 absolute inset-0 pointer-events-none"></div>
-        {getIcon(stage.status)}
-        <div className="text-[10px] font-bold opacity-70 uppercase tracking-tighter">{stage.duration}</div>
+    <div className="relative group flex flex-col items-center">
+      {/* Connection Point Left */}
+      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-[#43454a] z-10 border border-[#1e1f22]"></div>
+
+      <div className={`w-40 min-h-[90px] p-3 rounded-lg border-2 ${styles.border} ${styles.bg} ${styles.glow} flex flex-col justify-between items-start gap-2 relative transition-all duration-300 group-hover:scale-[1.02] group-hover:border-opacity-100 backdrop-blur-sm`}>
+        <div className="flex justify-between items-center w-full">
+          <span className={`text-[10px] font-black uppercase tracking-[0.1em] ${styles.text}`}>
+            {stage.name}
+          </span>
+          {styles.icon}
+        </div>
+
+        <div className="w-full space-y-2">
+          <div className="flex items-center gap-1.5 text-[9px] font-mono text-[#6e7073]">
+            <Clock size={10} />
+            {stage.duration}
+          </div>
+        </div>
+
+        {stage.status === 'RUNNING' && (
+          <div className="w-full h-1 bg-[#43454a]/30 rounded-full overflow-hidden mt-1">
+            <div className="h-full bg-[#f2c55c] animate-[loading-bar_1.5s_infinite_linear] w-1/3 shadow-[0_0_8px_rgba(242,197,92,0.5)]"></div>
+          </div>
+        )}
+
+        {/* Technical accents */}
+        <div className="absolute top-0 right-0 p-1 opacity-20">
+          <Cpu size={10} className={styles.text} />
+        </div>
 
         {/* Tooltip */}
-        <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 bg-[#2b2d30] border border-[#43454a] text-[10px] font-bold text-[#dfe1e5] px-2.5 py-1.5 opacity-0 group-hover:opacity-100 transition-all z-20 whitespace-nowrap rounded shadow-2xl pointer-events-none">
+        <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 bg-[#2b2d30] border border-[#43454a] text-[9px] font-mono text-[#dfe1e5] px-2 py-1 opacity-0 group-hover:opacity-100 transition-all z-20 whitespace-nowrap rounded shadow-2xl pointer-events-none translate-y-2 group-hover:translate-y-0">
           ID: {stage.id} // STATUS: {stage.status}
         </div>
       </div>
-      {!isLast && (
-        <div className="px-4 text-[#43454a] flex flex-col items-center gap-1">
-          <ArrowRight size={20} className="opacity-50" />
-          <div className="w-8 h-[1px] bg-[#43454a] opacity-30"></div>
-        </div>
-      )}
+
+      {/* Connection Point Right */}
+      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-[#43454a] z-10 border border-[#1e1f22]"></div>
+    </div>
+  );
+};
+
+const ConnectingLine = ({ isFirst = false }: { isFirst?: boolean }) => {
+  return (
+    <div className="relative w-16 h-10 flex items-center justify-center">
+      <svg width="64" height="40" viewBox="0 0 64 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute inset-0 overflow-visible">
+        <path d="M0 20H64" stroke="#43454a" strokeWidth="2" strokeDasharray="4 4" className="opacity-40" />
+        <path d="M0 20H64" stroke="url(#flowGradient)" strokeWidth="2" strokeDasharray="20 44" strokeLinecap="round">
+          <animate attributeName="stroke-dashoffset" from="64" to="0" dur="2s" repeatCount="indefinite" />
+        </path>
+        <defs>
+          <linearGradient id="flowGradient" x1="0" y1="0" x2="64" y2="0" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#3574f0" stopOpacity="0" />
+            <stop offset="0.5" stopColor="#3574f0" />
+            <stop offset="1" stopColor="#3574f0" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+      </svg>
     </div>
   );
 };
@@ -84,7 +141,7 @@ const ConsoleLog = ({ pipelineId }: { pipelineId: string }) => {
         const isInit = l.includes('Initializing');
         return (
           <div key={i} className="flex gap-3 leading-relaxed">
-            <span className="text-[#6e7073] select-none">{(i + 1).toString().padStart(2, '0')}</span>
+            <span className="text-[#6e7073] select-none text-[10px]">{(i + 1).toString().padStart(2, '0')}</span>
             <span className={`
                           ${isInfo ? 'text-[#59a869]' : isDebug ? 'text-[#6e7073]' : isInit ? 'text-[#3574f0] font-bold' : ''}
                       `}>{l}</span>
@@ -92,7 +149,7 @@ const ConsoleLog = ({ pipelineId }: { pipelineId: string }) => {
         );
       })}
       <div className="flex gap-3 items-center">
-        <span className="text-[#6e7073] select-none">{(logs.length + 1).toString().padStart(2, '0')}</span>
+        <span className="text-[#6e7073] select-none text-[10px]">{(logs.length + 1).toString().padStart(2, '0')}</span>
         <span className="animate-pulse text-[#3574f0] font-bold">_</span>
       </div>
     </div>
@@ -109,7 +166,7 @@ export const CicdView: React.FC = () => {
   };
 
   return (
-    <div className="h-full p-6 flex flex-col gap-6 max-w-[1600px] mx-auto overflow-hidden">
+    <div className="min-h-full p-6 flex flex-col gap-6 max-w-[1600px] mx-auto">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#43454a] pb-6">
         <div>
@@ -169,40 +226,54 @@ export const CicdView: React.FC = () => {
         </div>
 
         {/* Main Content */}
-        <div className="lg:col-span-9 flex flex-col gap-6 overflow-hidden">
+        <div className="lg:col-span-9 flex flex-col gap-6">
           {/* Pipeline Visualizer */}
-          <div className="jb-card flex flex-col min-h-[250px] shadow-2xl">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[#43454a] bg-[#2b2d30]/50">
+          <div className="jb-card flex flex-col min-h-[350px] shadow-2xl overflow-hidden group">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[#43454a] bg-[#2b2d30]/80 backdrop-blur-md z-10">
               <div className="flex items-center gap-2">
                 <Code size={14} className="text-[#3574f0]" />
-                <span className="text-[11px] font-bold text-[#dfe1e5] uppercase tracking-wider">Flow Analysis: {selectedPipeline.name}</span>
+                <span className="text-[11px] font-black text-[#dfe1e5] uppercase tracking-widest">Flow Analysis: {selectedPipeline.name}</span>
               </div>
               <div className="flex gap-5 text-[10px] font-bold text-[#6e7073] uppercase tracking-tighter">
-                <span className="flex items-center gap-1.5"><Terminal size={12} className="text-[#3574f0] opacity-70" /> AUTHOR: {selectedPipeline.author}</span>
-                <span className="flex items-center gap-1.5"><Clock size={12} className="opacity-70" /> UPDATED: {selectedPipeline.lastRun}</span>
+                <span className="flex items-center gap-1.5"><Terminal size={12} className="text-[#3574f0] opacity-70" /> {selectedPipeline.author}</span>
+                <span className="flex items-center gap-1.5"><Clock size={12} className="opacity-70" /> {selectedPipeline.lastRun}</span>
               </div>
             </div>
 
-            <div className="flex-1 flex items-center justify-center p-8 bg-[#1e1f22]/30 overflow-x-auto custom-scrollbar">
-              <div className="flex items-center">
-                {/* Start Node */}
-                <div className="mr-6 flex flex-col items-center gap-2">
-                  <div className="w-10 h-10 rounded-full border-2 border-[#43454a] flex items-center justify-center text-[#3574f0] bg-[#3574f010] shadow-xl">
-                    <GitBranch size={18} />
-                  </div>
-                  <span className="text-[10px] font-bold text-[#6e7073] uppercase tracking-widest">Git Push</span>
-                </div>
-                <div className="px-4 text-[#43454a]">
-                  <ArrowRight size={24} className="opacity-30" />
-                </div>
+            <div className="flex-1 relative bg-[#1e1f22] overflow-x-auto custom-scrollbar">
+              {/* Background Grid Pattern */}
+              <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
+                style={{ backgroundImage: 'radial-gradient(#dfe1e5 1px, transparent 1px)', backgroundSize: '24px 24px' }}></div>
 
-                {selectedPipeline.stages.map((stage, idx) => (
-                  <StageNode
-                    key={stage.id}
-                    stage={stage}
-                    isLast={idx === selectedPipeline.stages.length - 1}
-                  />
-                ))}
+              <div className="absolute inset-0 flex items-center justify-center min-w-fit p-12">
+                <div className="flex items-center">
+                  {/* Source Node */}
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl border-2 border-[#3574f040] bg-[#3574f010] flex items-center justify-center text-[#3574f0] shadow-[0_0_20px_rgba(53,116,240,0.15)] relative group/source">
+                      <GitBranch size={20} />
+                      <div className="absolute inset-0 rounded-xl bg-[#3574f010] animate-pulse pointer-events-none"></div>
+                    </div>
+                    <span className="text-[9px] font-black text-[#6e7073] uppercase tracking-widest">vcs_trigger</span>
+                  </div>
+
+                  <ConnectingLine isFirst={true} />
+
+                  {selectedPipeline.stages.map((stage, idx) => (
+                    <React.Fragment key={stage.id}>
+                      <StageNode stage={stage} index={idx} />
+                      {idx < selectedPipeline.stages.length - 1 && <ConnectingLine />}
+                    </React.Fragment>
+                  ))}
+
+                  {/* Output Node */}
+                  <ConnectingLine />
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl border-2 border-[#59a86940] bg-[#59a86910] flex items-center justify-center text-[#59a869] shadow-[0_0_20px_rgba(89,168,105,0.15)] relative">
+                      <ShieldCheck size={20} />
+                    </div>
+                    <span className="text-[9px] font-black text-[#6e7073] uppercase tracking-widest">ready_prod</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -227,6 +298,14 @@ export const CicdView: React.FC = () => {
         </div>
 
       </div>
+
+      <style dangerouslySetInnerHTML={{
+        __html: `
+                @keyframes loading-bar {
+                    0% { transform: translateX(-100%); }
+                    100% { transform: translateX(300%); }
+                }
+            `}} />
     </div>
   );
 };

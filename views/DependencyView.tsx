@@ -32,7 +32,7 @@ export const DependencyView: React.FC = () => {
     };
 
     return (
-        <div className="h-full p-6 flex flex-col gap-6 max-w-[1600px] mx-auto overflow-hidden">
+        <div className="min-h-full p-6 flex flex-col gap-6 max-w-[1600px] mx-auto">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#43454a] pb-6">
                 <div>
@@ -64,7 +64,7 @@ export const DependencyView: React.FC = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-full min-h-0">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
                 {/* Left: Global Cache Pool */}
                 <div className="lg:col-span-4 h-full">

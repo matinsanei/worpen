@@ -169,7 +169,7 @@ const AppContent: React.FC = () => {
         </header>
 
         {/* VIEWPORT */}
-        <main className="flex-1 overflow-y-auto custom-scrollbar relative bg-[#1e1f22] m-1.5 rounded-[var(--radius)] border border-[#43454a] shadow-inner overflow-x-hidden">
+        <main className={`flex-1 ${['/', '/pipeline', '/artifacts'].includes(location.pathname) ? 'overflow-y-auto' : 'overflow-hidden'} custom-scrollbar relative bg-[#1e1f22] m-1.5 rounded-[var(--radius)] border border-[#43454a] shadow-inner overflow-x-hidden`}>
           <AnimatePresence mode="wait">
             <PageTransition key={location.pathname} className="h-full">
               <Routes location={location}>
