@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
     Code, Play, Plus, Trash2, CheckCircle, XCircle,
-    Zap, FileJson, Activity, Terminal, Copy, RefreshCw, Globe, Clock, Save
+    Zap, FileJson, Activity, Terminal, Copy, RefreshCw, Globe, Clock, Save,
+    File, ChevronDown, ChevronRight, Settings, Maximize2, Minimize2,
+    Search, GitBranch, Braces, Layout, PanelLeft
 } from 'lucide-react';
+import Editor from "@monaco-editor/react";
 import { CodeEditor } from '../components/SyntaxHighlighter';
 import { getApiBaseUrl } from '../api';
 
@@ -283,10 +286,26 @@ export const DynamicRoutesView: React.FC = () => {
     const [testResult, setTestResult] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<'editor' | 'test'>('editor');
-    const [sidebarWidth, setSidebarWidth] = useState(33); // Percentage
+    const [sidebarWidth, setSidebarWidth] = useState(() => {
+        const saved = localStorage.getItem('worpen_builder_sidebar_width');
+        return saved !== null ? parseFloat(saved) : 33;
+    });
     const [isDragging, setIsDragging] = useState(false);
-    const [sidebarVisible, setSidebarVisible] = useState(true);
+    const [sidebarVisible, setSidebarVisible] = useState(() => {
+        const saved = localStorage.getItem('worpen_builder_sidebar_visible');
+        return saved !== null ? JSON.parse(saved) : true;
+    });
     const [registrationError, setRegistrationError] = useState<string | null>(null);
+    const [activeActivityId, setActiveActivityId] = useState<'explorer' | 'search' | 'git' | 'debug' | 'settings'>('explorer');
+    const [expandedFolders, setExpandedFolders] = useState<string[]>(['templates', 'active-routes']);
+
+    useEffect(() => {
+        localStorage.setItem('worpen_builder_sidebar_width', sidebarWidth.toString());
+    }, [sidebarWidth]);
+
+    useEffect(() => {
+        localStorage.setItem('worpen_builder_sidebar_visible', JSON.stringify(sidebarVisible));
+    }, [sidebarVisible]);
 
     useEffect(() => {
         fetchRoutes();
@@ -419,333 +438,332 @@ export const DynamicRoutesView: React.FC = () => {
 
 
     return (
-        <div className="max-w-[1800px] mx-auto h-full overflow-hidden flex flex-col relative">
-            {/* Toggle Sidebar Button - Fixed at top */}
-            <button
-                onClick={() => setSidebarVisible(!sidebarVisible)}
-                className="absolute left-4 top-4 z-50 p-2.5 bg-green-500/10 hover:bg-green-500/20 border-2 border-green-500/30 hover:border-green-500/50 text-green-400 rounded-lg transition-all duration-300 shadow-lg hover:shadow-green-500/20 hover:scale-110 active:scale-95"
-                title={sidebarVisible ? "Hide Sidebar" : "Show Sidebar"}
-            >
-                <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    className="transition-transform duration-300"
-                    style={{ transform: sidebarVisible ? 'rotate(0deg)' : 'rotate(180deg)' }}
-                >
-                    <path d="M15 18l-6-6 6-6" />
-                </svg>
-            </button>
+        <div className="flex flex-col h-full w-full bg-[#1e1f22] text-[#dfe1e5] font-sans selection:bg-[#3574f030] overflow-hidden">
+            {/* IDE Main Workspace */}
+            <div id="routes-container" className="flex flex-1 overflow-hidden">
+                {/* 1. Activity Bar (Far Left) */}
+                <div className="w-10 bg-[#2b2d30] flex flex-col items-center py-2 gap-2 border-r border-[#43454a]">
+                    {[
+                        { id: 'explorer', icon: File, label: 'Explorer' },
+                        { id: 'search', icon: Search, label: 'Search' },
+                        { id: 'git', icon: GitBranch, label: 'Source Control' },
+                        { id: 'debug', icon: Play, label: 'Run and Debug' },
+                    ].map((item) => (
+                        <button
+                            key={item.id}
+                            onClick={() => {
+                                if (activeActivityId === item.id) {
+                                    setSidebarVisible(!sidebarVisible);
+                                } else {
+                                    setActiveActivityId(item.id as any);
+                                    setSidebarVisible(true);
+                                }
+                            }}
+                            className={`p-2 transition-all relative group rounded-[var(--radius)] mx-1 ${activeActivityId === item.id && sidebarVisible ? 'text-[#3574f0] bg-[#3574f015]' : 'text-[#6e7073] hover:text-[#dfe1e5] hover:bg-[#393b40]'
+                                }`}
+                            title={item.label}
+                        >
+                            <item.icon size={20} strokeWidth={activeActivityId === item.id ? 2.5 : 2} />
+                            {activeActivityId === item.id && sidebarVisible && (
+                                <div className="absolute left-[-4px] top-1/2 -translate-y-1/2 w-1 h-5 bg-[#3574f0] rounded-r-full shadow-[0_0_8px_rgba(53,116,240,0.3)]" />
+                            )}
+                        </button>
+                    ))}
+                    <div className="mt-auto flex flex-col gap-2 mb-1">
+                        <button className="p-2 text-[#6e7073] hover:text-[#dfe1e5] hover:bg-[#393b40] transition-all rounded-[var(--radius)] mx-1">
+                            <Settings size={20} strokeWidth={2} />
+                        </button>
+                    </div>
+                </div>
 
-            {/* Main Content */}
-            <div id="routes-container" className="flex gap-0 h-full relative pt-16">
-                {/* Templates + Routes List */}
+                {/* 2. Sidebar (Explorer/Search etc.) */}
                 {sidebarVisible && (
                     <div
-                        className="space-y-4 overflow-y-auto custom-scrollbar pr-4"
-                        style={{
-                            width: `${sidebarWidth}%`,
-                            transition: isDragging ? 'none' : 'width 0.5s ease-in-out'
-                        }}
+                        className="bg-[#2b2d30] flex flex-col border-r border-[#43454a] select-none group/sidebar relative"
+                        style={{ width: `${sidebarWidth}%`, minWidth: '180px' }}
                     >
-                        {/* Quick Start Templates */}
-                        <div className="bg-[#0a0a0a]/50 backdrop-blur-sm border border-white/5 rounded-lg p-4">
-                            <div className="flex items-center gap-2 mb-4">
-                                <FileJson size={16} className="text-green-500" />
-                                <h3 className="text-sm font-bold text-white uppercase tracking-wide">Quick Start</h3>
-                            </div>
-                            <div className="space-y-2">
-                                {Object.entries(ROUTE_TEMPLATES).map(([key, template]) => (
-                                    <button
-                                        key={key}
-                                        onClick={() => loadTemplate(key)}
-                                        className="w-full flex items-center gap-3 p-3 bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] hover:border-green-500/20 transition-all group rounded text-left"
-                                    >
-                                        <div className="p-2 rounded bg-black/50 border border-white/10 text-green-500">
-                                            <Code size={14} />
-                                        </div>
-                                        <span className="text-xs font-bold text-gray-300 group-hover:text-white">{template.name}</span>
-                                    </button>
-                                ))}
-                            </div>
+                        {/* Sidebar Header */}
+                        <div className="h-9 px-4 flex items-center justify-between text-[11px] uppercase tracking-wider text-[#6e7073] font-bold border-b border-[#43454a]">
+                            <span>{activeActivityId}</span>
                         </div>
 
-                        {/* Your Routes */}
-                        <div className="bg-[#0a0a0a]/50 backdrop-blur-sm border border-white/5 rounded-lg p-4 flex-1 flex flex-col overflow-hidden">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center gap-2">
-                                    <Terminal size={16} className="text-green-500" />
-                                    <h3 className="text-sm font-bold text-white uppercase tracking-wide">Routes</h3>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={fetchRoutes}
-                                        className="p-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 rounded hover:text-white transition-colors"
-                                        title="Refresh"
-                                    >
-                                        <RefreshCw size={12} />
-                                    </button>
-                                    <button
-                                        onClick={() => setActiveTab('editor')}
-                                        className="p-1.5 bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 text-green-400 rounded hover:text-green-300 transition-colors"
-                                        title="New Route"
-                                    >
-                                        <Plus size={12} />
-                                    </button>
-                                    <span className="text-xs font-mono text-gray-500 bg-white/5 px-2 py-1 rounded">{routes.length}</span>
-                                </div>
-                            </div>
-                            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
-                                {routes.map((route) => (
-                                    <div
-                                        key={route.id}
-                                        className={`flex items-center justify-between p-3 border rounded transition-all ${selectedRoute?.id === route.id
-                                            ? 'bg-green-500/10 border-green-500/30'
-                                            : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04] hover:border-green-500/20'
-                                            }`}
-                                    >
-                                        <div
-                                            className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
-                                            onClick={() => setSelectedRoute(route)}
+                        {/* Sidebar Content */}
+                        <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col py-2">
+                            {activeActivityId === 'explorer' && (
+                                <>
+                                    {/* Templates Section */}
+                                    <div className="flex flex-col mb-2">
+                                        <button
+                                            onClick={() => setExpandedFolders(prev =>
+                                                prev.includes('templates') ? prev.filter(f => f !== 'templates') : [...prev, 'templates']
+                                            )}
+                                            className="h-7 px-2 flex items-center hover:bg-[#393b40] text-[11px] font-bold text-[#dfe1e5] transition-colors"
                                         >
-                                            <span className="text-[10px] font-mono px-2 py-1 bg-green-500/10 text-green-400 rounded border border-green-500/20">
-                                                {route.method}
-                                            </span>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="text-xs font-bold text-white truncate">{route.name}</div>
-                                                <div className="text-[10px] text-gray-500 font-mono truncate">{route.path}</div>
+                                            <div className="mr-1 shadow-sm">
+                                                {expandedFolders.includes('templates') ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                                             </div>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    // Load route into editor
-                                                    const routeJson = JSON.stringify({
-                                                        name: route.name,
-                                                        description: route.description,
-                                                        path: route.path,
-                                                        method: route.method,
-                                                        logic: route.logic,
-                                                        parameters: route.parameters || [],
-                                                        enabled: route.enabled,
-                                                        version: route.version,
-                                                        auth_required: route.auth_required
-                                                    }, null, 2);
-                                                    setRouteDefinition(routeJson);
-                                                    setActiveTab('editor');
-                                                    setRegistrationError(null);
-                                                }}
-                                                className="p-1.5 text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 rounded transition-colors"
-                                                title="View/Edit Code"
-                                            >
-                                                <Code size={12} />
-                                            </button>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    deleteRoute(route.id);
-                                                }}
-                                                className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
-                                                title="Delete"
-                                            >
-                                                <Trash2 size={12} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                                {routes.length === 0 && (
-                                    <div className="text-center py-8 text-gray-600 text-xs">
-                                        No routes yet. Create one using templates above.
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Resize Handle */}
-                {sidebarVisible && (
-                    <div
-                        className={`w-1 cursor-col-resize relative group ${isDragging
-                            ? 'bg-green-500/50 w-2 shadow-[0_0_10px_rgba(34,197,94,0.5)]'
-                            : 'bg-white/5 hover:bg-green-500/30'
-                            }`}
-                        style={{ transition: isDragging ? 'none' : 'all 0.3s' }}
-                        onMouseDown={(e) => {
-                            e.preventDefault();
-                            setIsDragging(true);
-                        }}
-                    >
-                        <div className="absolute inset-y-0 -left-2 -right-2 flex items-center justify-center">
-                            <div className={`w-1.5 h-16 rounded-full transition-all duration-300 ${isDragging
-                                ? 'bg-green-500/80 h-24 shadow-[0_0_15px_rgba(34,197,94,0.6)]'
-                                : 'bg-green-500/0 group-hover:bg-green-500/60 group-hover:h-20'
-                                }`}></div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Editor / Test Panel */}
-                <div
-                    className="overflow-hidden flex-1"
-                    style={{ transition: isDragging ? 'none' : 'all 0.5s ease-in-out' }}
-                >
-                    <div className="bg-[#0a0a0a]/50 backdrop-blur-sm border border-white/5 rounded-lg overflow-hidden h-full flex flex-col">
-                        {/* Tabs */}
-                        <div className="flex border-b border-white/5 bg-black/20">
-                            <button
-                                onClick={() => setActiveTab('editor')}
-                                className={`flex items-center gap-2 px-4 py-3 text-xs font-mono transition-colors ${activeTab === 'editor'
-                                    ? 'bg-green-500/10 text-green-400 border-b-2 border-green-500'
-                                    : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
-                                    }`}
-                            >
-                                <Code size={14} />
-                                Editor
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('test')}
-                                className={`flex items-center gap-2 px-4 py-3 text-xs font-mono transition-colors ${activeTab === 'test'
-                                    ? 'bg-green-500/10 text-green-400 border-b-2 border-green-500'
-                                    : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
-                                    }`}
-                                disabled={!selectedRoute}
-                            >
-                                <Play size={14} />
-                                Test
-                            </button>
-                        </div>
-
-                        {/* Editor Tab */}
-                        {activeTab === 'editor' && (
-                            <div className="p-4 space-y-4 flex-1 flex flex-col overflow-hidden">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2 text-xs text-gray-500 font-mono">
-                                        <Terminal size={14} />
-                                        <span>EDITOR</span>
-                                        {routeDefinition.trim() && (
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${routeDefinition.trim().startsWith('{') || routeDefinition.trim().startsWith('[')
-                                                ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                                                : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                                                }`}>
-                                                {routeDefinition.trim().startsWith('{') || routeDefinition.trim().startsWith('[') ? 'JSON' : 'YAML'}
-                                            </span>
+                                            <span className="uppercase tracking-tight">ROUTE TEMPLATES</span>
+                                        </button>
+                                        {expandedFolders.includes('templates') && (
+                                            <div className="flex flex-col py-1">
+                                                {Object.entries(ROUTE_TEMPLATES).map(([key, template]) => (
+                                                    <button
+                                                        key={key}
+                                                        onClick={() => loadTemplate(key)}
+                                                        className="px-6 py-1.5 text-[12px] flex items-center gap-2 hover:bg-[#3574f015] hover:text-[#3574f0] text-[#dfe1e5] transition-all group text-left mx-1 rounded-[var(--radius)]"
+                                                    >
+                                                        <Braces size={14} className="text-[#3574f0] opacity-70" />
+                                                        <span className="truncate">{template.name}</span>
+                                                        <Plus size={12} className="ml-auto opacity-0 group-hover:opacity-100 text-[#59a869]" />
+                                                    </button>
+                                                ))}
+                                            </div>
                                         )}
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => window.open('https://github.com/matinsanei/worpen/blob/main/DYNAMIC_ROUTES_GUIDE.md', '_blank')}
-                                            className="px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-xs font-mono text-blue-400 rounded hover:text-blue-300 transition-colors flex items-center gap-2"
-                                        >
-                                            <FileJson size={12} />
-                                            DOCUMENTATION
-                                        </button>
-                                        <button
-                                            onClick={registerRoute}
-                                            disabled={loading || !routeDefinition.trim()}
-                                            className="px-3 py-1.5 bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 text-xs font-mono text-green-400 rounded hover:text-green-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                                        >
-                                            {loading ? <RefreshCw size={12} className="animate-spin" /> : <Save size={12} />}
-                                            {loading ? 'REGISTERING...' : 'REGISTER ROUTE'}
-                                        </button>
-                                    </div>
-                                </div>
 
-                                {/* Registration Error Display */}
-                                {registrationError && (
-                                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start gap-3">
-                                        <XCircle size={16} className="text-red-400 flex-shrink-0 mt-0.5" />
-                                        <div className="flex-1 min-w-0">
-                                            <div className="text-xs font-bold text-red-400 mb-1">Registration Failed</div>
-                                            <div className="text-xs text-red-300 font-mono break-words">{registrationError}</div>
-                                        </div>
+                                    {/* Active Routes Section */}
+                                    <div className="flex flex-col">
                                         <button
-                                            onClick={() => setRegistrationError(null)}
-                                            className="text-red-400 hover:text-red-300 transition-colors"
+                                            onClick={() => setExpandedFolders(prev =>
+                                                prev.includes('active-routes') ? prev.filter(f => f !== 'active-routes') : [...prev, 'active-routes']
+                                            )}
+                                            className="h-7 px-2 flex items-center hover:bg-[#393b40] text-[11px] font-bold text-[#dfe1e5] transition-colors"
                                         >
-                                            <XCircle size={14} />
+                                            <div className="mr-1 shadow-sm">
+                                                {expandedFolders.includes('active-routes') ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                            </div>
+                                            <span className="uppercase tracking-tight">ACTIVE ROUTES ({routes.length})</span>
+                                        </button>
+                                        {expandedFolders.includes('active-routes') && (
+                                            <div className="flex flex-col py-1">
+                                                {routes.length === 0 ? (
+                                                    <div className="px-8 py-4 text-center text-[11px] text-[#6e7073] italic">
+                                                        No dynamic routes found
+                                                    </div>
+                                                ) : (
+                                                    routes.map((route) => (
+                                                        <div
+                                                            key={route.id}
+                                                            className={`group px-6 py-1.5 text-[12px] flex items-center gap-2 cursor-pointer transition-all mx-1 rounded-[var(--radius)] ${selectedRoute?.id === route.id ? 'bg-[#3574f0] text-white shadow-md' : 'hover:bg-[#393b40] text-[#dfe1e5]'
+                                                                }`}
+                                                            onClick={() => {
+                                                                setSelectedRoute(route);
+                                                                setRouteDefinition(route.yaml_definition || JSON.stringify(route, null, 2));
+                                                                setActiveTab('editor');
+                                                            }}
+                                                        >
+                                                            <Globe size={14} className={selectedRoute?.id === route.id ? "text-white" : (route.enabled ? "text-[#59a869]" : "text-[#6e7073]")} />
+                                                            <div className="flex flex-col overflow-hidden">
+                                                                <span className="truncate font-medium">{route.name}</span>
+                                                                <span className={`truncate text-[10px] ${selectedRoute?.id === route.id ? 'text-white/70' : 'text-[#6e7073]'}`}>{route.path}</span>
+                                                            </div>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    deleteRoute(route.id);
+                                                                }}
+                                                                className={`ml-auto opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/20 rounded transition-all ${selectedRoute?.id === route.id ? 'text-white' : 'text-[#e06c75]'}`}
+                                                            >
+                                                                <Trash2 size={12} />
+                                                            </button>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Resize Handle */}
+                        <div
+                            onMouseDown={() => setIsDragging(true)}
+                            className={`absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-[#3574f050] transition-colors z-10 ${isDragging ? 'bg-[#3574f0]' : ''}`}
+                        />
+                    </div>
+                )}
+
+                {/* 3. Main Editor Area */}
+                <div className="flex-1 flex flex-col bg-[#1e1f22] overflow-hidden m-1.5 rounded-[var(--radius)] border border-[#43454a] shadow-lg">
+                    {/* Tabs / Breadcrumbs */}
+                    <div className="h-9 bg-[#2b2d30] flex items-center overflow-x-auto no-scrollbar border-b border-[#43454a]">
+                        <button
+                            onClick={() => setActiveTab('editor')}
+                            className={`flex items-center gap-2 px-4 h-full text-[12px] font-medium transition-all relative ${activeTab === 'editor' ? 'bg-[#1e1f22] text-[#dfe1e5]' : 'text-[#6e7073] hover:bg-[#393b40] hover:text-[#dfe1e5]'
+                                }`}
+                        >
+                            <Braces size={14} className="text-[#3574f0] opacity-70" />
+                            <span>{selectedRoute ? `${selectedRoute.name}.yaml` : 'new-route.yaml'}</span>
+                            {activeTab === 'editor' && (
+                                <div className="absolute top-0 inset-x-0 h-[2px] bg-[#3574f0]" />
+                            )}
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('test')}
+                            className={`flex items-center gap-2 px-4 h-full text-[12px] font-medium transition-all relative border-l border-[#43454a] ${activeTab === 'test' ? 'bg-[#1e1f22] text-[#dfe1e5]' : 'text-[#6e7073] hover:bg-[#393b40] hover:text-[#dfe1e5]'
+                                }`}
+                        >
+                            <Terminal size={14} className="text-[#59a869] opacity-70" />
+                            <span>Debug Console</span>
+                            {activeTab === 'test' && (
+                                <div className="absolute top-0 inset-x-0 h-[2px] bg-[#3574f0]" />
+                            )}
+                        </button>
+
+                        <div className="ml-auto flex items-center gap-2 px-4">
+                            {activeTab === 'editor' && (
+                                <button
+                                    onClick={registerRoute}
+                                    disabled={loading || !routeDefinition.trim()}
+                                    className="flex items-center gap-1.5 px-3 py-1 bg-[#3574f0] hover:bg-[#3574f0e0] disabled:bg-[#43454a] text-white text-[11px] font-bold rounded-[var(--radius)] transition-all shadow-md active:scale-95"
+                                >
+                                    {loading ? <RefreshCw size={12} className="animate-spin" /> : <Save size={12} />}
+                                    DEPLOY
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Editor Content */}
+                    <div className="flex-1 flex flex-col relative overflow-hidden bg-[#1e1f22]">
+                        {activeTab === 'editor' && (
+                            <div className="h-full w-full">
+                                <Editor
+                                    height="100%"
+                                    defaultLanguage="yaml"
+                                    theme="vs-dark"
+                                    value={routeDefinition}
+                                    onChange={(val) => setRouteDefinition(val || '')}
+                                    options={{
+                                        minimap: { enabled: true },
+                                        fontSize: 14,
+                                        fontFamily: 'JetBrains Mono, Menlo, Monaco, Courier New, monospace',
+                                        lineNumbers: 'on',
+                                        roundedSelection: true,
+                                        scrollBeyondLastLine: false,
+                                        readOnly: false,
+                                        automaticLayout: true,
+                                        padding: { top: 16 },
+                                        wordWrap: 'on'
+                                    }}
+                                />
+                                {registrationError && (
+                                    <div className="absolute bottom-4 left-4 right-4 bg-[#e06c75] text-white p-4 rounded-[var(--radius)] shadow-2xl animate-fade-in flex items-start gap-4 z-20 border border-white/20">
+                                        <XCircle className="mt-0.5 shrink-0" size={20} />
+                                        <div className="flex-1">
+                                            <p className="text-[12px] font-bold uppercase mb-1 drop-shadow-sm">Deployment Failed</p>
+                                            <p className="text-[13px] font-medium leading-relaxed opacity-90">{registrationError}</p>
+                                        </div>
+                                        <button onClick={() => setRegistrationError(null)} className="hover:bg-white/20 rounded p-1 transition-colors">
+                                            <XCircle size={18} />
                                         </button>
                                     </div>
                                 )}
-
-                                {/* Enhanced Code Editor with Syntax Highlighting */}
-                                <CodeEditor
-                                    value={routeDefinition}
-                                    onChange={setRouteDefinition}
-                                    placeholder={`Paste your JSON route definition here...\n\nExample:\n{\n  "name": "Hello API",\n  "path": "/api/hello",\n  "method": "GET",\n  "logic": [\n    { "return": { "value": { "message": "Hello World" } } }\n  ]\n}`}
-                                    className="flex-1 bg-black/50 border border-white/10 rounded group-hover:border-green-500/20 transition-colors overflow-hidden"
-                                    language="json"
-                                />
                             </div>
                         )}
 
-                        {/* Test Tab */}
-                        {activeTab === 'test' && selectedRoute && (
-                            <div className="p-4 space-y-4 flex-1 overflow-y-auto custom-scrollbar">
-                                <div className="bg-black/30 border border-white/10 rounded p-0 space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <div className="text-xs font-mono text-gray-500">SELECTED ROUTE</div>
-                                        <span className="text-[10px] font-mono px-2 py-1 bg-green-500/10 text-green-400 rounded border border-green-500/20">
-                                            {selectedRoute.method}
-                                        </span>
-                                    </div>
-                                    <div className="text-sm font-bold text-white">{selectedRoute.name}</div>
-                                    <div className="text-xs text-gray-500 font-mono">{selectedRoute.path}</div>
-                                    {selectedRoute.description && (
-                                        <div className="text-xs text-gray-400 pt-2 border-t border-white/5">
-                                            {selectedRoute.description}
+                        {activeTab === 'test' && (
+                            <div className="flex flex-col h-full bg-[#1e1f22]">
+                                <div className="flex-1 p-4 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
+                                    <div className="flex items-center justify-between border-b border-[#43454a] pb-3">
+                                        <div className="flex items-center gap-2">
+                                            <Terminal size={18} className="text-[#3574f0]" />
+                                            <h3 className="text-[12px] font-bold text-[#dfe1e5] uppercase tracking-wider">Test Environment</h3>
                                         </div>
-                                    )}
-                                </div>
-
-                                <div>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <label className="text-xs font-mono text-gray-500">TEST PAYLOAD</label>
                                         <button
                                             onClick={testRoute}
-                                            disabled={loading}
-                                            className="px-3 py-1.5 bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 text-xs font-mono text-green-400 rounded hover:text-green-300 transition-colors disabled:opacity-50 flex items-center gap-2"
+                                            disabled={loading || !selectedRoute}
+                                            className="flex items-center gap-1.5 px-4 py-1.5 bg-[#59a869] hover:bg-[#59a869e0] disabled:bg-[#43454a] text-white text-[12px] font-bold rounded-[var(--radius)] transition-all shadow-md active:scale-95"
                                         >
                                             {loading ? <RefreshCw size={12} className="animate-spin" /> : <Play size={12} />}
-                                            {loading ? 'TESTING...' : 'RUN TEST'}
+                                            RUN TEST
                                         </button>
                                     </div>
-                                    <textarea
-                                        value={testPayload}
-                                        onChange={(e) => setTestPayload(e.target.value)}
-                                        placeholder='{"key": "value"}'
-                                        className="w-full h-32 bg-black/50 border border-white/10 rounded p-4 text-xs font-mono text-gray-300 focus:outline-none focus:border-green-500/30 focus:ring-1 focus:ring-green-500/20 resize-none"
-                                    />
-                                </div>
 
-                                {testResult && (
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-2">
-                                            {testResult.success ? (
-                                                <CheckCircle size={14} className="text-green-500" />
-                                            ) : (
-                                                <XCircle size={14} className="text-red-500" />
-                                            )}
-                                            <label className="text-xs font-mono text-gray-500">RESULT</label>
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
+                                        {/* Payload Input */}
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex items-center gap-2 px-3 py-1.5 bg-[#2b2d30] rounded-[var(--radius)] border border-[#43454a]">
+                                                <FileJson size={14} className="text-[#6e7073]" />
+                                                <span className="text-[11px] font-bold text-[#dfe1e5] uppercase tracking-tight">Request Body</span>
+                                            </div>
+                                            <div className="flex-1 border border-[#43454a] rounded-[var(--radius)] overflow-hidden bg-[#1e1f22]">
+                                                <Editor
+                                                    height="100%"
+                                                    defaultLanguage="json"
+                                                    theme="vs-dark"
+                                                    value={testPayload}
+                                                    onChange={(val) => setTestPayload(val || '')}
+                                                    options={{
+                                                        minimap: { enabled: false },
+                                                        fontSize: 13,
+                                                        lineNumbers: 'on',
+                                                        scrollBeyondLastLine: false,
+                                                        automaticLayout: true,
+                                                        padding: { top: 12 }
+                                                    }}
+                                                />
+                                            </div>
                                         </div>
-                                        <pre className={`w-full h-48 bg-black/50 border rounded p-4 text-xs font-mono overflow-auto ${testResult.success ? 'border-green-500/30 text-green-400' : 'border-red-500/30 text-red-400'
-                                            }`}>
-                                            {JSON.stringify(testResult, null, 2)}
-                                        </pre>
-                                    </div>
-                                )}
-                            </div>
-                        )}
 
-                        {activeTab === 'test' && !selectedRoute && (
-                            <div className="p-8 text-center text-gray-600 text-sm">
-                                Select a route from the list to test it
+                                        {/* Test Result Output */}
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex items-center justify-between px-3 py-1.5 bg-[#2b2d30] rounded-[var(--radius)] border border-[#43454a]">
+                                                <div className="flex items-center gap-2">
+                                                    <Activity size={14} className="text-[#6e7073]" />
+                                                    <span className="text-[11px] font-bold text-[#dfe1e5] uppercase tracking-tight">System Response</span>
+                                                </div>
+                                                {testResult && (
+                                                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${testResult.success ? 'bg-[#59a86920] text-[#59a869]' : 'bg-[#e06c7520] text-[#e06c75]'}`}>
+                                                        {testResult.success ? '200 OK' : 'ERROR'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className={`flex-1 border rounded-[var(--radius)] bg-[#1e1f22] font-mono text-[13px] p-4 overflow-auto shadow-inner transition-colors ${testResult?.success ? 'border-[#59a86930] bg-[#59a86905]' : 'border-[#e06c7530] bg-[#e06c7505]'
+                                                }`}>
+                                                {testResult ? (
+                                                    <pre className={`custom-scrollbar ${testResult.success ? 'text-[#59a869]' : 'text-[#e06c75]'}`}>
+                                                        {JSON.stringify(testResult, null, 2)}
+                                                    </pre>
+                                                ) : (
+                                                    <div className="h-full flex flex-col items-center justify-center text-[#6e7073] gap-3">
+                                                        <Clock size={32} className="opacity-20" />
+                                                        <span className="text-[13px] italic">Awaiting test execution...</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         )}
+                    </div>
+                </div>
+            </div>
+
+            {/* 4. Status Bar (Bottom) */}
+            <div className="h-6 bg-[#3574f0] text-white flex items-center justify-between text-[11px] font-medium shadow-lg z-20 select-none">
+                <div className="flex items-center h-full">
+                    <div className="flex items-center gap-2 hover:bg-white/10 px-3 h-full cursor-pointer transition-colors border-r border-white/5">
+                        <GitBranch size={12} className="opacity-90" />
+                        <span className="translate-y-[0.5px]">main*</span>
+                    </div>
+                    <div className="flex items-center gap-2 hover:bg-white/10 px-3 h-full cursor-pointer transition-colors">
+                        <RefreshCw size={12} className={`${loading ? "animate-spin" : ""} opacity-90`} />
+                        <span className="translate-y-[0.5px]">{routes.length} Active Endpoints</span>
+                    </div>
+                </div>
+                <div className="flex items-center h-full">
+                    <div className="flex items-center gap-1.5 hover:bg-white/10 px-3 h-full cursor-pointer transition-colors">
+                        <span className="translate-y-[0.5px]">Ln {routeDefinition.split('\n').length}, Col 1</span>
+                    </div>
+                    <div className="flex items-center hover:bg-white/10 px-3 h-full cursor-pointer uppercase transition-colors">
+                        <span className="translate-y-[0.5px]">UTF-8</span>
+                    </div>
+                    <div className="flex items-center gap-2 bg-white/15 px-4 h-full cursor-pointer shadow-inner border-l border-white/10">
+                        <Zap size={12} className="fill-white" />
+                        <span className="font-bold tracking-tight translate-y-[0.5px]">WORPEN IDE</span>
                     </div>
                 </div>
             </div>

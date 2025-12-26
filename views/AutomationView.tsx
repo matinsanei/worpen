@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { TerminalFrame } from '../components/TerminalFrame';
 import { MOCK_AUTOMATION_RULES } from '../constants';
 import { AutomationRule } from '../types';
-import { Bot, Play, Save, Plus, Terminal, Zap } from 'lucide-react';
+import { Bot, Play, Save, Plus, Terminal, Zap, Code } from 'lucide-react';
 
 // --- WORPEN LANGUAGE DEFINITIONS ---
 const COMPLETIONS: Record<string, string[]> = {
@@ -32,10 +32,10 @@ const ScriptEditor = ({ initialCode, readOnly = false }: { initialCode: string, 
       .replace(/>/g, "&gt;");
 
     // Order matters: Strings -> Comments -> Keywords -> Methods -> Objects -> Numbers
-    
+
     // Strings
     html = html.replace(/(['"`])(.*?)\1/g, '<span class="text-yellow-300">$1$2$1</span>');
-    
+
     // Comments
     html = html.replace(/(\/\/.*)/g, '<span class="text-green-700 italic">$1</span>');
 
@@ -57,7 +57,7 @@ const ScriptEditor = ({ initialCode, readOnly = false }: { initialCode: string, 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newVal = e.target.value;
     setCode(newVal);
-    
+
     // Simple autocomplete trigger detection
     const cursorPos = e.target.selectionStart;
     const textBeforeCursor = newVal.substring(0, cursorPos);
@@ -67,12 +67,12 @@ const ScriptEditor = ({ initialCode, readOnly = false }: { initialCode: string, 
       const trigger = lastWordMatch[1];
       if (COMPLETIONS[trigger]) {
         setSuggestions(COMPLETIONS[trigger]);
-        
+
         // Estimation of cursor position for the popup
         const lines = textBeforeCursor.substring(0, cursorPos).split('\n');
         const currentLineIndex = lines.length - 1;
         const currentLineChars = lines[lines.length - 1].length;
-        
+
         setSuggestionPos({
           top: (currentLineIndex + 1) * 24, // 24px line height
           left: (currentLineChars * 8.5) + 40 // ~8.5px char width + padding
@@ -85,17 +85,17 @@ const ScriptEditor = ({ initialCode, readOnly = false }: { initialCode: string, 
 
   const insertSuggestion = (sugg: string) => {
     if (!textareaRef.current) return;
-    
+
     const cursorPos = textareaRef.current.selectionStart;
     const text = code;
     const textBefore = text.substring(0, cursorPos);
     const textAfter = text.substring(cursorPos);
-    
+
     // Append suggestion
     const newCode = textBefore + sugg + textAfter;
     setCode(newCode);
     setSuggestions([]);
-    
+
     // Focus back and move cursor
     setTimeout(() => {
       textareaRef.current?.focus();
@@ -128,20 +128,20 @@ const ScriptEditor = ({ initialCode, readOnly = false }: { initialCode: string, 
   };
 
   return (
-    <div className="relative flex flex-col h-full font-mono text-sm bg-[#080a08] border border-green-900 shadow-inner group">
-      
+    <div className="relative flex flex-col h-full font-mono text-sm bg-[#1e1f22] border border-[#43454a] rounded-[var(--radius)] shadow-inner group overflow-hidden">
+
       {/* Editor Container */}
       <div className="relative flex-1 overflow-hidden">
         {/* Line Numbers */}
-        <div className="absolute left-0 top-0 bottom-0 w-10 bg-[#0d110d] border-r border-green-900 text-gray-600 text-right pr-2 pt-4 select-none leading-6 z-20">
+        <div className="absolute left-0 top-0 bottom-0 w-10 bg-[#2b2d30] border-r border-[#43454a] text-[#6e7073] text-right pr-2 pt-4 select-none leading-6 z-20 text-[11px]">
           {code.split('\n').map((_, i) => <div key={i}>{i + 1}</div>)}
         </div>
 
         {/* Syntax Highlighted Underlay */}
-        <pre 
+        <pre
           ref={preRef}
-          className="absolute inset-0 left-10 pl-2 pt-4 pr-4 pb-4 m-0 overflow-hidden whitespace-pre-wrap break-all leading-6 pointer-events-none z-0"
-          dangerouslySetInnerHTML={{ __html: highlightCode(code) + '<br/>' }} 
+          className="absolute inset-0 left-10 pl-2 pt-4 pr-4 pb-4 m-0 overflow-hidden whitespace-pre-wrap break-all leading-6 pointer-events-none z-0 text-[#dfe1e5]"
+          dangerouslySetInnerHTML={{ __html: highlightCode(code) + '<br/>' }}
         />
 
         {/* Transparent Input Overlay */}
@@ -153,42 +153,42 @@ const ScriptEditor = ({ initialCode, readOnly = false }: { initialCode: string, 
           onKeyDown={handleKeyDown}
           spellCheck={false}
           disabled={readOnly}
-          className={`absolute inset-0 left-10 pl-2 pt-4 pr-4 pb-4 h-full bg-transparent text-transparent caret-green-500 resize-none outline-none leading-6 z-10 whitespace-pre-wrap break-all ${readOnly ? 'cursor-not-allowed' : ''}`}
-          style={{ color: 'transparent' }} 
+          className={`absolute inset-0 left-10 pl-4 pt-4 pr-4 pb-4 h-full bg-transparent text-transparent caret-[#3574f0] resize-none outline-none leading-6 z-10 whitespace-pre-wrap break-all ${readOnly ? 'cursor-not-allowed' : ''}`}
+          style={{ color: 'transparent' }}
         />
 
         {/* Autocomplete Popup */}
         {suggestions.length > 0 && (
-          <div 
-            className="absolute z-50 bg-[#051a05] border border-green-500 shadow-[0_0_15px_rgba(0,255,0,0.3)] min-w-[150px] flex flex-col"
+          <div
+            className="absolute z-50 bg-[#2b2d30] border border-[#43454a] shadow-xl min-w-[180px] flex flex-col rounded-md overflow-hidden"
             style={{ top: Math.min(suggestionPos.top, 200), left: Math.min(suggestionPos.left, 400) }}
           >
-            <div className="bg-green-900 text-white text-[10px] px-2 py-1 uppercase tracking-wider font-bold">Suggestions</div>
+            <div className="bg-[#1e1f22] text-[#6e7073] text-[9px] px-2.5 py-1.5 uppercase tracking-wider font-bold border-b border-[#43454a]">Suggestions</div>
             {suggestions.map((s, i) => (
-              <button 
-                key={s} 
+              <button
+                key={s}
                 onClick={() => insertSuggestion(s)}
-                className={`text-left px-2 py-1 text-xs text-green-300 hover:bg-green-700 hover:text-white flex items-center gap-2 ${i === 0 ? 'bg-green-900/30' : ''}`}
+                className={`text-left px-3 py-1.5 text-xs text-[#dfe1e5] hover:bg-[#3574f0] hover:text-white flex items-center gap-2 transition-colors ${i === 0 ? 'bg-[#3574f015]' : ''}`}
               >
-                <Zap size={10} className="text-yellow-500"/> {s}
+                <Zap size={10} className="text-[#f2c55c]" /> {s}
               </button>
             ))}
-            <div className="text-[9px] text-gray-500 px-2 py-1 border-t border-green-900/50">TAB / ENTER to select</div>
+            <div className="text-[9px] text-[#6e7073] px-2.5 py-1.5 bg-[#1e1f22] border-t border-[#43454a]">TAB / ENTER to select</div>
           </div>
         )}
       </div>
 
       {/* Editor Status Bar */}
-      <div className="bg-[#0d110d] border-t border-green-900 p-1 px-2 flex justify-between items-center text-[10px] text-gray-500 select-none">
-         <div className="flex gap-4">
-            <span>LINES: {code.split('\n').length}</span>
-            <span>CHARS: {code.length}</span>
-            <span className="text-green-700">UTF-8</span>
-         </div>
-         <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${readOnly ? 'bg-gray-600' : 'bg-green-500 animate-pulse'}`}></div>
-            <span>{readOnly ? 'READ_ONLY' : 'INSERT MODE'}</span>
-         </div>
+      <div className="bg-[#2b2d30] border-t border-[#43454a] p-1 px-3 flex justify-between items-center text-[10px] text-[#6e7073] select-none font-sans">
+        <div className="flex gap-4">
+          <span className="font-bold">LINES: {code.split('\n').length}</span>
+          <span className="font-bold">CHARS: {code.length}</span>
+          <span className="text-[#59a869] font-bold">UTF-8</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${readOnly ? 'bg-[#6e7073]' : 'bg-[#59a869] shadow-[0_0_8px_rgba(89,168,105,0.4)] animate-pulse'}`}></div>
+          <span className="font-bold uppercase tracking-tighter">{readOnly ? 'READ_ONLY' : 'INSERT MODE'}</span>
+        </div>
       </div>
     </div>
   );
@@ -198,74 +198,80 @@ export const AutomationView: React.FC = () => {
   const [selectedRule, setSelectedRule] = useState<AutomationRule>(MOCK_AUTOMATION_RULES[0]);
 
   return (
-    <div className="h-full p-2 flex flex-col gap-4">
-      <div className="flex justify-between items-end border-b-2 border-green-800 pb-2">
+    <div className="h-full p-6 flex flex-col gap-6 max-w-[1600px] mx-auto overflow-hidden">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#43454a] pb-6">
         <div>
-           <h1 className="text-2xl font-bold flex items-center gap-2">
-             <Bot className="text-purple-400" /> 
-             SELF_HEALING_MATRIX
-           </h1>
-           <p className="text-xs text-green-600">AUTOMATED RESPONSE PROTOCOLS</p>
+          <h1 className="text-2xl font-bold flex items-center gap-3 text-[#dfe1e5] tracking-tight">
+            <div className="p-2 rounded-[var(--radius)] bg-[#a682e615] border border-[#a682e620]">
+              <Bot className="text-[#a682e6]" size={20} />
+            </div>
+            Self-Healing Matrix
+          </h1>
+          <p className="text-[11px] text-[#6e7073] font-bold uppercase tracking-wider mt-1">Automated Response Protocols // V8 Isolation Engine</p>
         </div>
-        <button className="px-4 py-1 bg-purple-900/30 border border-purple-500 text-purple-200 text-xs hover:bg-purple-800 flex items-center gap-2 group">
-           <Plus size={14} className="group-hover:rotate-90 transition-transform"/> NEW_STRATEGY
+        <button className="px-5 py-2 bg-[#3574f0] hover:bg-[#3574f0e0] text-white text-[11px] font-bold rounded-[var(--radius)] shadow-lg transition-all active:scale-95 flex items-center gap-2 uppercase tracking-tight border border-[#3574f0] group">
+          <Plus size={14} className="group-hover:rotate-90 transition-transform" /> NEW STRATEGY
         </button>
       </div>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-0">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0">
         {/* List of Rules */}
-        <div className="lg:col-span-1 flex flex-col gap-2 overflow-y-auto pr-1">
-           {MOCK_AUTOMATION_RULES.map(rule => (
-             <div 
-               key={rule.id}
-               onClick={() => setSelectedRule(rule)}
-               className={`p-3 border cursor-pointer transition-all group ${
-                 selectedRule.id === rule.id 
-                 ? 'bg-green-900/30 border-green-400' 
-                 : 'bg-black border-green-900 hover:border-green-600'
-               }`}
-             >
-                <div className="flex justify-between items-start mb-1">
-                  <span className={`font-bold text-sm ${selectedRule.id === rule.id ? 'text-white' : 'text-green-200'}`}>{rule.name}</span>
-                  <div className={`w-2 h-2 rounded-full ${rule.active ? 'bg-green-500 shadow-[0_0_5px_#00ff00]' : 'bg-gray-600'}`}></div>
-                </div>
-                <div className="text-[10px] text-gray-400 mb-2 group-hover:text-gray-300">
-                   TRIGGER: <span className="text-yellow-500">{rule.triggerEvent}</span>
-                </div>
-                <div className="flex justify-between text-[10px] text-gray-500 font-mono">
-                   <span>LAST: {rule.lastRun}</span>
-                   <span>TARGET: {rule.targetService}</span>
-                </div>
-             </div>
-           ))}
+        <div className="lg:col-span-4 flex flex-col gap-3 overflow-y-auto pr-2 custom-scrollbar">
+          {MOCK_AUTOMATION_RULES.map(rule => (
+            <div
+              key={rule.id}
+              onClick={() => setSelectedRule(rule)}
+              className={`jb-card p-4 cursor-pointer transition-all group relative overflow-hidden ${selectedRule.id === rule.id
+                ? 'border-[#3574f0] bg-[#3574f008]'
+                : 'hover:border-[#6a6e75] hover:bg-[#393b4040]'
+                }`}
+            >
+              <div className="flex justify-between items-start mb-2">
+                <span className={`font-bold text-[14px] transition-colors ${selectedRule.id === rule.id ? 'text-[#3574f0]' : 'text-[#dfe1e5]'}`}>{rule.name}</span>
+                <div className={`w-2.5 h-2.5 rounded-full ${rule.active ? 'bg-[#59a869] shadow-[0_0_10px_rgba(89,168,105,0.4)]' : 'bg-[#43454a]'}`}></div>
+              </div>
+              <div className="text-[10px] text-[#6e7073] font-bold uppercase tracking-wider mb-3">
+                TRIGGER: <span className="text-[#f2c55c]">{rule.triggerEvent}</span>
+              </div>
+              <div className="flex justify-between text-[11px] text-[#6e7073] font-bold uppercase">
+                <span className="flex items-center gap-1.5"><Terminal size={12} className="opacity-50" /> {rule.lastRun}</span>
+                <span className="flex items-center gap-1.5"><Zap size={12} className="opacity-50 text-[#a682e6]" /> {rule.targetService}</span>
+              </div>
+              {selectedRule.id === rule.id && (
+                <div className="absolute top-0 left-0 w-1 h-full bg-[#3574f0]"></div>
+              )}
+            </div>
+          ))}
         </div>
 
         {/* Code Editor Area */}
-        <div className="lg:col-span-2 h-full min-h-[400px] flex flex-col">
-          <TerminalFrame title={`EDIT_STRATEGY: ${selectedRule.name}`} className="flex-1 flex flex-col">
-             <div className="flex flex-col h-full p-1 gap-2">
-               
-               {/* Using the new Rich Editor */}
-               <div className="flex-1 min-h-0 relative">
-                  <ScriptEditor initialCode={selectedRule.script} />
-               </div>
-               
-               <div className="flex justify-between items-center pt-2 border-t border-green-900">
-                  <div className="flex gap-2 text-[10px] text-gray-500">
-                    <span className="flex items-center gap-1"><Terminal size={10}/> RUNTIME: V8_ISOLATE</span>
-                    <span className="flex items-center gap-1"><Zap size={10}/> LATENCY: 2ms</span>
-                  </div>
-                  <div className="flex gap-3">
-                    <button className="flex items-center gap-2 px-4 py-2 text-xs bg-gray-900 border border-gray-600 hover:bg-gray-800 text-gray-300 transition-colors">
-                      <Play size={12}/> TEST_DRY_RUN
-                    </button>
-                    <button className="flex items-center gap-2 px-4 py-2 text-xs bg-green-900 border border-green-500 hover:bg-green-700 text-white font-bold transition-all hover:shadow-[0_0_10px_rgba(0,255,0,0.3)]">
-                      <Save size={14} /> SAVE_AND_DEPLOY
-                    </button>
-                  </div>
-               </div>
-             </div>
-          </TerminalFrame>
+        <div className="lg:col-span-8 flex flex-col h-full min-h-[400px]">
+          <div className="jb-card flex-1 flex flex-col overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[#43454a] bg-[#2b2d30]/50">
+              <div className="flex items-center gap-2">
+                <Code size={14} className="text-[#3574f0]" />
+                <span className="text-[11px] font-bold text-[#dfe1e5] uppercase tracking-wider italic">Edit Strategy: {selectedRule.name}</span>
+              </div>
+              <div className="flex gap-4 text-[10px] font-bold text-[#6e7073] uppercase">
+                <span className="flex items-center gap-1.5"><Terminal size={12} className="text-[#3574f0] opacity-70" /> V8 ISOLATE</span>
+                <span className="flex items-center gap-1.5"><Zap size={12} className="text-[#f2c55c] opacity-70" /> 2ms LATENCY</span>
+              </div>
+            </div>
+            <div className="flex-1 p-4 flex flex-col gap-4 overflow-hidden">
+              <div className="flex-1 min-h-0 relative">
+                <ScriptEditor initialCode={selectedRule.script} />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button className="flex items-center gap-2 px-6 py-2.5 text-[11px] font-bold bg-[#2b2d30] border border-[#43454a] hover:bg-[#393b40] text-[#dfe1e5] transition-all rounded-[var(--radius)] uppercase tracking-tight">
+                  <Play size={14} /> Run Dry Test
+                </button>
+                <button className="flex items-center gap-2 px-6 py-2.5 text-[11px] font-bold bg-[#59a869] border border-[#59a869] hover:bg-[#59a869e0] text-white transition-all rounded-[var(--radius)] uppercase tracking-tight shadow-lg shadow-[#59a86920]">
+                  <Save size={16} /> Save & Deploy
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

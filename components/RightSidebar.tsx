@@ -33,108 +33,86 @@ export const RightSidebar: React.FC<{ isOpen: boolean; onClose: () => void }> = 
    return (
       <aside
          className={`
-        fixed inset-y-0 right-0 z-30 w-96 bg-[#030303]/95 backdrop-blur-xl border-l border-white/5 
-        transform transition-transform duration-500 cubic-bezier(0.23, 1, 0.32, 1)
+        fixed inset-y-0 right-0 z-30 w-80 bg-[#2b2d30] border-l border-[#43454a]
+        transform transition-all duration-300 ease-in-out shadow-[-4px_0_10px_rgba(0,0,0,0.3)]
         ${isOpen ? 'translate-x-0' : 'translate-x-full'}
-        flex flex-col shadow-[-20px_0_50px_rgba(0,0,0,0.7)]
+        flex flex-col
       `}
       >
-         {/* Glow Effect */}
-         <div className="absolute top-0 bottom-0 left-0 w-[1px] bg-gradient-to-b from-transparent via-green-500/50 to-transparent opacity-50"></div>
-
-         {/* Header */}
-         <div className="h-16 flex items-center justify-between px-6 border-b border-white/5 bg-[#050505]">
-            <div className="flex items-center gap-3 text-green-500">
-               <div className="p-1.5 rounded bg-green-900/20 border border-green-500/20">
-                  <Activity size={16} className="animate-pulse" />
+         {/* Tool Window Header */}
+         <div className="h-9 flex items-center justify-between px-3 border-b border-[#43454a] bg-[#2b2d30] select-none">
+            <div className="flex items-center gap-2 text-[#dfe1e5]">
+               <div className="p-1 rounded bg-[#3574f015] border border-[#3574f030]">
+                  <Activity size={14} className="text-[#3574f0]" />
                </div>
-               <div className="flex flex-col">
-                  <span className="font-bold tracking-widest text-xs font-mono">COMMAND_CENTER</span>
-                  <span className="text-[9px] text-gray-500 font-mono tracking-widest">SUB_SYSTEM_V.2</span>
-               </div>
+               <span className="text-[11px] font-bold uppercase tracking-wider">Command Center</span>
             </div>
-            <div className="flex items-center gap-3">
-               <div className="flex items-center gap-1.5 text-[10px] text-green-400/80 font-mono bg-green-900/10 px-2 py-1 rounded border border-green-900/20">
-                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-ping"></div>
+            <div className="flex items-center gap-1.5">
+               <div className="flex items-center gap-1.5 text-[10px] text-[#59a869] font-semibold bg-[#59a86915] px-2 py-0.5 rounded-[var(--radius)]">
+                  <div className="w-1.5 h-1.5 bg-[#59a869] rounded-full"></div>
                   ONLINE
                </div>
-               <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors p-1 hover:bg-white/10 rounded">
-                  <ChevronRight size={18} />
+               <button onClick={onClose} className="text-[#6e7073] hover:text-[#dfe1e5] transition-colors p-1 hover:bg-[#393b40] rounded-[var(--radius)]">
+                  <ChevronRight size={16} />
                </button>
             </div>
          </div>
 
-         <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+         <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar bg-[#1e1f22]">
 
             {/* System Resources */}
-            <div className="space-y-4">
-               <SectionHeader icon={Cpu} title="CORE_RESOURCES" />
-
-               <div className="bg-[#080808] border border-white/5 p-4 rounded-lg space-y-5 relative overflow-hidden group">
-                  {/* Background Grid */}
-                  <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px]"></div>
-
-                  <ResourceBar label="V-CORE LOAD" value="42%" color="blue" width="42%" />
-                  <ResourceBar label="MEMORY ALLOC" value="12.4GB" color="purple" width="65%" />
-                  <ResourceBar label="SWAP USAGE" value="2%" color="yellow" width="2%" />
+            <div className="space-y-3">
+               <SectionHeader icon={Cpu} title="RESOURCES" />
+               <div className="bg-[#2b2d30] border border-[#43454a] p-3 rounded-[var(--radius)] space-y-4 shadow-sm">
+                  <ResourceBar label="CPU Load" value="42%" color="#3574f0" width="42%" />
+                  <ResourceBar label="Memory" value="12.4GB" color="#3574f0" width="65%" />
+                  <ResourceBar label="Disk I/O" value="2%" color="#59a869" width="2%" />
                </div>
             </div>
 
-            {/* Network Status */}
-            <div className="space-y-4">
-               <SectionHeader icon={Globe} title="NETWORK_MESH" />
-               <div className="grid grid-cols-2 gap-3">
+            {/* Network Mesh */}
+            <div className="space-y-3">
+               <SectionHeader icon={Globe} title="NETWORK" />
+               <div className="grid grid-cols-2 gap-2">
                   <NetworkStat label="PING" value="24ms" status="good" />
-                  <NetworkStat label="UP" value="1.2Gbps" status="good" />
-                  <NetworkStat label="DOWN" value="850Mbps" status="warn" />
-                  <NetworkStat label="PKT LOSS" value="0.01%" status="good" />
+                  <NetworkStat label="UP" value="1.2G" status="good" />
                </div>
             </div>
 
-            {/* Active Tasks */}
-            <div className="space-y-4">
-               <SectionHeader icon={RotateCw} title="BACKGROUND_PROCESSES" />
-               <div className="space-y-2">
-                  <TaskItem title="Asset Compilation" progress={75} status="PROCESSING" />
-                  <TaskItem title="Gossip Protocol Sync" progress={30} status="SYNCING" color="blue" />
-                  <TaskItem title="Database Backup" progress={100} status="DONE" color="green" />
-               </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="space-y-4">
-               <SectionHeader icon={Zap} title="QUICK_EXECUTION" />
-               <div className="grid grid-cols-2 gap-3">
-                  <ActionButton icon={Play} label="START_ALL" />
-                  <ActionButton icon={RotateCw} label="FLUSH_DNS" />
+            {/* Quick Execution */}
+            <div className="space-y-3">
+               <SectionHeader icon={Zap} title="ACTIONS" />
+               <div className="grid grid-cols-2 gap-2">
+                  <ActionButton icon={Play} label="RESTART" />
                   <ActionButton icon={ShieldAlert} label="LOCKDOWN" danger />
-                  <ActionButton icon={Wifi} label="RECONNECT" />
                </div>
             </div>
 
             {/* Mini Log */}
-            <div className="flex-1 min-h-[200px] bg-black border border-green-900/20 p-4 font-mono text-[11px] text-gray-500 overflow-hidden flex flex-col rounded-lg relative">
-               <div className="absolute top-0 right-0 p-2 text-[9px] text-green-900/50 select-none">TERMINAL_OUT</div>
-               <div className="text-green-500 border-b border-green-900/20 pb-2 mb-2 flex items-center gap-2">
-                  <Terminal size={12} /> SYSTEM_FEED
+            <div className="bg-[#1e1f22] border border-[#43454a] rounded-[var(--radius)] overflow-hidden flex flex-col shadow-inner">
+               <div className="bg-[#2b2d30] px-3 py-1.5 border-b border-[#43454a] flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-[#6e7073]">
+                     <Terminal size={12} />
+                     <span className="text-[10px] font-bold uppercase tracking-tight">System Feed</span>
+                  </div>
                </div>
-               <div className="flex-1 overflow-y-auto space-y-1.5 custom-scrollbar">
+               <div className="p-3 font-mono text-[11px] h-48 overflow-y-auto custom-scrollbar space-y-1 bg-black/20">
                   {logs.map((log, i) => (
-                     <div key={i} className="hover:bg-white/5 px-1 rounded transition-colors break-all">
-                        <span className="text-gray-600 mr-2">$</span>
-                        <span dangerouslySetInnerHTML={{ __html: log.replace(/>/g, '&gt;') }}></span>
+                     <div key={i} className="text-[#6e7073] hover:text-[#dfe1e5] transition-colors">
+                        <span className="opacity-50 mr-2">$</span>
+                        <span className={log.includes('Warning') ? 'text-[#e06c75]' : ''}>{log}</span>
                      </div>
                   ))}
-                  <div className="animate-pulse text-green-500 mt-2">_</div>
+                  <div className="animate-pulse text-[#3574f0]">_</div>
                </div>
             </div>
 
          </div>
 
          {/* Footer Status */}
-         <div className="p-3 border-t border-white/5 bg-[#020202] text-[10px] text-gray-600 font-mono flex justify-between items-center px-6">
-            <span className="flex items-center gap-1.5"><Lock size={10} /> ENCRYPTED: AES-256</span>
-            <span className="opacity-50">SHARD: US-EAST-1</span>
+         <div className="h-6 border-t border-[#43454a] bg-[#2b2d30] text-[10px] text-[#6e7073] font-medium flex justify-between items-center px-4 select-none">
+            <span className="flex items-center gap-1.5"><Lock size={10} /> ENCRYPTED</span>
+            <span className="opacity-50">US-EAST-1</span>
          </div>
       </aside>
    );
@@ -142,51 +120,39 @@ export const RightSidebar: React.FC<{ isOpen: boolean; onClose: () => void }> = 
 
 // Subcomponents
 const SectionHeader = ({ icon: Icon, title }: any) => (
-   <h3 className="text-[10px] font-mono text-gray-500 uppercase tracking-[0.2em] flex items-center gap-2 pl-1 border-l-2 border-green-500/50">
-      <Icon size={12} className="text-green-500/80" /> {title}
-   </h3>
+   <div className="flex items-center gap-2 px-1">
+      <Icon size={12} className="text-[#6e7073]" />
+      <h3 className="text-[10px] font-bold text-[#6e7073] uppercase tracking-widest">{title}</h3>
+   </div>
 );
 
 const ResourceBar = ({ label, value, color, width }: any) => (
-   <div className="space-y-1.5 relative z-10">
-      <div className="flex justify-between text-[10px] text-gray-400 font-medium">
-         <span className="font-mono tracking-wider">{label}</span>
-         <span className={`text-${color}-400 font-mono`}>{value}</span>
+   <div className="space-y-1.5">
+      <div className="flex justify-between text-[10px] text-[#dfe1e5] font-medium px-0.5">
+         <span>{label}</span>
+         <span style={{ color }}>{value}</span>
       </div>
-      <div className="h-1.5 w-full bg-gray-800/50 rounded-full overflow-hidden border border-white/5">
-         <div className={`h-full bg-${color}-500 shadow-[0_0_10px_currentColor] transition-all duration-1000`} style={{ width }}></div>
+      <div className="h-1 w-full bg-[#1e1f22] rounded-full overflow-hidden border border-[#43454a]">
+         <div className="h-full transition-all duration-1000 rounded-full" style={{ width, backgroundColor: color }}></div>
       </div>
    </div>
 );
 
 const NetworkStat = ({ label, value, status }: any) => (
-   <div className="bg-[#0a0a0a] border border-white/5 p-2 rounded flex flex-col items-center justify-center gap-1">
-      <span className="text-[9px] text-gray-600 font-mono">{label}</span>
-      <span className={`text-sm font-mono font-bold ${status === 'good' ? 'text-green-400' : 'text-yellow-400'}`}>{value}</span>
-   </div>
-);
-
-const TaskItem = ({ title, progress, status, color = "purple" }: any) => (
-   <div className="bg-[#0a0a0a] border border-white/5 p-3 rounded group hover:border-white/10 transition-colors cursor-pointer relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-[2px] h-full bg-gradient-to-b from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-      <div className="flex justify-between items-center mb-2">
-         <span className="text-xs font-bold text-gray-400 group-hover:text-green-200 transition-colors">{title}</span>
-         <span className={`text-[9px] font-mono bg-${color}-500/10 text-${color}-400 px-1.5 py-0.5 rounded border border-${color}-500/20`}>{status}</span>
-      </div>
-      <div className="h-1 w-full bg-gray-800 overflow-hidden rounded-full">
-         <div className={`h-full bg-${color}-500 transition-all duration-1000`} style={{ width: `${progress}%` }}></div>
-      </div>
+   <div className="bg-[#2b2d30] border border-[#43454a] p-2 rounded-[var(--radius)] flex flex-col items-center justify-center gap-0.5 shadow-sm">
+      <span className="text-[9px] text-[#6e7073] font-bold">{label}</span>
+      <span className={`text-[13px] font-bold ${status === 'good' ? 'text-[#59a869]' : 'text-[#e06c75]'}`}>{value}</span>
    </div>
 );
 
 const ActionButton = ({ icon: Icon, label, danger }: any) => (
    <button className={`
-    flex flex-col items-center justify-center gap-2 p-4 border rounded transition-all active:scale-95 group relative overflow-hidden
+    flex items-center gap-2 p-2 border rounded-[var(--radius)] transition-all active:scale-95 group relative shadow-sm
     ${danger
-         ? 'border-red-900/30 bg-red-900/5 text-red-500 hover:bg-red-900/20 hover:border-red-500 hover:shadow-[0_0_20px_rgba(239,68,68,0.2)]'
-         : 'border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white hover:border-green-500/30'}
+         ? 'border-[#e06c7540] bg-[#e06c7510] text-[#e06c75] hover:bg-[#e06c7520] hover:border-[#e06c75]'
+         : 'border-[#43454a] bg-[#2b2d30] text-[#6e7073] hover:bg-[#393b40] hover:text-[#dfe1e5] hover:border-[#6a6e75]'}
   `}>
-      <Icon size={18} className={danger ? "text-red-500" : "text-gray-400 group-hover:text-green-400 transition-colors"} />
-      <span className="text-[9px] font-bold tracking-widest z-10">{label}</span>
+      <Icon size={14} />
+      <span className="text-[10px] font-bold tracking-tight">{label}</span>
    </button>
 );

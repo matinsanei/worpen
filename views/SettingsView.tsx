@@ -37,193 +37,200 @@ export const SettingsView: React.FC = () => {
   };
 
   return (
-    <div className="h-full p-2 flex flex-col gap-4">
-      {/* Header */}
-      <div className="flex justify-between items-end border-b-2 border-green-800 pb-2">
+    <div className="h-full flex flex-col bg-[#1e1f22] text-[#dfe1e5]">
+      {/* Header Overlay */}
+      <div className="flex justify-between items-center px-6 py-4 border-b border-[#43454a] bg-[#2b2d30] shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Settings className="text-gray-400" />
-            SYSTEM_CONFIGURATION
+          <h1 className="text-xl font-bold flex items-center gap-3">
+            <div className="p-2 rounded-[var(--radius)] bg-[#3574f015] border border-[#3574f020]">
+              <Settings className="text-[#3574f0]" size={20} />
+            </div>
+            Settings
           </h1>
-          <p className="text-xs text-green-600">CORE SETTINGS // GLOBAL ENV // SECURITY</p>
+          <p className="text-[11px] text-[#6e7073] mt-1 font-medium tracking-wide uppercase">Core System & Global Configuration</p>
         </div>
         <button
           onClick={handleCommit}
-          className="px-4 py-1 bg-green-900 border border-green-500 text-white text-xs hover:bg-green-700 flex items-center gap-2 font-bold animate-pulse transition-all"
+          className="px-5 py-2 bg-[#3574f0] text-white text-[12px] font-bold rounded-[var(--radius)] hover:bg-[#3574f0e0] flex items-center gap-2 shadow-lg transition-all active:scale-95"
         >
-          <Save size={14} /> COMMIT_CHANGES
+          <Save size={16} /> SAVE SETTINGS
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 overflow-y-auto pb-10">
+      <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar pb-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        {/* Left Column: Connection & Security */}
-        <div className="flex flex-col gap-4">
-          <TerminalFrame title="CORE_UPLINK [VPS_CONNECTION]">
-            <div className="flex flex-col gap-4 p-2">
+          {/* Connection & Security */}
+          <div className="space-y-6">
+            <section className="jb-card p-5 space-y-5">
+              <div className="flex items-center gap-2 pb-3 border-b border-[#43454a]">
+                <Globe size={16} className="text-[#3574f0]" />
+                <h2 className="text-[13px] font-bold text-[#dfe1e5]">System Uplink</h2>
+              </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] text-green-400 uppercase font-bold flex items-center gap-2">
-                  <Globe size={12} /> Backend API Endpoint (HTTP/WS)
-                </label>
-                <div className="flex gap-2">
+              <div className="grid gap-5">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#6e7073] uppercase px-1">API Endpoint</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={apiUrl}
+                      onChange={(e) => setApiUrl(e.target.value)}
+                      placeholder="http://127.0.0.1:3000"
+                      className="flex-1 bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2 rounded-[var(--radius)] text-sm font-mono focus:border-[#3574f0] outline-none transition-colors shadow-inner"
+                    />
+                    <button
+                      onClick={() => {
+                        fetch(`${apiUrl}/health`).then(() => addNotification('SUCCESS', 'PONG', 'Backend is online')).catch(() => addNotification('ERROR', 'OFFLINE', 'Backend unreachable'));
+                      }}
+                      className="px-4 bg-[#2b2d30] border border-[#43454a] text-[#dfe1e5] text-[11px] font-bold rounded-[var(--radius)] hover:bg-[#393b40] hover:border-[#6a6e75] transition-all"
+                    >
+                      TEST
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#6e7073] uppercase px-1">Master API Key</label>
+                  <div className="relative group">
+                    <input
+                      type="password"
+                      defaultValue="sk_live_99823482394823984"
+                      className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2 rounded-[var(--radius)] text-sm font-mono focus:border-[#3574f0] outline-none transition-colors"
+                    />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6e7073]">
+                      <Key size={14} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-2">
+                  <label className="text-[11px] font-bold text-[#6e7073] uppercase px-1">Security Certificate</label>
+                  <div className="border-2 border-[#43454a] border-dashed bg-[#1e1f22]/50 p-6 rounded-[var(--radius)] text-center cursor-pointer hover:border-[#3574f040] hover:bg-[#3574f005] transition-all group">
+                    <Shield size={24} className="mx-auto text-[#6e7073] group-hover:text-[#3574f060] transition-colors mb-2" />
+                    <div className="text-[12px] font-medium text-[#6e7073] group-hover:text-[#dfe1e5]">Drop mTLS Certificate here</div>
+                    <div className="text-[10px] text-[#6e7073] mt-1 opacity-60">PFX, PEM, or CRT files supported</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="jb-card p-5 space-y-5">
+              <div className="flex items-center gap-2 pb-3 border-b border-[#43454a]">
+                <Bell size={16} className="text-[#59a869]" />
+                <h2 className="text-[13px] font-bold text-[#dfe1e5]">Notifications</h2>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-[#6e7073] uppercase">Slack Webhook</span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" className="sr-only peer" defaultChecked />
+                      <div className="w-8 h-4 bg-[#43454a] rounded-full peer peer-checked:bg-[#59a869] transition-colors relative">
+                        <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-transform peer-checked:translate-x-4"></div>
+                      </div>
+                    </label>
+                  </div>
                   <input
                     type="text"
-                    value={apiUrl}
-                    onChange={(e) => setApiUrl(e.target.value)}
-                    placeholder="http://127.0.0.1:3000"
-                    className="flex-1 bg-black border border-green-800 text-green-300 p-2 text-xs font-mono focus:border-green-500 outline-none"
+                    placeholder="https://hooks.slack.com/services/..."
+                    className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2 rounded-[var(--radius)] text-sm font-mono focus:border-[#3574f0] outline-none"
                   />
-                  <button
-                    onClick={() => {
-                      fetch(`${apiUrl}/health`).then(() => addNotification('SUCCESS', 'PONG', 'Backend is online')).catch(() => addNotification('ERROR', 'OFFLINE', 'Backend unreachable'));
-                    }}
-                    className="px-3 bg-gray-900 border border-gray-700 text-green-500 text-xs hover:text-white hover:border-white hover:bg-green-900"
-                  >
-                    TEST
-                  </button>
                 </div>
-                <p className="text-[9px] text-gray-500">Specify the IP and Port of your Worpen backend.</p>
-              </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] text-green-400 uppercase font-bold flex items-center gap-2">
-                  <Globe size={12} /> Controller Endpoint (gRPC)
-                </label>
-                <div className="flex gap-2">
+                <div className="space-y-2 opacity-50">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-[#6e7073] uppercase">Discord Webhook</span>
+                    <label className="relative inline-flex items-center cursor-not-allowed">
+                      <div className="w-8 h-4 bg-gray-700/50 rounded-full relative">
+                        <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-gray-600 rounded-full"></div>
+                      </div>
+                    </label>
+                  </div>
                   <input
                     type="text"
-                    defaultValue="grpc.core.worpen.io:50051"
-                    className="flex-1 bg-black border border-green-800 text-green-300 p-2 text-xs font-mono focus:border-green-500 outline-none"
+                    disabled
+                    placeholder="Discord integration coming soon..."
+                    className="w-full bg-[#1e1f22]/50 border border-[#43454a] text-[#6e7073] px-3 py-2 rounded-[var(--radius)] text-sm font-mono cursor-not-allowed"
                   />
-                  <button
-                    onClick={() => addNotification('INFO', 'PING_SENT', 'Latency: 14ms')}
-                    className="px-3 bg-gray-900 border border-gray-700 text-green-500 text-xs hover:text-white hover:border-white hover:bg-green-900"
-                  >
-                    PING
-                  </button>
                 </div>
               </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] text-green-400 uppercase font-bold flex items-center gap-2">
-                  <Key size={12} /> Master API Key
-                </label>
-                <input
-                  type="password"
-                  defaultValue="sk_live_99823482394823984"
-                  className="w-full bg-black border border-green-800 text-green-300 p-2 text-xs font-mono focus:border-green-500 outline-none"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] text-green-400 uppercase font-bold flex items-center gap-2">
-                  <Shield size={12} /> mTLS Certificate (Client.pem)
-                </label>
-                <div className="border border-green-900 border-dashed bg-green-900/10 p-4 text-center cursor-pointer hover:bg-green-900/20 group">
-                  <div className="text-xs text-gray-500 group-hover:text-green-400">DRAG CERTIFICATE HERE OR CLICK TO UPLOAD</div>
-                  <div className="text-[9px] text-gray-700 mt-1">SECURE ENCLAVE UPLOAD</div>
-                </div>
-              </div>
-
-            </div>
-          </TerminalFrame>
-
-          <TerminalFrame title="ALERT_CHANNELS">
-            <div className="flex flex-col gap-4 p-2">
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between border-b border-green-900 pb-1">
-                  <span className="text-xs flex items-center gap-2"><Hash size={12} /> SLACK_WEBHOOK</span>
-                  <div className="w-8 h-4 bg-green-900 rounded-full relative cursor-pointer"><div className="absolute right-0 top-0 h-4 w-4 bg-green-500 rounded-full shadow-[0_0_5px_#00ff00]"></div></div>
-                </div>
-                <input
-                  type="text"
-                  placeholder="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
-                  className="w-full bg-black border border-green-900 text-gray-500 p-2 text-xs font-mono focus:border-green-500 outline-none"
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between border-b border-green-900 pb-1">
-                  <span className="text-xs flex items-center gap-2"><Bell size={12} /> DISCORD_WEBHOOK</span>
-                  <div className="w-8 h-4 bg-gray-800 rounded-full relative cursor-pointer"><div className="absolute left-0 top-0 h-4 w-4 bg-gray-500 rounded-full"></div></div>
-                </div>
-                <input
-                  type="text"
-                  placeholder="https://discord.com/api/webhooks/..."
-                  disabled
-                  className="w-full bg-black border border-gray-800 text-gray-700 p-2 text-xs font-mono focus:border-gray-500 outline-none cursor-not-allowed"
-                />
-              </div>
-            </div>
-          </TerminalFrame>
-        </div>
-
-        {/* Right Column: Environment Variables */}
-        <TerminalFrame title="GLOBAL_ENV_VARS [.ENV INJECTION]">
-          <div className="flex flex-col h-full min-h-[400px]">
-            <div className="bg-yellow-900/20 text-yellow-500 text-[10px] p-2 mb-2 border-l-2 border-yellow-500">
-              WARNING: Variables defined here are injected into all connected Agents during the next heartbeat.
-            </div>
-
-            <div className="flex-1 overflow-y-auto mb-4 border border-green-900/50 bg-black/50">
-              <table className="w-full text-xs text-left border-collapse">
-                <thead className="bg-green-900/20 text-green-300 sticky top-0">
-                  <tr>
-                    <th className="p-2 border-b border-green-800">KEY</th>
-                    <th className="p-2 border-b border-green-800">VALUE</th>
-                    <th className="p-2 border-b border-green-800 w-8"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {envVars.map((env, idx) => (
-                    <tr key={idx} className="border-b border-green-900/30 font-mono hover:bg-green-900/10 group">
-                      <td className="p-2 text-green-400 font-bold">{env.key}</td>
-                      <td className="p-2 text-gray-300">{env.value}</td>
-                      <td className="p-2 text-center">
-                        <button onClick={() => removeEnv(idx)} className="text-gray-600 hover:text-red-500 transition-colors"><X size={14} /></button>
-                      </td>
-                    </tr>
-                  ))}
-                  {envVars.length === 0 && (
-                    <tr>
-                      <td colSpan={3} className="p-4 text-center text-gray-600 italic">NO VARIABLES DEFINED</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex gap-2 items-end pt-3 border-t border-green-900">
-              <div className="flex-[2]">
-                <label className="text-[9px] text-gray-500 mb-1 block">KEY (UPPERCASE)</label>
-                <input
-                  value={newKey}
-                  onChange={(e) => setNewKey(e.target.value.toUpperCase().replace(/\s/g, '_'))}
-                  className="w-full bg-black border border-green-800 p-2 text-xs outline-none focus:border-green-500 text-green-300 placeholder-gray-800"
-                  placeholder="E.G. MAX_THREADS"
-                />
-              </div>
-              <div className="flex-[3]">
-                <label className="text-[9px] text-gray-500 mb-1 block">VALUE</label>
-                <input
-                  value={newValue}
-                  onChange={(e) => setNewValue(e.target.value)}
-                  className="w-full bg-black border border-green-800 p-2 text-xs outline-none focus:border-green-500 text-green-300 placeholder-gray-800"
-                  placeholder="Value..."
-                  onKeyDown={(e) => e.key === 'Enter' && addEnv()}
-                />
-              </div>
-              <button
-                onClick={addEnv}
-                className="bg-green-900 hover:bg-green-700 text-white p-2 border border-green-600 h-[34px] w-[34px] flex items-center justify-center"
-              >
-                <Plus size={16} />
-              </button>
-            </div>
+            </section>
           </div>
-        </TerminalFrame>
 
+          {/* Environment Variables */}
+          <div className="h-full">
+            <section className="jb-card p-5 h-full flex flex-col space-y-4">
+              <div className="flex items-center gap-2 pb-3 border-b border-[#43454a]">
+                <Hash size={16} className="text-[#a682e6]" />
+                <h2 className="text-[13px] font-bold text-[#dfe1e5]">Environment Variables</h2>
+              </div>
+
+              <div className="bg-[#a682e610] text-[#a682e6] text-[11px] px-3 py-2 border-l-4 border-[#a682e6] rounded-[2px] font-medium leading-relaxed">
+                Variables defined here are globally injected into all connected agents during the next heartbeat cycle.
+              </div>
+
+              <div className="flex-1 overflow-hidden border border-[#43454a] rounded-[var(--radius)] bg-[#1e1f22]">
+                <table className="w-full text-[12px] text-left border-collapse">
+                  <thead className="bg-[#2b2d30] text-[#6e7073] sticky top-0 border-b border-[#43454a] font-bold uppercase tracking-wider text-[10px]">
+                    <tr>
+                      <th className="p-3 border-r border-[#43454a]">Key</th>
+                      <th className="p-3 border-r border-[#43454a]">Value</th>
+                      <th className="p-3 w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {envVars.map((env, idx) => (
+                      <tr key={idx} className="border-b border-[#43454a] font-mono hover:bg-[#3574f005] transition-colors group">
+                        <td className="p-3 text-[#dfe1e5] font-semibold border-r border-[#43454a]">{env.key}</td>
+                        <td className="p-3 text-[#6e7073] group-hover:text-[#dfe1e5] transition-colors border-r border-[#43454a]">{env.value}</td>
+                        <td className="p-3 text-center">
+                          <button onClick={() => removeEnv(idx)} className="text-[#6e7073] hover:text-[#e06c75] transition-colors">
+                            <X size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {envVars.length === 0 && (
+                      <tr>
+                        <td colSpan={3} className="p-8 text-center text-[#6e7073] italic">No environment variables defined.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="pt-4 border-t border-[#43454a] flex gap-3">
+                <div className="flex-[2] space-y-1.5">
+                  <label className="text-[10px] text-[#6e7073] font-bold uppercase ml-1">Key Name</label>
+                  <input
+                    value={newKey}
+                    onChange={(e) => setNewKey(e.target.value.toUpperCase().replace(/\s/g, '_'))}
+                    className="w-full bg-[#1e1f22] border border-[#43454a] p-2 rounded-[var(--radius)] text-xs outline-none focus:border-[#3574f0] text-[#dfe1e5] font-mono"
+                    placeholder="E.G. API_TOKEN"
+                  />
+                </div>
+                <div className="flex-[3] space-y-1.5">
+                  <label className="text-[10px] text-[#6e7073] font-bold uppercase ml-1">Variable Value</label>
+                  <input
+                    value={newValue}
+                    onChange={(e) => setNewValue(e.target.value)}
+                    className="w-full bg-[#1e1f22] border border-[#43454a] p-2 rounded-[var(--radius)] text-xs outline-none focus:border-[#3574f0] text-[#dfe1e5] font-mono"
+                    placeholder="Value..."
+                    onKeyDown={(e) => e.key === 'Enter' && addEnv()}
+                  />
+                </div>
+                <button
+                  onClick={addEnv}
+                  className="bg-[#2b2d30] hover:bg-[#3574f0] text-[#dfe1e5] border border-[#43454a] rounded-[var(--radius)] h-8 w-8 mt-auto flex items-center justify-center shadow-md active:scale-90 transition-all"
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+            </section>
+          </div>
+        </div>
       </div>
     </div>
   );

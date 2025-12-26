@@ -12,6 +12,7 @@ import { SettingsView } from './views/SettingsView';
 import { DependencyView } from './views/DependencyView';
 import { CicdView } from './views/CicdView';
 import { DynamicRoutesView } from './views/DynamicRoutesView';
+import { IncidentsView } from './views/IncidentsView';
 import { LeftSidebar } from './components/LeftSidebar';
 import { NotificationPanel } from './components/NotificationPanel';
 import {
@@ -26,47 +27,27 @@ import { NotificationProvider, useNotifications } from './components/Notificatio
 import { RightSidebar } from './components/RightSidebar';
 import { CommandPalette } from './components/CommandPalette';
 
-const IncidentsView: React.FC = () => (
-  <div className="h-full p-6">
-    <TerminalFrame title="INCIDENT LOGS" className="h-full">
-      <div className="overflow-auto h-full">
-        <table className="w-full text-left text-sm border-collapse">
-          <thead className="bg-white/5 font-mono text-xs text-gray-400">
-            <tr>
-              <th className="p-4 font-normal">TIME</th>
-              <th className="p-4 font-normal">SERVICE</th>
-              <th className="p-4 font-normal">NODE</th>
-              <th className="p-4 font-normal">ISSUE</th>
-              <th className="p-4 font-normal">STATUS</th>
-            </tr>
-          </thead>
-          <tbody className="text-gray-300 font-mono text-xs">
-            {MOCK_INCIDENTS.map((inc) => (
-              <tr key={inc.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                <td className="p-4 text-gray-500">{inc.time}</td>
-                <td className="p-4">{inc.service}</td>
-                <td className="p-4 text-gray-500">{inc.node}</td>
-                <td className="p-4 text-yellow-500">{inc.issue}</td>
-                <td className="p-4">
-                  <span className={`px-2 py-1 rounded text-[10px] ${inc.status === 'RESOLVED' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
-                    {inc.status}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </TerminalFrame>
-  </div>
-);
 
 const AppContent: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    const saved = localStorage.getItem('worpen_sidebar_open');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(() => {
+    const saved = localStorage.getItem('worpen_right_sidebar_open');
+    return saved !== null ? JSON.parse(saved) : false;
+  });
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('worpen_sidebar_open', JSON.stringify(sidebarOpen));
+  }, [sidebarOpen]);
+
+  useEffect(() => {
+    localStorage.setItem('worpen_right_sidebar_open', JSON.stringify(rightSidebarOpen));
+  }, [rightSidebarOpen]);
 
   // Map URL paths to ViewState
   const pathToView: Record<string, ViewState> = {
@@ -123,14 +104,9 @@ const AppContent: React.FC = () => {
   const toggleRightSidebar = () => setRightSidebarOpen(!rightSidebarOpen);
 
   return (
-    <div className="flex h-screen w-full bg-[#030303] text-gray-200 selection:bg-green-500/30 overflow-hidden font-sans">
+    <div className="flex h-screen w-full bg-[var(--bg-deep)] text-[var(--text-main)] selection:bg-[#3574f030] overflow-hidden">
 
       <CommandPalette isOpen={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} />
-
-      {/* FIXED BACKGROUND LAYER - Decoupled from layout resizing */}
-      <div className="fixed inset-0 bg-[#030303] z-0"></div>
-      <div className="fixed inset-0 bg-[linear-gradient(to_right,#111_1px,transparent_1px),linear-gradient(to_bottom,#111_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20 pointer-events-none z-0"></div>
-      <div className="fixed inset-0 bg-[radial-gradient(circle_at_center,rgba(0,255,65,0.03),transparent_70%)] pointer-events-none z-0"></div>
 
       {/* LEFT SIDEBAR */}
       <LeftSidebar
@@ -140,57 +116,60 @@ const AppContent: React.FC = () => {
       />
 
       {/* MAIN CONTENT */}
-      <div className="flex-1 flex flex-col min-w-0 bg-transparent relative z-10">
+      <div className="flex-1 flex flex-col min-w-0 bg-transparent relative">
 
         {/* HEADER */}
-        <header className="h-16 flex items-center justify-between px-6 border-b border-white/5 bg-[#030303]/80 backdrop-blur-sm sticky top-0 z-10 flex-shrink-0">
+        <header className="h-12 flex items-center justify-between px-4 border-b border-[#43454a] bg-[#2b2d30] sticky top-0 z-10 flex-shrink-0">
           <div className="flex items-center gap-4">
-            <button onClick={toggleSidebar} className="text-gray-500 hover:text-white transition-colors">
-              {sidebarOpen ? <Menu size={20} /> : <ChevronRight size={20} />}
+            <button
+              onClick={toggleSidebar}
+              className="text-[#6e7073] hover:text-[#dfe1e5] transition-colors p-1 hover:bg-[#393b40] rounded-[var(--radius)]"
+            >
+              <Menu size={16} />
             </button>
 
             {/* Breadcrumbs */}
-            <div className="hidden md:flex items-center gap-2 text-sm text-gray-500 font-mono">
-              <span className="text-gray-600">worpen</span>
-              <span className="text-gray-700">/</span>
-              <span className="text-green-500 tracking-wider uppercase">{currentView.toLowerCase()}</span>
+            <div className="hidden md:flex items-center gap-2 text-[12px] font-medium text-[#6e7073]">
+              <span>worpen</span>
+              <span className="text-[#43454a]">/</span>
+              <span className="text-[#3574f0] font-semibold">{currentView}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            {/* Command Palette Trigger */}
+          <div className="flex items-center gap-3">
+            {/* Search Bar */}
             <button
               onClick={() => setCommandPaletteOpen(true)}
-              className="hidden md:flex items-center gap-3 px-3 py-1.5 bg-white/5 rounded-md border border-white/10 text-gray-500 w-64 hover:bg-white/10 hover:border-white/20 transition-all group"
+              className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-[#1e1f22] rounded-[var(--radius)] border border-[#43454a] text-[#6e7073] w-64 hover:border-[#6a6e75] transition-all group"
             >
-              <Search size={14} className="group-hover:text-white transition-colors" />
-              <span className="text-xs">Search resources...</span>
+              <Search size={14} className="group-hover:text-[#dfe1e5]" />
+              <span className="text-[12px]">Search ...</span>
               <div className="ml-auto flex gap-1">
-                <span className="text-[10px] border border-white/10 px-1.5 rounded bg-black text-gray-400">⌘K</span>
+                <span className="text-[10px] border border-[#43454a] px-1 rounded bg-[#2b2d30] text-[#6e7073]">⌘K</span>
               </div>
             </button>
 
             {/* Actions */}
-            <div className="flex items-center gap-2 border-l border-white/10 pl-4 ml-2">
+            <div className="flex items-center gap-1 border-l border-[#43454a] pl-3 ml-1">
               <NotificationPanel />
 
               <button
                 onClick={toggleRightSidebar}
-                className={`transition-colors p-2 rounded-md hover:bg-white/5 ${rightSidebarOpen ? 'text-green-400 bg-green-500/10' : 'text-gray-500 hover:text-white'}`}
-                title="Toggle Command Center"
+                className={`transition-colors p-1.5 rounded-[var(--radius)] ${rightSidebarOpen ? 'text-[#3574f0] bg-[#3574f020]' : 'text-[#6e7073] hover:text-[#dfe1e5] hover:bg-[#393b40]'}`}
+                title="Command Center"
               >
-                <PanelRight size={20} />
+                <PanelRight size={18} />
               </button>
 
-              <button className="text-gray-500 hover:text-red-500 hover:bg-red-500/10 p-2 rounded-md transition-colors ml-2">
-                <Power size={20} />
+              <button className="text-[#6e7073] hover:text-[#e06c75] hover:bg-[#e06c7515] p-1.5 rounded-[var(--radius)] transition-colors">
+                <Power size={18} />
               </button>
             </div>
           </div>
         </header>
 
         {/* VIEWPORT */}
-        <main className="flex-1 overflow-y-auto custom-scrollbar relative p-1 overflow-x-hidden">
+        <main className="flex-1 overflow-y-auto custom-scrollbar relative bg-[#1e1f22] m-1.5 rounded-[var(--radius)] border border-[#43454a] shadow-inner overflow-x-hidden">
           <AnimatePresence mode="wait">
             <PageTransition key={location.pathname} className="h-full">
               <Routes location={location}>
@@ -209,22 +188,22 @@ const AppContent: React.FC = () => {
         </main>
 
         {/* STATUS BAR */}
-        <div className="h-6 bg-[#050505] border-t border-white/5 flex items-center justify-between px-4 text-[10px] font-mono text-gray-500 select-none z-20">
+        <div className="h-6 bg-[#2b2d30] border-t border-[#43454a] flex items-center justify-between px-3 text-[11px] font-medium text-[#6e7073] select-none z-20">
           <div className="flex items-center gap-4">
-            <span className="flex items-center gap-1.5 text-green-500">
-              <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-              SYSTEM_OPERATIONAL
+            <span className="flex items-center gap-1.5 text-[#59a869]">
+              <div className="w-2 h-2 bg-[#59a869] rounded-full"></div>
+              OPERATIONAL
             </span>
-            <span className="flex items-center gap-1">
-              <Wifi size={10} /> 12ms
+            <span className="flex items-center gap-1 hover:text-[#dfe1e5] cursor-pointer">
+              <Wifi size={12} /> 12ms
             </span>
-            <span className="flex items-center gap-1">
-              <Cpu size={10} /> 14%
+            <span className="flex items-center gap-1 hover:text-[#dfe1e5] cursor-pointer">
+              <Cpu size={12} /> 14%
             </span>
           </div>
           <div className="flex items-center gap-4">
-            <span>WS: CONNECTED</span>
-            <span>BUILD: 2409.12</span>
+            <span className="hover:text-[#dfe1e5] cursor-pointer">WS: CONNECTED</span>
+            <span className="hover:text-[#dfe1e5] cursor-pointer border-l border-[#43454a] pl-4">BUILD: 2409.12</span>
           </div>
         </div>
 
