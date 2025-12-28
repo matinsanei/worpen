@@ -60,7 +60,7 @@ fn resolve_string_template(template: &str, context: &HashMap<String, Value>) -> 
 }
 
 /// Evaluate an expression with context
-fn evaluate_expression(expr_str: &str, context: &HashMap<String, Value>) -> Result<Value, String> {
+pub fn evaluate_expression(expr_str: &str, context: &HashMap<String, Value>) -> Result<Value, String> {
     // Tokenize
     let mut tokenizer = Tokenizer::new(expr_str);
     let tokens = tokenizer.tokenize()

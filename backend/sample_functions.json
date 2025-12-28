@@ -1,0 +1,59 @@
+﻿[
+  {
+    "name": "calculate_total",
+    "params": ["price", "tax_rate", "discount"],
+    "logic": [
+      {
+        "set": {
+          "var": "tax_amount",
+          "value": "${price * tax_rate / 100}"
+        }
+      },
+      {
+        "set": {
+          "var": "discount_amount",
+          "value": "${price * discount / 100}"
+        }
+      },
+      {
+        "set": {
+          "var": "result",
+          "value": "${price + tax_amount - discount_amount}"
+        }
+      }
+    ]
+  },
+  {
+    "name": "validate_email",
+    "params": ["email"],
+    "logic": [
+      {
+        "set": {
+          "var": "is_valid",
+          "value": "${email | regex_match('@.*\\.com$')}"
+        }
+      },
+      {
+        "if": {
+          "condition": "${is_valid}",
+          "then": [
+            {
+              "set": {
+                "var": "result",
+                "value": "valid"
+              }
+            }
+          ],
+          "otherwise": [
+            {
+              "set": {
+                "var": "result",
+                "value": "invalid"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+]

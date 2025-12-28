@@ -1,0 +1,52 @@
+﻿{
+  "name": "user_registration",
+  "path": "/api/register",
+  "method": "POST",
+  "logic": [
+    {
+      "call_function": {
+        "name": "validate_email",
+        "args": ["${request.body.email}"],
+        "output_var": "email_validation"
+      }
+    },
+    {
+      "if": {
+        "condition": "${email_validation == 'invalid'}",
+        "then": [
+          {
+            "return": {
+              "value": {
+                "error": "Invalid email format",
+                "status": 400
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "call_function": {
+        "name": "calculate_total",
+        "args": ["${request.body.price}", "9.5", "5"],
+        "output_var": "total_price"
+      }
+    },
+    {
+      "call_function": {
+        "name": "process_payment",
+        "args": ["${total_price}", "${request.body.card.number}", "${request.body.card.expiry}", "${request.body.card.cvv}"],
+        "output_var": "payment_result"
+      }
+    },
+    {
+      "return": {
+        "value": {
+          "message": "Registration successful",
+          "total_paid": "${total_price}",
+          "transaction_id": "${payment_result.transaction_id}"
+        }
+      }
+    }
+  ]
+}

@@ -4,6 +4,7 @@
 use proto::models::{LogicOperation, DynamicRouteExecutionContext, FunctionDefinition, ErrorContext};
 use serde_json::Value;
 use futures::future::join_all;
+use reqwest;
 
 /// Execute advanced logic operations with full feature support
 pub async fn execute_logic_extended(
@@ -61,17 +62,65 @@ pub async fn execute_logic_extended(
             },
             
             // ===== HTTP REQUESTS (ASYNC) =====
-            LogicOperation::HttpRequest { url, method, body, headers: _, timeout_ms: _ } => {
+            LogicOperation::HttpRequest { url, method, body, headers, timeout_ms } => {
                 steps.push(format!("HTTP {} request to: {}", method, url));
                 
-                // Resolve URL and body with variables
+                // Resolve URL with variables
                 let resolved_url = resolve_string(url, &context);
-                let _resolved_body = body.as_ref().map(|b| resolve_variables(b, &context));
                 
-                // TODO: Implement real HTTP client (reqwest)
+                // Create HTTP client
+                let mut client_builder = reqwest::Client::builder();
+                
+                // Set timeout if specified
+                if let Some(timeout) = timeout_ms {
+                    client_builder = client_builder.timeout(std::time::Duration::from_millis(*timeout));
+                }
+                
+                let client = client_builder.build().map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+                
+                // Build request
+                let mut request_builder = match method.as_str() {
+                    "GET" => client.get(&resolved_url),
+                    "POST" => client.post(&resolved_url),
+                    "PUT" => client.put(&resolved_url),
+                    "DELETE" => client.delete(&resolved_url),
+                    "PATCH" => client.patch(&resolved_url),
+                    "HEAD" => client.head(&resolved_url),
+                    _ => return Err(format!("Unsupported HTTP method: {}", method)),
+                };
+                
+                // Add headers if present
+                if let Some(hdrs) = headers {
+                    for (key, value) in hdrs {
+                        let resolved_value = resolve_string(value, &context);
+                        request_builder = request_builder.header(key, resolved_value);
+                    }
+                }
+                
+                // Add body if present
+                if let Some(b) = body {
+                    let resolved_body = resolve_variables(b, &context);
+                    let body_string = match resolved_body {
+                        Value::String(s) => s,
+                        _ => serde_json::to_string(&resolved_body).map_err(|e| format!("Failed to serialize body: {}", e))?,
+                    };
+                    request_builder = request_builder.body(body_string);
+                }
+                
+                // Send request and await response
+                let response = request_builder.send().await.map_err(|e| format!("HTTP request failed: {}", e))?;
+                let status_code = response.status().as_u16();
+                let response_text = response.text().await.map_err(|e| format!("Failed to read response body: {}", e))?;
+                
+                // Try to parse response as JSON, otherwise return as string
+                let response_body = match serde_json::from_str::<Value>(&response_text) {
+                    Ok(json_value) => json_value,
+                    Err(_) => Value::String(response_text),
+                };
+                
                 last_result = serde_json::json!({
-                    "status": 200,
-                    "body": {"message": "HTTP request executed"},
+                    "status": status_code,
+                    "body": response_body,
                     "url": resolved_url,
                     "method": method,
                 });
@@ -320,8 +369,8 @@ pub async fn execute_logic_extended(
             },
             
             // ===== FUNCTION CALL =====
-            LogicOperation::CallFunction { name, args } => {
-                steps.push(format!("Call function: {}", name));
+            LogicOperation::CallFunction { name, args, output_var } => {
+                steps.push(format!("Call function: {} -> {}", name, output_var));
                 
                 if let Some(func_def) = context.functions.get(name).cloned() {
                     let mut func_context = context.clone();
@@ -336,7 +385,7 @@ pub async fn execute_logic_extended(
                     
                     let (result, _updated_context) = Box::pin(execute_logic_extended(&func_def.body, func_context, steps)).await?;
                     last_result = result.clone();
-                    context.variables.insert("function_result".to_string(), result);
+                    context.variables.insert(output_var.clone(), result);
                 } else {
                     return Err(format!("Function '{}' not defined", name));
                 }
@@ -587,12 +636,31 @@ fn resolve_string(template: &str, context: &DynamicRouteExecutionContext) -> Str
         }
     }
     
+    // Then resolve ${...} expressions (evaluate them)
+    use regex::Regex;
+    let expr_re = Regex::new(r"\$\{([^}]+)\}").unwrap();
+    result = expr_re.replace_all(&result, |caps: &regex::Captures| {
+        let expr = &caps[1];
+        // Convert context variables to HashMap for expression evaluation
+        let mut expr_context = std::collections::HashMap::new();
+        for (key, value) in &context.variables {
+            expr_context.insert(key.clone(), value.clone());
+        }
+        // Try to evaluate the expression
+        match crate::expression::template::evaluate_expression(expr, &expr_context) {
+            Ok(value) => match value {
+                Value::String(s) => s,
+                other => other.to_string(),
+            },
+            Err(_) => caps[0].to_string(), // Keep original if evaluation fails
+        }
+    }).to_string();
+    
     // Then resolve regular variables (including nested paths like order.status)
     // Use regex to find all {{...}} patterns
-    use regex::Regex;
-    let re = Regex::new(r"\{\{([^}]+)\}\}").unwrap();
+    let var_re = Regex::new(r"\{\{([^}]+)\}\}").unwrap();
     
-    result = re.replace_all(&result, |caps: &regex::Captures| {
+    result = var_re.replace_all(&result, |caps: &regex::Captures| {
         let path = &caps[1];
         
         // Check if it's a nested path (contains dot)
@@ -628,7 +696,22 @@ fn resolve_string(template: &str, context: &DynamicRouteExecutionContext) -> Str
 fn resolve_variables(value: &Value, context: &DynamicRouteExecutionContext) -> Value {
     match value {
         Value::String(s) => {
-            Value::String(resolve_string(s, context))
+            // Check if it's a pure expression ${...}
+            if s.starts_with("${") && s.ends_with("}") && s.len() > 3 {
+                let expr = &s[2..s.len()-1];
+                // Build context for expression evaluation
+                let mut expr_context = std::collections::HashMap::new();
+                for (key, val) in &context.variables {
+                    expr_context.insert(key.clone(), val.clone());
+                }
+                // Try to evaluate the expression
+                match crate::expression::template::evaluate_expression(expr, &expr_context) {
+                    Ok(evaluated_value) => evaluated_value,
+                    Err(_) => Value::String(resolve_string(s, context)),
+                }
+            } else {
+                Value::String(resolve_string(s, context))
+            }
         },
         Value::Array(arr) => {
             Value::Array(arr.iter().map(|v| resolve_variables(v, context)).collect())

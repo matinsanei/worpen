@@ -224,7 +224,7 @@ pub enum LogicOperation {
     DefineFunction { name: String, params: Vec<String>, body: Vec<LogicOperation> },
     
     #[serde(rename = "call_function")]
-    CallFunction { name: String, args: Vec<serde_json::Value> },
+    CallFunction { name: String, args: Vec<serde_json::Value>, output_var: String },
     
     // Data Transformations
     #[serde(rename = "map")]
@@ -364,6 +364,13 @@ pub struct DynamicRouteExecutionContext {
 pub struct FunctionDefinition {
     pub params: Vec<String>,
     pub body: Vec<LogicOperation>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct FunctionDef {
+    pub name: String,
+    pub params: Vec<String>,
+    pub logic: Vec<LogicOperation>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]

@@ -118,6 +118,8 @@ async fn main() {
         .route("/api/v1/dynamic-routes/:id", get(handlers::get_route).put(handlers::update_route).delete(handlers::delete_route))
         .route("/api/v1/dynamic-routes/:id/execute", post(handlers::execute_route))
         .route("/api/v1/dynamic-routes/:id/export", get(handlers::export_route))
+        // Global Functions for zero-cost inlining
+        .route("/api/v1/global-functions", get(handlers::list_global_functions).post(handlers::define_global_function))
         // Fallback handler برای dynamic routes
         // این handler همه request های ثبت‌نشده رو میگیره
         .fallback(handlers::dynamic_route_fallback)

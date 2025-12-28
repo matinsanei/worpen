@@ -4,7 +4,7 @@ use axum::{
     http::StatusCode,
 };
 use crate::state::AppState;
-use proto::models::{RouteDefinition, RegisterRouteRequest, RouteTestRequest, RouteTestResponse};
+use proto::models::{RouteDefinition, RegisterRouteRequest, RouteTestRequest, RouteTestResponse, FunctionDef};
 use serde_json::Value;
 
 /// Register a new dynamic route
@@ -257,7 +257,59 @@ pub async fn import_route(
         ))
     }
 }
+/// Define a global function for zero-cost inlining
+#[utoipa::path(
+    post,
+    path = "/api/v1/global-functions",
+    request_body = FunctionDef,
+    responses(
+        (status = 201, description = "Global function defined successfully", body = Value),
+        (status = 400, description = "Invalid function definition")
+    )
+)]
+pub async fn define_global_function(
+    State(state): State<AppState>,
+    Json(func): Json<FunctionDef>,
+) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    match state.dynamic_route_service.define_global_function(func.clone()).await {
+        Ok(_) => Ok((
+            StatusCode::CREATED,
+            Json(serde_json::json!({
+                "status": "DEFINED",
+                "function_name": func.name,
+                "message": "Global function defined successfully"
+            }))
+        )),
+        Err(e) => Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "Function definition failed",
+                "message": e
+            }))
+        )),
+    }
+}
 
+/// Get all global functions
+#[utoipa::path(
+    get,
+    path = "/api/v1/global-functions",
+    responses(
+        (status = 200, description = "List of global functions", body = Value)
+    )
+)]
+pub async fn list_global_functions(
+    State(state): State<AppState>,
+) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    let functions = state.dynamic_route_service.get_global_functions().await;
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "functions": functions,
+            "count": functions.len()
+        }))
+    ))
+}
 /// Get route statistics
 #[utoipa::path(
     get,

@@ -1,0 +1,111 @@
+﻿{
+  "name": "user_registration",
+  "path": "/api/register", 
+  "method": "POST",
+  "logic": [
+    // validate_email function inlined:
+    {
+      "set": {
+        "var": "email",
+        "value": "${request.body.email}"
+      }
+    },
+    {
+      "set": {
+        "var": "is_valid",
+        "value": "${email | regex_match('@.*\\.com$')}"
+      }
+    },
+    {
+      "if": {
+        "condition": "${is_valid}",
+        "then": [
+          {
+            "set": {
+              "var": "result",
+              "value": "valid"
+            }
+          }
+        ],
+        "otherwise": [
+          {
+            "set": {
+              "var": "result",
+              "value": "invalid"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "set": {
+        "var": "email_validation",
+        "value": "$result"
+      }
+    },
+    // End of validate_email inlining
+    
+    {
+      "if": {
+        "condition": "${email_validation == 'invalid'}",
+        "then": [
+          {
+            "return": {
+              "value": {
+                "error": "Invalid email format",
+                "status": 400
+              }
+            }
+          }
+        ]
+      }
+    },
+    
+    // calculate_total function inlined:
+    {
+      "set": {
+        "var": "price",
+        "value": "${request.body.price}"
+      }
+    },
+    {
+      "set": {
+        "var": "tax_rate",
+        "value": "9.5"
+      }
+    },
+    {
+      "set": {
+        "var": "discount",
+        "value": "5"
+      }
+    },
+    {
+      "set": {
+        "var": "tax_amount",
+        "value": "${price * tax_rate / 100}"
+      }
+    },
+    {
+      "set": {
+        "var": "discount_amount",
+        "value": "${price * discount / 100}"
+      }
+    },
+    {
+      "set": {
+        "var": "result",
+        "value": "${price + tax_amount - discount_amount}"
+      }
+    },
+    {
+      "set": {
+        "var": "total_price",
+        "value": "$result"
+      }
+    },
+    // End of calculate_total inlining
+    
+    // ... rest of the logic
+  ]
+}

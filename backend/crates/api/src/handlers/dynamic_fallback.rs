@@ -1,17 +1,19 @@
 use axum::{
-    extract::{Request, State},
+    extract::State,
     response::{IntoResponse, Response},
-    http::{StatusCode, Method},
+    http::{StatusCode, Method, Request},
     Json,
+    body::Body,
 };
 use crate::state::AppState;
 use serde_json::Value;
 
 /// Fallback handler برای dynamic routes
 /// این handler همه request های ثبت‌نشده رو میگیره و چک میکنه آیا dynamic route هست
+#[axum::debug_handler]
 pub async fn dynamic_route_fallback(
     State(state): State<AppState>,
-    req: Request,
+    req: Request<Body>,
 ) -> Response {
     let path = req.uri().path().to_string();
     let method = req.method().clone();
@@ -75,7 +77,7 @@ async fn find_dynamic_route(
 async fn execute_dynamic_route(
     state: &AppState,
     route: proto::models::RouteDefinition,
-    req: Request,
+    req: Request<Body>,
 ) -> Result<Response, String> {
     // Extract request data
     let (parts, body) = req.into_parts();
@@ -103,8 +105,24 @@ async fn execute_dynamic_route(
         })
         .unwrap_or_default();
     
-    // Extract path parameters (برای الان خالی - بعداً implement میشه)
-    let path_params: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    // Extract headers
+    let headers: std::collections::HashMap<String, String> = parts
+        .headers
+        .iter()
+        .map(|(name, value)| {
+            (name.to_string(), value.to_str().unwrap_or("").to_string())
+        })
+        .collect();
+    
+    // Extract path parameters by parsing route path
+    let path_params = extract_path_params(&route.path, parts.uri.path());
+    
+    // Create request object for variable resolution
+    let request_object = serde_json::json!({
+        "payload": request_data,
+        "headers": headers,
+        "params": path_params
+    });
     
     // ساخت execution context
     let mut context = proto::models::DynamicRouteExecutionContext {
@@ -117,6 +135,9 @@ async fn execute_dynamic_route(
         loop_control: proto::models::LoopControl::default(),
         error_context: None,
     };
+    
+    // Inject request object into variables for template resolution
+    context.variables.insert("request".to_string(), request_object);
     
     // اجرای logic
     let result = state.dynamic_route_service
@@ -154,4 +175,32 @@ async fn execute_dynamic_route(
     } else {
         Ok((status, Json(response_json)).into_response())
     }
+}
+
+/// Extract path parameters from route path and actual request path
+fn extract_path_params(route_path: &str, request_path: &str) -> std::collections::HashMap<String, String> {
+    let mut params = std::collections::HashMap::new();
+    
+    // Split paths into segments
+    let route_segments: Vec<&str> = route_path.trim_start_matches('/').split('/').collect();
+    let request_segments: Vec<&str> = request_path.trim_start_matches('/').split('/').collect();
+    
+    // If lengths don't match, return empty params
+    if route_segments.len() != request_segments.len() {
+        return params;
+    }
+    
+    // Compare segments
+    for (route_seg, req_seg) in route_segments.iter().zip(request_segments.iter()) {
+        if route_seg.starts_with('{') && route_seg.ends_with('}') {
+            // This is a parameter
+            let param_name = &route_seg[1..route_seg.len()-1];
+            params.insert(param_name.to_string(), req_seg.to_string());
+        } else if route_seg != req_seg {
+            // Static segments don't match, return empty params
+            return std::collections::HashMap::new();
+        }
+    }
+    
+    params
 }
