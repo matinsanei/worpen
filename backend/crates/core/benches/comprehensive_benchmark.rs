@@ -99,7 +99,7 @@ fn bench_evaluate_arithmetic(c: &mut Criterion) {
     });
 }
 
-fn bench_evaluate_with_variables(c: &mut Criterion) {
+fn bench_evaluate_owned_variables(c: &mut Criterion) {
     let mut tokenizer = Tokenizer::new("a + b * c");
     let tokens = tokenizer.tokenize().unwrap();
     let mut parser = Parser::new(tokens);
@@ -110,9 +110,28 @@ fn bench_evaluate_with_variables(c: &mut Criterion) {
     context.insert("b".to_string(), json!(20));
     context.insert("c".to_string(), json!(5));
     
-    c.bench_function("evaluate_with_variables", |b| {
+    c.bench_function("evaluate_owned_variables", |b| {
         b.iter(|| {
             let evaluator = Evaluator::with_variables(context.clone());
+            evaluator.evaluate(black_box(&ast)).unwrap()
+        })
+    });
+}
+
+fn bench_evaluate_borrowed_variables(c: &mut Criterion) {
+    let mut tokenizer = Tokenizer::new("a + b * c");
+    let tokens = tokenizer.tokenize().unwrap();
+    let mut parser = Parser::new(tokens);
+    let ast = parser.parse().unwrap();
+    
+    let mut context = HashMap::new();
+    context.insert("a".to_string(), json!(10));
+    context.insert("b".to_string(), json!(20));
+    context.insert("c".to_string(), json!(5));
+    
+    c.bench_function("evaluate_borrowed_variables", |b| {
+        b.iter(|| {
+            let evaluator = Evaluator::with_borrowed_variables(&context);
             evaluator.evaluate(black_box(&ast)).unwrap()
         })
     });
@@ -129,7 +148,7 @@ fn bench_pipe_single_filter(c: &mut Criterion) {
     
     c.bench_function("pipe_single_filter", |b| {
         b.iter(|| {
-            let evaluator = Evaluator::with_variables(context.clone());
+            let evaluator = Evaluator::with_borrowed_variables(&context);
             evaluator.evaluate(black_box(&ast)).unwrap()
         })
     });
@@ -146,7 +165,7 @@ fn bench_pipe_multiple_filters(c: &mut Criterion) {
     
     c.bench_function("pipe_multiple_filters", |b| {
         b.iter(|| {
-            let evaluator = Evaluator::with_variables(context.clone());
+            let evaluator = Evaluator::with_borrowed_variables(&context);
             evaluator.evaluate(black_box(&ast)).unwrap()
         })
     });
@@ -163,7 +182,7 @@ fn bench_ternary_operator(c: &mut Criterion) {
     
     c.bench_function("ternary_operator", |b| {
         b.iter(|| {
-            let evaluator = Evaluator::with_variables(context.clone());
+            let evaluator = Evaluator::with_borrowed_variables(&context);
             evaluator.evaluate(black_box(&ast)).unwrap()
         })
     });
@@ -182,7 +201,7 @@ fn bench_function_call(c: &mut Criterion) {
     
     c.bench_function("function_call", |b| {
         b.iter(|| {
-            let evaluator = Evaluator::with_variables(context.clone());
+            let evaluator = Evaluator::with_borrowed_variables(&context);
             evaluator.evaluate(black_box(&ast)).unwrap()
         })
     });
@@ -200,7 +219,7 @@ fn bench_string_concatenation(c: &mut Criterion) {
     
     c.bench_function("string_concatenation", |b| {
         b.iter(|| {
-            let evaluator = Evaluator::with_variables(context.clone());
+            let evaluator = Evaluator::with_borrowed_variables(&context);
             evaluator.evaluate(black_box(&ast)).unwrap()
         })
     });
@@ -222,7 +241,7 @@ fn bench_complex_business_logic(c: &mut Criterion) {
     
     c.bench_function("complex_business_logic", |b| {
         b.iter(|| {
-            let evaluator = Evaluator::with_variables(context.clone());
+            let evaluator = Evaluator::with_borrowed_variables(&context);
             evaluator.evaluate(black_box(&ast)).unwrap()
         })
     });
@@ -241,7 +260,7 @@ fn bench_nested_ternary(c: &mut Criterion) {
     
     c.bench_function("nested_ternary", |b| {
         b.iter(|| {
-            let evaluator = Evaluator::with_variables(context.clone());
+            let evaluator = Evaluator::with_borrowed_variables(&context);
             evaluator.evaluate(black_box(&ast)).unwrap()
         })
     });
@@ -258,7 +277,7 @@ fn bench_array_filter_pipe(c: &mut Criterion) {
     
     c.bench_function("array_filter_pipe", |b| {
         b.iter(|| {
-            let evaluator = Evaluator::with_variables(context.clone());
+            let evaluator = Evaluator::with_borrowed_variables(&context);
             evaluator.evaluate(black_box(&ast)).unwrap()
         })
     });
@@ -308,7 +327,8 @@ criterion_group!(
 criterion_group!(
     evaluator_benches,
     bench_evaluate_arithmetic,
-    bench_evaluate_with_variables,
+    bench_evaluate_owned_variables,
+    bench_evaluate_borrowed_variables,
     bench_function_call,
     bench_string_concatenation,
     bench_complex_business_logic

@@ -1,0 +1,81 @@
+{
+  "id": "5e500a7e-7f2a-4315-b3ab-ba3f77979e92",
+  "name": "benchmark_function",
+  "description": "",
+  "path": "/api/benchmark/function",
+  "method": "POST",
+  "logic": [
+    {
+      "set": {
+        "var": "_0_price",
+        "value": "{{request.payload.price}}"
+      }
+    },
+    {
+      "set": {
+        "var": "_0_quantity",
+        "value": "{{request.payload.quantity}}"
+      }
+    },
+    {
+      "math_op": {
+        "operation": "multiply",
+        "args": [
+          "{{_0_price}}",
+          "{{_0_quantity}}"
+        ]
+      }
+    },
+    {
+      "set": {
+        "var": "_0_subtotal",
+        "value": "{{math_result}}"
+      }
+    },
+    {
+      "if": {
+        "condition": "{{_0_subtotal}} > 1000",
+        "then": [
+          {
+            "math_op": {
+              "operation": "multiply",
+              "args": [
+                "{{_0_subtotal}}",
+                0.9
+              ]
+            }
+          }
+        ],
+        "otherwise": null
+      }
+    },
+    {
+      "set": {
+        "var": "_0_result",
+        "value": "{{math_result}}"
+      }
+    },
+    {
+      "set": {
+        "var": "final_price",
+        "value": "${_0_result}"
+      }
+    },
+    {
+      "return": {
+        "value": {
+          "final_price": "{{final_price}}"
+        }
+      }
+    }
+  ],
+  "parameters": [],
+  "response_schema": null,
+  "auth_required": false,
+  "rate_limit": null,
+  "enabled": true,
+  "version": "1.0.0",
+  "created_at": "2025-12-30T16:15:49.325429200+00:00",
+  "updated_at": "2025-12-30T16:15:49.325429200+00:00",
+  "created_by": "system"
+}

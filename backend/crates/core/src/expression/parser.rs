@@ -3,31 +3,32 @@
 
 use crate::expression::tokenizer::{Token, TokenType};
 use crate::expression::ast::{Expr, BinaryOp, UnaryOp, PipeFilter};
+use std::borrow::Cow;
 
-pub struct Parser {
-    tokens: Vec<Token>,
+pub struct Parser<'a> {
+    tokens: Vec<Token<'a>>,
     current: usize,
 }
 
-impl Parser {
-    pub fn new(tokens: Vec<Token>) -> Self {
+impl<'a> Parser<'a> {
+    pub fn new(tokens: Vec<Token<'a>>) -> Self {
         Self {
             tokens,
             current: 0,
         }
     }
     
-    pub fn parse(&mut self) -> Result<Expr, String> {
+    pub fn parse(&mut self) -> Result<Expr<'a>, String> {
         self.expression()
     }
     
     // expression → ternary
-    fn expression(&mut self) -> Result<Expr, String> {
+    fn expression(&mut self) -> Result<Expr<'a>, String> {
         self.ternary()
     }
     
     // ternary → pipe ( "?" expression ":" expression )?
-    fn ternary(&mut self) -> Result<Expr, String> {
+    fn ternary(&mut self) -> Result<Expr<'a>, String> {
         let mut expr = self.pipe()?;
         
         if self.match_token(&TokenType::Question) {
@@ -46,7 +47,7 @@ impl Parser {
     }
     
     // pipe → logical_or ( "|" IDENTIFIER ( "(" arguments? ")" )? )*
-    fn pipe(&mut self) -> Result<Expr, String> {
+    fn pipe(&mut self) -> Result<Expr<'a>, String> {
         let mut expr = self.logical_or()?;
         
         if self.check(&TokenType::Pipe) {
@@ -55,7 +56,7 @@ impl Parser {
             while self.match_token(&TokenType::Pipe) {
                 let name = match &self.peek().token_type {
                     TokenType::Identifier(n) => {
-                        let name = n.clone();
+                        let name = n.clone(); // Clone Cow, cheap (shallow copy of reference or deep copy of string if owned)
                         self.advance();
                         name
                     }
@@ -87,7 +88,7 @@ impl Parser {
     }
     
     // logical_or → logical_and ( "||" logical_and )*
-    fn logical_or(&mut self) -> Result<Expr, String> {
+    fn logical_or(&mut self) -> Result<Expr<'a>, String> {
         let mut left = self.logical_and()?;
         
         while self.match_token(&TokenType::PipePipe) {
@@ -103,7 +104,7 @@ impl Parser {
     }
     
     // logical_and → equality ( "&&" equality )*
-    fn logical_and(&mut self) -> Result<Expr, String> {
+    fn logical_and(&mut self) -> Result<Expr<'a>, String> {
         let mut left = self.equality()?;
         
         while self.match_token(&TokenType::AmpAmp) {
@@ -119,7 +120,7 @@ impl Parser {
     }
     
     // equality → comparison ( ( "==" | "!=" ) comparison )*
-    fn equality(&mut self) -> Result<Expr, String> {
+    fn equality(&mut self) -> Result<Expr<'a>, String> {
         let mut left = self.comparison()?;
         
         while let Some(op) = self.match_any(&[TokenType::EqEq, TokenType::BangEq]) {
@@ -140,7 +141,7 @@ impl Parser {
     }
     
     // comparison → addition ( ( "<" | "<=" | ">" | ">=" ) addition )*
-    fn comparison(&mut self) -> Result<Expr, String> {
+    fn comparison(&mut self) -> Result<Expr<'a>, String> {
         let mut left = self.addition()?;
         
         while let Some(op) = self.match_any(&[TokenType::Lt, TokenType::LtEq, TokenType::Gt, TokenType::GtEq]) {
@@ -163,7 +164,7 @@ impl Parser {
     }
     
     // addition → multiplication ( ( "+" | "-" ) multiplication )*
-    fn addition(&mut self) -> Result<Expr, String> {
+    fn addition(&mut self) -> Result<Expr<'a>, String> {
         let mut left = self.multiplication()?;
         
         while let Some(op) = self.match_any(&[TokenType::Plus, TokenType::Minus]) {
@@ -184,7 +185,7 @@ impl Parser {
     }
     
     // multiplication → power ( ( "*" | "/" | "%" ) power )*
-    fn multiplication(&mut self) -> Result<Expr, String> {
+    fn multiplication(&mut self) -> Result<Expr<'a>, String> {
         let mut left = self.power()?;
         
         while let Some(op) = self.match_any(&[TokenType::Star, TokenType::Slash, TokenType::Percent]) {
@@ -206,7 +207,7 @@ impl Parser {
     }
     
     // power → unary ( "**" unary )*
-    fn power(&mut self) -> Result<Expr, String> {
+    fn power(&mut self) -> Result<Expr<'a>, String> {
         let mut left = self.unary()?;
         
         while self.match_token(&TokenType::StarStar) {
@@ -222,7 +223,7 @@ impl Parser {
     }
     
     // unary → ( "!" | "-" ) unary | call
-    fn unary(&mut self) -> Result<Expr, String> {
+    fn unary(&mut self) -> Result<Expr<'a>, String> {
         if let Some(op) = self.match_any(&[TokenType::Bang, TokenType::Minus]) {
             let unary_op = match op {
                 TokenType::Bang => UnaryOp::Not,
@@ -240,7 +241,7 @@ impl Parser {
     }
     
     // call → primary ( "(" arguments? ")" )*
-    fn call(&mut self) -> Result<Expr, String> {
+    fn call(&mut self) -> Result<Expr<'a>, String> {
         let mut expr = self.primary()?;
         
         while self.match_token(&TokenType::LParen) {
@@ -262,7 +263,7 @@ impl Parser {
     }
     
     // arguments → expression ( "," expression )*
-    fn arguments(&mut self) -> Result<Vec<Expr>, String> {
+    fn arguments(&mut self) -> Result<Vec<Expr<'a>>, String> {
         let mut args = vec![self.expression()?];
         
         while self.match_token(&TokenType::Comma) {
@@ -274,7 +275,7 @@ impl Parser {
     
     // primary → NUMBER | STRING | "true" | "false" | "null"
     //         | IDENTIFIER | "(" expression ")" | "[" array "]" | "{" object "}"
-    fn primary(&mut self) -> Result<Expr, String> {
+    fn primary(&mut self) -> Result<Expr<'a>, String> {
         let token = self.peek().clone();
         
         match &token.token_type {
@@ -284,7 +285,7 @@ impl Parser {
             }
             TokenType::String(s) => {
                 self.advance();
-                Ok(Expr::String(s.clone()))
+                Ok(Expr::String(s.clone())) // Zero-copy move/clone of Cow
             }
             TokenType::True => {
                 self.advance();
@@ -300,7 +301,7 @@ impl Parser {
             }
             TokenType::Identifier(name) => {
                 self.advance();
-                Ok(Expr::Variable(name.clone()))
+                Ok(Expr::Variable(name.clone())) // Zero-copy move/clone of Cow
             }
             TokenType::LParen => {
                 self.advance();
@@ -332,7 +333,7 @@ impl Parser {
         }
     }
     
-    fn array_items(&mut self) -> Result<Vec<Expr>, String> {
+    fn array_items(&mut self) -> Result<Vec<Expr<'a>>, String> {
         let mut items = vec![self.expression()?];
         
         while self.match_token(&TokenType::Comma) {
@@ -342,7 +343,7 @@ impl Parser {
         Ok(items)
     }
     
-    fn object_pairs(&mut self) -> Result<Vec<(String, Expr)>, String> {
+    fn object_pairs(&mut self) -> Result<Vec<(Cow<'a, str>, Expr<'a>)>, String> {
         let mut pairs = Vec::new();
         
         loop {
@@ -374,7 +375,7 @@ impl Parser {
     
     // Helper methods
     fn match_token(&mut self, token_type: &TokenType) -> bool {
-        if self.check(token_type) {
+        if self.check_type(token_type) {
             self.advance();
             true
         } else {
@@ -382,9 +383,9 @@ impl Parser {
         }
     }
     
-    fn match_any(&mut self, types: &[TokenType]) -> Option<TokenType> {
+    fn match_any(&mut self, types: &[TokenType]) -> Option<TokenType<'a>> {
         for t in types {
-            if self.check(t) {
+            if self.check_type(t) {
                 let matched = self.peek().token_type.clone();
                 self.advance();
                 return Some(matched);
@@ -394,11 +395,16 @@ impl Parser {
     }
     
     fn check(&self, token_type: &TokenType) -> bool {
+        self.check_type(token_type)
+    }
+    
+    fn check_type(&self, token_type: &TokenType) -> bool {
         if self.is_at_end() {
-            false
-        } else {
-            std::mem::discriminant(&self.peek().token_type) == std::mem::discriminant(token_type)
+            return false;
         }
+        
+        let current = &self.peek().token_type;
+        std::mem::discriminant(current) == std::mem::discriminant(token_type)
     }
     
     fn advance(&mut self) {
@@ -411,12 +417,12 @@ impl Parser {
         matches!(self.peek().token_type, TokenType::Eof)
     }
     
-    fn peek(&self) -> &Token {
+    fn peek(&self) -> &Token<'a> {
         &self.tokens[self.current]
     }
     
     fn consume(&mut self, token_type: &TokenType, message: &str) -> Result<(), String> {
-        if self.check(token_type) {
+        if self.check_type(token_type) {
             self.advance();
             Ok(())
         } else {
@@ -430,7 +436,7 @@ mod tests {
     use super::*;
     use crate::expression::tokenizer::Tokenizer;
     
-    fn parse(input: &str) -> Result<Expr, String> {
+    fn parse(input: &str) -> Result<Expr<'_>, String> {
         let mut tokenizer = Tokenizer::new(input);
         let tokens = tokenizer.tokenize()?;
         let mut parser = Parser::new(tokens);

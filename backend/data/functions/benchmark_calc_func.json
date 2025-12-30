@@ -1,0 +1,47 @@
+{
+  "name": "benchmark_calc_func",
+  "params": [
+    "price",
+    "quantity"
+  ],
+  "logic": [
+    {
+      "math_op": {
+        "operation": "multiply",
+        "args": [
+          "{{price}}",
+          "{{quantity}}"
+        ]
+      }
+    },
+    {
+      "set": {
+        "var": "subtotal",
+        "value": "{{math_result}}"
+      }
+    },
+    {
+      "if": {
+        "condition": "{{subtotal}} > 1000",
+        "then": [
+          {
+            "math_op": {
+              "operation": "multiply",
+              "args": [
+                "{{subtotal}}",
+                0.9
+              ]
+            }
+          }
+        ],
+        "otherwise": null
+      }
+    },
+    {
+      "set": {
+        "var": "result",
+        "value": "{{math_result}}"
+      }
+    }
+  ]
+}

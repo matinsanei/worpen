@@ -7,13 +7,16 @@ use proto::models::{
 };
 use serde_json::Value;
 use regex;
-use crate::services::dynamic_routes_extended::execute_logic_extended;
+use super::execution::execute_logic_extended;
+use super::cache::ExecutionPlan;
 
 pub struct DynamicRouteService {
     // In production, this would be a repository
     routes: Arc<std::sync::RwLock<HashMap<String, RouteDefinition>>>,
     // Global function registry for zero-cost inlining
     global_functions: Arc<std::sync::RwLock<HashMap<String, FunctionDef>>>,
+    // Hot routes cache for optimized execution
+    hot_routes_cache: Arc<std::sync::RwLock<HashMap<String, Arc<ExecutionPlan>>>>,
     data_dir: String,
 }
 
@@ -32,6 +35,7 @@ impl DynamicRouteService {
         let service = Self {
             routes: Arc::new(std::sync::RwLock::new(HashMap::new())),
             global_functions: Arc::new(std::sync::RwLock::new(HashMap::new())),
+            hot_routes_cache: Arc::new(std::sync::RwLock::new(HashMap::new())),
             data_dir,
         };
         // Load persisted data
@@ -92,6 +96,10 @@ impl DynamicRouteService {
         route.updated_at = chrono::Utc::now().to_rfc3339();
         routes.insert(route_id.to_string(), route.clone());
         
+        // Invalidate cache
+        let mut cache = self.hot_routes_cache.write().unwrap();
+        cache.remove(route_id);
+        
         // Persist to disk
         self.save_route(&route)?;
         
@@ -104,6 +112,11 @@ impl DynamicRouteService {
         if routes.remove(route_id).is_none() {
             return Err("Route not found".to_string());
         }
+        
+        // Invalidate cache
+        let mut cache = self.hot_routes_cache.write().unwrap();
+        cache.remove(route_id);
+
         // Delete from disk
         self.delete_route_file(route_id)?;
         Ok(())
@@ -172,17 +185,41 @@ impl DynamicRouteService {
         path_params: HashMap<String, String>,
         query_params: HashMap<String, String>,
     ) -> Result<Value, String> {
-        let route = {
+        // Fast path: Check hot cache first
+        let cached_plan = {
+            let cache = self.hot_routes_cache.read().unwrap();
+            cache.get(route_id).cloned()
+        };
+
+        let plan = if let Some(p) = cached_plan {
+            p
+        } else {
+            // Cold path: Load definition, process, and cache
             let routes = self.routes.read().unwrap();
-            routes.get(route_id).cloned()
-                .ok_or_else(|| "Route not found".to_string())?
+            let route = routes.get(route_id)
+                .ok_or_else(|| "Route not found".to_string())?;
+            
+            // Critical Optimization: Flatten logic tree (inline functions) before caching
+            let optimized_logic = self.inline_logic(&route.logic, 0)?;
+                
+            let new_plan = Arc::new(ExecutionPlan::new(
+                optimized_logic,
+                route.enabled,
+                route.version.clone(),
+            ));
+            
+            // Store in cache
+            let mut cache = self.hot_routes_cache.write().unwrap();
+            cache.insert(route_id.to_string(), new_plan.clone());
+            
+            new_plan
         };
         
-        if !route.enabled {
+        if !plan.enabled {
             return Err("Route is disabled".to_string());
         }
         
-        let context = DynamicRouteExecutionContext {
+        let mut context = DynamicRouteExecutionContext {
             route_id: route_id.to_string(),
             variables: HashMap::new(),
             request_payload: payload,
@@ -194,7 +231,8 @@ impl DynamicRouteService {
         };
         
         let mut steps = Vec::new();
-        let (result, _context) = execute_logic_extended(&route.logic, context, &mut steps).await?;
+        // Execute using the cached optimized logic
+        let result = execute_logic_extended(&plan.logic, &mut context, &mut steps).await?;
         Ok(result)
     }
 
@@ -202,11 +240,11 @@ impl DynamicRouteService {
     fn execute_logic<'a>(
         &'a self,
         operations: &'a [LogicOperation],
-        context: DynamicRouteExecutionContext,
+        mut context: DynamicRouteExecutionContext,
         steps: &'a mut Vec<String>,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Value, String>> + Send + 'a>> {
         Box::pin(async move {
-            let (result, _context) = execute_logic_extended(operations, context, steps).await?;
+            let result = execute_logic_extended(operations, &mut context, steps).await?;
             Ok(result)
         })
     }
@@ -287,6 +325,16 @@ impl DynamicRouteService {
 
         for operation in logic {
             match operation {
+                LogicOperation::DefineFunction { name, params, body } => {
+                    // Register the function in the global registry
+                    let mut functions = self.global_functions.write().unwrap();
+                    functions.insert(name.clone(), FunctionDef {
+                        name: name.clone(),
+                        params: params.clone(),
+                        logic: body.clone(),
+                    });
+                    // Don't add to result - function definition is processed at registration time
+                },
                 LogicOperation::CallFunction { name, args, output_var } => {
                     // Look up the function logic from the global store
                     if let Some(func_def) = functions.get(name) {
@@ -415,6 +463,16 @@ impl DynamicRouteService {
 
         for operation in logic {
             match operation {
+                LogicOperation::DefineFunction { name, params, body } => {
+                    // Register the function in the global registry (even from within scoped logic)
+                    let mut functions = self.global_functions.write().unwrap();
+                    functions.insert(name.clone(), FunctionDef {
+                        name: name.clone(),
+                        params: params.clone(),
+                        logic: body.clone(),
+                    });
+                    // Don't add to result - function definition is processed at registration time
+                },
                 LogicOperation::Set { var, value } => {
                     // Scope the variable name
                     let scoped_var = format!("{}{}", scope_prefix, var);
@@ -541,6 +599,14 @@ impl DynamicRouteService {
     fn scan_logic_for_variables(&self, logic: &[LogicOperation], variables: &mut std::collections::HashSet<String>) {
         for operation in logic {
             match operation {
+                LogicOperation::DefineFunction { name: _, params, body } => {
+                    // Add parameters to variables
+                    for param in params {
+                        variables.insert(param.clone());
+                    }
+                    // Scan function body for variables
+                    self.scan_logic_for_variables(body, variables);
+                },
                 LogicOperation::Set { var, value } => {
                     variables.insert(var.clone());
                     self.scan_value_for_variables(value, variables);
@@ -694,7 +760,7 @@ impl DynamicRouteService {
         }
         
         let mut steps = Vec::new();
-        let (result, _) = execute_logic_extended(logic, context.clone(), &mut steps).await?;
+        let result = execute_logic_extended(logic, context, &mut steps).await?;
         Ok(result)
     }
 

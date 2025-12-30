@@ -1,0 +1,676 @@
+{
+  "name": "Performance Stress Test - CPU Intensive",
+  "path": "/api/stress-test",
+  "method": "POST",
+  "description": "Heavy CPU stress test with HTML generation, mathematical calculations, and performance metrics",
+  "logic": [
+    {
+      "log": {
+        "level": "info",
+        "message": "=== STARTING CPU STRESS TEST ==="
+      }
+    },
+    {
+      "date_op": {
+        "operation": "timestamp",
+        "args": []
+      }
+    },
+    {
+      "set": {
+        "var": "start_time",
+        "value": "{{date_result}}"
+      }
+    },
+    {
+      "set": {
+        "var": "iterations",
+        "value": "{{iterations | default(100)}}"
+      }
+    },
+    {
+      "set": {
+        "var": "total_operations",
+        "value": 0
+      }
+    },
+    {
+      "set": {
+        "var": "performance_data",
+        "value": []
+      }
+    },
+    {
+      "log": {
+        "level": "info",
+        "message": "Running {{iterations}} iterations of CPU stress test"
+      }
+    },
+    {
+      "define_function": {
+        "name": "generate_html_table",
+        "params": ["rows", "cols"],
+        "body": [
+          {
+            "set": {
+              "var": "html",
+              "value": "<table border='1'>\n"
+            }
+          },
+          {
+            "set": {
+              "var": "i",
+              "value": 0
+            }
+          },
+          {
+            "while": {
+              "condition": "{{i}} < {{rows}}",
+              "max_iterations": 1000,
+              "body": [
+                {
+                  "math_op": {
+                    "operation": "sum",
+                    "args": ["{{i}}", 1]
+                  }
+                },
+                {
+                  "set": {
+                    "var": "i",
+                    "value": "{{math_result}}"
+                  }
+                },
+                {
+                  "set": {
+                    "var": "html",
+                    "value": "{{html}}  <tr>\n"
+                  }
+                },
+                {
+                  "set": {
+                    "var": "j",
+                    "value": 0
+                  }
+                },
+                {
+                  "while": {
+                    "condition": "{{j}} < {{cols}}",
+                    "max_iterations": 1000,
+                    "body": [
+                      {
+                        "math_op": {
+                          "operation": "sum",
+                          "args": ["{{j}}", 1]
+                        }
+                      },
+                      {
+                        "set": {
+                          "var": "j",
+                          "value": "{{math_result}}"
+                        }
+                      },
+                      {
+                        "math_op": {
+                          "operation": "multiply",
+                          "args": ["{{i}}", "{{j}}"]
+                        }
+                      },
+                      {
+                        "set": {
+                          "var": "cell_value",
+                          "value": "{{math_result}}"
+                        }
+                      },
+                      {
+                        "set": {
+                          "var": "html",
+                          "value": "{{html}}    <td>{{cell_value}}</td>\n"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "set": {
+                    "var": "html",
+                    "value": "{{html}}  </tr>\n"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "set": {
+              "var": "html",
+              "value": "{{html}}</table>"
+            }
+          },
+          {
+            "return": {
+              "value": "{{html}}"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "define_function": {
+        "name": "fibonacci_stress",
+        "params": ["n"],
+        "body": [
+          {
+            "if": {
+              "condition": "{{n}} <= 1",
+              "then": [
+                {
+                  "return": {
+                    "value": "{{n}}"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "set": {
+              "var": "a",
+              "value": 0
+            }
+          },
+          {
+            "set": {
+              "var": "b",
+              "value": 1
+            }
+          },
+          {
+            "set": {
+              "var": "i",
+              "value": 2
+            }
+          },
+          {
+            "while": {
+              "condition": "{{i}} <= {{n}}",
+              "max_iterations": 10000,
+              "body": [
+                {
+                  "math_op": {
+                    "operation": "sum",
+                    "args": ["{{a}}", "{{b}}"]
+                  }
+                },
+                {
+                  "set": {
+                    "var": "temp",
+                    "value": "{{math_result}}"
+                  }
+                },
+                {
+                  "set": {
+                    "var": "a",
+                    "value": "{{b}}"
+                  }
+                },
+                {
+                  "set": {
+                    "var": "b",
+                    "value": "{{temp}}"
+                  }
+                },
+                {
+                  "math_op": {
+                    "operation": "sum",
+                    "args": ["{{i}}", 1]
+                  }
+                },
+                {
+                  "set": {
+                    "var": "i",
+                    "value": "{{math_result}}"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "return": {
+              "value": "{{b}}"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "define_function": {
+        "name": "prime_calculation",
+        "params": ["limit"],
+        "body": [
+          {
+            "set": {
+              "var": "primes",
+              "value": []
+            }
+          },
+          {
+            "set": {
+              "var": "num",
+              "value": 2
+            }
+          },
+          {
+            "while": {
+              "condition": "{{num}} <= {{limit}}",
+              "max_iterations": 10000,
+              "body": [
+                {
+                  "set": {
+                    "var": "is_prime",
+                    "value": true
+                  }
+                },
+                {
+                  "set": {
+                    "var": "divisor",
+                    "value": 2
+                  }
+                },
+                {
+                  "while": {
+                    "condition": "{{divisor}} * {{divisor}} <= {{num}}",
+                    "max_iterations": 1000,
+                    "body": [
+                      {
+                        "math_op": {
+                          "operation": "mod",
+                          "args": ["{{num}}", "{{divisor}}"]
+                        }
+                      },
+                      {
+                        "if": {
+                          "condition": "{{math_result}} == 0",
+                          "then": [
+                            {
+                              "set": {
+                                "var": "is_prime",
+                                "value": false
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "math_op": {
+                          "operation": "sum",
+                          "args": ["{{divisor}}", 1]
+                        }
+                      },
+                      {
+                        "set": {
+                          "var": "divisor",
+                          "value": "{{math_result}}"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "condition": "{{is_prime}}",
+                    "then": [
+                      {
+                        "set": {
+                          "var": "primes",
+                          "value": "{{primes | append(num)}}"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "math_op": {
+                    "operation": "sum",
+                    "args": ["{{num}}", 1]
+                  }
+                },
+                {
+                  "set": {
+                    "var": "num",
+                    "value": "{{math_result}}"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "return": {
+              "value": "{{primes}}"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "set": {
+        "var": "iteration",
+        "value": 0
+      }
+    },
+    {
+      "while": {
+        "condition": "{{iteration}} < {{iterations}}",
+        "max_iterations": 1000,
+        "body": [
+          {
+            "date_op": {
+              "operation": "timestamp",
+              "args": []
+            }
+          },
+          {
+            "set": {
+              "var": "iter_start",
+              "value": "{{date_result}}"
+            }
+          },
+          {
+            "math_op": {
+              "operation": "sum",
+              "args": ["{{iteration}}", 1]
+            }
+          },
+          {
+            "set": {
+              "var": "iteration",
+              "value": "{{math_result}}"
+            }
+          },
+          {
+            "log": {
+              "level": "info",
+              "message": "Iteration {{iteration}} - Starting CPU stress operations"
+            }
+          },
+          {
+            "call_function": {
+              "name": "generate_html_table",
+              "args": [50, 20],
+              "output_var": "html_content"
+            }
+          },
+          {
+            "call_function": {
+              "name": "fibonacci_stress",
+              "args": [25],
+              "output_var": "fib_result"
+            }
+          },
+          {
+            "call_function": {
+              "name": "prime_calculation",
+              "args": [200],
+              "output_var": "primes_list"
+            }
+          },
+          {
+            "set": {
+              "var": "large_array",
+              "value": []
+            }
+          },
+          {
+            "set": {
+              "var": "array_i",
+              "value": 0
+            }
+          },
+          {
+            "while": {
+              "condition": "{{array_i}} < 1000",
+              "max_iterations": 2000,
+              "body": [
+                {
+                  "math_op": {
+                    "operation": "sum",
+                    "args": ["{{array_i}}", 1]
+                  }
+                },
+                {
+                  "set": {
+                    "var": "array_i",
+                    "value": "{{math_result}}"
+                  }
+                },
+                {
+                  "math_op": {
+                    "operation": "multiply",
+                    "args": ["{{array_i}}", "{{array_i}}"]
+                  }
+                },
+                {
+                  "set": {
+                    "var": "large_array",
+                    "value": "{{large_array | append(math_result)}}"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "set": {
+              "var": "array_sum",
+              "value": "{{large_array | sum}}"
+            }
+          },
+          {
+            "set": {
+              "var": "array_avg",
+              "value": "{{large_array | sum | divide(large_array | length)}}"
+            }
+          },
+          {
+            "set": {
+              "var": "string_ops",
+              "value": "The quick brown fox jumps over the lazy dog"
+            }
+          },
+          {
+            "set": {
+              "var": "processed_string",
+              "value": "{{string_ops | upper | split(' ') | join('-')}}"
+            }
+          },
+          {
+            "set": {
+              "var": "complex_calc",
+              "value": []
+            }
+          },
+          {
+            "set": {
+              "var": "calc_i",
+              "value": 0
+            }
+          },
+          {
+            "while": {
+              "condition": "{{calc_i}} < 100",
+              "max_iterations": 200,
+              "body": [
+                {
+                  "math_op": {
+                    "operation": "sum",
+                    "args": ["{{calc_i}}", 1]
+                  }
+                },
+                {
+                  "set": {
+                    "var": "calc_i",
+                    "value": "{{math_result}}"
+                  }
+                },
+                {
+                  "math_op": {
+                    "operation": "pow",
+                    "args": [2, "{{calc_i}}"]
+                  }
+                },
+                {
+                  "set": {
+                    "var": "power_result",
+                    "value": "{{math_result}}"
+                  }
+                },
+                {
+                  "math_op": {
+                    "operation": "sqrt",
+                    "args": ["{{power_result}}"]
+                  }
+                },
+                {
+                  "set": {
+                    "var": "complex_calc",
+                    "value": "{{complex_calc | append(math_result)}}"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "date_op": {
+              "operation": "timestamp",
+              "args": []
+            }
+          },
+          {
+            "set": {
+              "var": "iter_end",
+              "value": "{{date_result}}"
+            }
+          },
+          {
+            "math_op": {
+              "operation": "subtract",
+              "args": ["{{iter_end}}", "{{iter_start}}"]
+            }
+          },
+          {
+            "set": {
+              "var": "iter_duration",
+              "value": "{{math_result}}"
+            }
+          },
+          {
+            "set": {
+              "var": "iter_data",
+              "value": {
+                "iteration": "{{iteration}}",
+                "duration_ms": "{{iter_duration}}",
+                "fib_result": "{{fib_result}}",
+                "primes_count": "{{primes_list | length}}",
+                "array_sum": "{{array_sum}}",
+                "array_avg": "{{array_avg}}",
+                "html_size": "{{html_content | length}}"
+              }
+            }
+          },
+          {
+            "set": {
+              "var": "performance_data",
+              "value": "{{performance_data | append(iter_data)}}"
+            }
+          },
+          {
+            "math_op": {
+              "operation": "sum",
+              "args": ["{{total_operations}}", 1]
+            }
+          },
+          {
+            "set": {
+              "var": "total_operations",
+              "value": "{{math_result}}"
+            }
+          },
+          {
+            "log": {
+              "level": "info",
+              "message": "Iteration {{iteration}} completed in {{iter_duration}}ms"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "date_op": {
+        "operation": "timestamp",
+        "args": []
+      }
+    },
+    {
+      "set": {
+        "var": "end_time",
+        "value": "{{date_result}}"
+      }
+    },
+    {
+      "math_op": {
+        "operation": "subtract",
+        "args": ["{{end_time}}", "{{start_time}}"]
+      }
+    },
+    {
+      "set": {
+        "var": "total_duration",
+        "value": "{{math_result}}"
+      }
+    },
+    {
+      "set": {
+        "var": "avg_duration",
+        "value": "{{total_duration}} / {{iterations}}"
+      }
+    },
+    {
+      "set": {
+        "var": "operations_per_second",
+        "value": "{{iterations}} / ({{total_duration}} / 1000)"
+      }
+    },
+    {
+      "log": {
+        "level": "info",
+        "message": "=== STRESS TEST COMPLETED ==="
+      }
+    },
+    {
+      "log": {
+        "level": "info",
+        "message": "Total Duration: {{total_duration}}ms, Average: {{avg_duration}}ms per iteration"
+      }
+    },
+    {
+      "log": {
+        "level": "info",
+        "message": "Operations per second: {{operations_per_second}}"
+      }
+    },
+    {
+      "return": {
+        "value": {
+          "success": true,
+          "test_type": "CPU Stress Test",
+          "iterations": "{{iterations}}",
+          "total_duration_ms": "{{total_duration}}",
+          "average_duration_ms": "{{avg_duration}}",
+          "operations_per_second": "{{operations_per_second}}",
+          "total_operations": "{{total_operations}}",
+          "performance_data": "{{performance_data}}",
+          "sample_html": "{{html_content | truncate(500)}}",
+          "final_fibonacci": "{{fib_result}}",
+          "primes_found": "{{primes_list | length}}",
+          "timestamp": "{{now()}}"
+        }
+      }
+    }
+  ]
+}

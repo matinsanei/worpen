@@ -443,6 +443,7 @@ dependencies = [
  "criterion",
  "futures",
  "jsonschema",
+ "once_cell",
  "proto",
  "regex",
  "reqwest",

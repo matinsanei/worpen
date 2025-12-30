@@ -184,25 +184,15 @@
           {
             "call_function": {
               "name": "fibonacci",
-              "args": [8]
-            }
-          },
-          {
-            "set": {
-              "var": "fib_8",
-              "value": "{{function_result}}"
+              "args": [8],
+              "output_var": "fib_8"
             }
           },
           {
             "call_function": {
               "name": "factorial",
-              "args": [5]
-            }
-          },
-          {
-            "set": {
-              "var": "fact_5",
-              "value": "{{function_result}}"
+              "args": [5],
+              "output_var": "fact_5"
             }
           },
           {
@@ -862,7 +852,8 @@
                 {
                   "call_function": {
                     "name": "process_user",
-                    "args": ["{{user.name}}", "{{user.age}}"]
+                    "args": ["{{user.name}}", "{{user.age}}"],
+                    "output_var": "user_result"
                   }
                 },
                 {

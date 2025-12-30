@@ -1,10 +1,17 @@
-// Expression template resolver for YAML routes
-// Resolves {{variable}} and {{expression | filter}} in route definitions
-
-use crate::expression::{Tokenizer, Parser, Evaluator};
+use crate::expression::{Tokenizer, Parser, Evaluator, ast::Expr};
 use serde_json::Value;
 use std::collections::HashMap;
 use regex::Regex;
+use once_cell::sync::Lazy;
+use std::sync::RwLock;
+
+// Global cache for parsed expressions to avoid re-parsing overhead
+// This is critical for high-throughput scenarios
+// Global cache for parsed expressions to avoid re-parsing overhead
+// This is critical for high-throughput scenarios
+static EXPRESSION_CACHE: Lazy<RwLock<HashMap<String, Expr<'static>>>> = Lazy::new(|| {
+    RwLock::new(HashMap::new())
+});
 
 /// Resolve all expression templates in a JSON value
 /// Templates: {{variable}}, {{expr}}, {{expr | filter}}
@@ -43,10 +50,17 @@ fn resolve_string_template(template: &str, context: &HashMap<String, Value>) -> 
     }
     
     // Mixed template: replace all {{...}} with evaluated strings
-    let re = Regex::new(r"\{\{(.+?)\}\}").map_err(|e| e.to_string())?;
+    // Optimization: compile regex once (Lazy) or use the one from utils if possible, 
+    // but here we are in a different module. 
+    // Ideally we should move template resolution to a shared place or use static regex here too.
+    static TEMPLATE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\{\{(.+?)\}\}").unwrap());
+    
+    if !TEMPLATE_RE.is_match(template) {
+        return Ok(Value::String(template.to_string()));
+    }
     
     let mut result = template.to_string();
-    for cap in re.captures_iter(template) {
+    for cap in TEMPLATE_RE.captures_iter(template) {
         let full_match = cap.get(0).unwrap().as_str();
         let expr_content = cap.get(1).unwrap().as_str().trim();
         
@@ -61,6 +75,16 @@ fn resolve_string_template(template: &str, context: &HashMap<String, Value>) -> 
 
 /// Evaluate an expression with context
 pub fn evaluate_expression(expr_str: &str, context: &HashMap<String, Value>) -> Result<Value, String> {
+    // 1. Check Cache
+    {
+        let cache = EXPRESSION_CACHE.read().unwrap();
+        if let Some(expr) = cache.get(expr_str) {
+            let evaluator = Evaluator::with_borrowed_variables(context);
+            return evaluator.evaluate(expr).map_err(|e| format!("Evaluation error: {}", e));
+        }
+    }
+
+    // 2. Parse if not in cache
     // Tokenize
     let mut tokenizer = Tokenizer::new(expr_str);
     let tokens = tokenizer.tokenize()
@@ -71,8 +95,30 @@ pub fn evaluate_expression(expr_str: &str, context: &HashMap<String, Value>) -> 
     let expr = parser.parse()
         .map_err(|e| format!("Parse error: {}", e))?;
     
-    // Evaluate
-    let evaluator = Evaluator::with_variables(context.clone());
+    // 3. Update Cache
+    // We must clone the expression into an owned version (Expr<'static>) for the cache
+    let owned_expr = expr.clone().into_owned(); // clone() works on Expr<'a> but produces Expr<'a>. into_owned converts.
+    // Wait, clone() is cheap if references. But we need to keep `expr` for evaluation below?
+    // Actually, `expr` is borrowed from `expr_str`.
+    // Once we call `into_owned()`, we have a completely new owned structure.
+    // We can cache `owned_expr`.
+    // But for evaluation, we can use either `expr` (borrowed) or `owned_expr` (owned).
+    // Using `expr` is faster if we don't need to clone it for evaluation?
+    // `evaluate` takes `&Expr`. So references work fine.
+    
+    {
+        let mut cache = EXPRESSION_CACHE.write().unwrap();
+        // Check again in case another thread inserted it
+        if !cache.contains_key(expr_str) {
+            cache.insert(expr_str.to_string(), owned_expr);
+        }
+    }
+    
+    // 4. Evaluate
+    // We can evaluate the borrowed expression directly to avoid using the cache lock or owned copy if possible,
+    // but using the owned copy is fine too.
+    // However, `expr` is still valid here.
+    let evaluator = Evaluator::with_borrowed_variables(context);
     evaluator.evaluate(&expr)
         .map_err(|e| format!("Evaluation error: {}", e))
 }
