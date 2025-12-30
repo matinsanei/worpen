@@ -15,7 +15,7 @@ pub async fn execute_logic_extended(
 ) -> Result<Value, String> {
     let mut last_result = Value::Null;
     
-    for (_idx, operation) in operations.iter().enumerate() {
+    for operation in operations.iter() {
         // Check for break/continue
         if context.loop_control.should_break {
             // steps.push("Loop BREAK encountered".to_string());
