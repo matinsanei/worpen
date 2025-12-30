@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use std::collections::HashMap;
+use std::cmp::Reverse;
 use proto::models::{
     RouteDefinition, LogicOperation, RouteTestRequest, RouteTestResponse,
     DynamicRouteExecutionContext, LoopControl, FunctionDef, FunctionDefinition, SwitchCase,
@@ -13,6 +14,7 @@ pub struct DynamicRouteService {
     routes: Arc<std::sync::RwLock<HashMap<String, RouteDefinition>>>,
     // Global function registry for zero-cost inlining
     global_functions: Arc<std::sync::RwLock<HashMap<String, FunctionDef>>>,
+    data_dir: String,
 }
 
 impl Default for DynamicRouteService {
@@ -23,10 +25,18 @@ impl Default for DynamicRouteService {
 
 impl DynamicRouteService {
     pub fn new() -> Self {
-        Self {
+        Self::with_data_dir("data".to_string())
+    }
+
+    pub fn with_data_dir(data_dir: String) -> Self {
+        let service = Self {
             routes: Arc::new(std::sync::RwLock::new(HashMap::new())),
             global_functions: Arc::new(std::sync::RwLock::new(HashMap::new())),
-        }
+            data_dir,
+        };
+        // Load persisted data
+        let _ = service.load_persisted_data();
+        service
     }
 
     /// Register a new dynamic route
@@ -50,7 +60,10 @@ impl DynamicRouteService {
         // Store route
         let mut routes = self.routes.write().unwrap();
         let route_id = route.id.clone();
-        routes.insert(route_id.clone(), route);
+        routes.insert(route_id.clone(), route.clone());
+        
+        // Persist to disk
+        self.save_route(&route)?;
         
         Ok(route_id)
     }
@@ -77,7 +90,10 @@ impl DynamicRouteService {
         }
         
         route.updated_at = chrono::Utc::now().to_rfc3339();
-        routes.insert(route_id.to_string(), route);
+        routes.insert(route_id.to_string(), route.clone());
+        
+        // Persist to disk
+        self.save_route(&route)?;
         
         Ok(())
     }
@@ -88,6 +104,8 @@ impl DynamicRouteService {
         if routes.remove(route_id).is_none() {
             return Err("Route not found".to_string());
         }
+        // Delete from disk
+        self.delete_route_file(route_id)?;
         Ok(())
     }
 
@@ -237,7 +255,9 @@ impl DynamicRouteService {
     /// Define a global function for zero-cost inlining
     pub async fn define_global_function(&self, func: FunctionDef) -> Result<(), String> {
         let mut functions = self.global_functions.write().unwrap();
-        functions.insert(func.name.clone(), func);
+        functions.insert(func.name.clone(), func.clone());
+        // Persist to disk
+        self.save_function(&func)?;
         Ok(())
     }
 
@@ -620,7 +640,7 @@ impl DynamicRouteService {
                         // Only consider tokens that start with a letter or underscore (proper variable names)
                         if !token.is_empty() && 
                            token.chars().all(|c| c.is_alphanumeric() || c == '_') &&
-                           token.chars().next().map_or(false, |c| c.is_alphabetic() || c == '_') {
+                           token.chars().next().is_some_and(|c| c.is_alphabetic() || c == '_') {
                             variables.insert(token.to_string());
                         }
                     }
@@ -638,7 +658,7 @@ impl DynamicRouteService {
         // 1. Sort variables by length descending to prevent partial replacements of overlapping names
         // (e.g. replacing 'val' inside 'value')
         let mut sorted_vars = variables.to_vec();
-        sorted_vars.sort_by(|a, b| b.len().cmp(&a.len()));
+        sorted_vars.sort_by_key(|v| Reverse(v.len()));
 
         for var in sorted_vars {
             // Pattern: match 'var' only if it's NOT preceded by another variable character or '${'
@@ -676,6 +696,103 @@ impl DynamicRouteService {
         let mut steps = Vec::new();
         let (result, _) = execute_logic_extended(logic, context.clone(), &mut steps).await?;
         Ok(result)
+    }
+
+    /// Load persisted routes and functions from disk
+    fn load_persisted_data(&self) -> Result<(), String> {
+        use std::fs;
+        use std::path::Path;
+
+        let routes_dir = Path::new(&self.data_dir).join("routes");
+        let functions_dir = Path::new(&self.data_dir).join("functions");
+
+        // Load routes
+        if routes_dir.exists() {
+            let entries = fs::read_dir(&routes_dir)
+                .map_err(|e| format!("Failed to read routes dir: {}", e))?;
+            for entry in entries {
+                let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
+                let path = entry.path();
+                if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                    let content = fs::read_to_string(&path)
+                        .map_err(|e| format!("Failed to read route file {}: {}", path.display(), e))?;
+                    let route: RouteDefinition = serde_json::from_str(&content)
+                        .map_err(|e| format!("Failed to parse route from {}: {}", path.display(), e))?;
+                    let mut routes = self.routes.write().unwrap();
+                    routes.insert(route.id.clone(), route);
+                }
+            }
+        }
+
+        // Load functions
+        if functions_dir.exists() {
+            let entries = fs::read_dir(&functions_dir)
+                .map_err(|e| format!("Failed to read functions dir: {}", e))?;
+            for entry in entries {
+                let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
+                let path = entry.path();
+                if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                    let content = fs::read_to_string(&path)
+                        .map_err(|e| format!("Failed to read function file {}: {}", path.display(), e))?;
+                    let func: FunctionDef = serde_json::from_str(&content)
+                        .map_err(|e| format!("Failed to parse function from {}: {}", path.display(), e))?;
+                    let mut functions = self.global_functions.write().unwrap();
+                    functions.insert(func.name.clone(), func);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Save a route to disk
+    fn save_route(&self, route: &RouteDefinition) -> Result<(), String> {
+        use std::fs;
+        use std::path::Path;
+
+        let routes_dir = Path::new(&self.data_dir).join("routes");
+        fs::create_dir_all(&routes_dir)
+            .map_err(|e| format!("Failed to create routes dir: {}", e))?;
+
+        let file_path = routes_dir.join(format!("{}.json", route.id));
+        let content = serde_json::to_string_pretty(route)
+            .map_err(|e| format!("Failed to serialize route: {}", e))?;
+        fs::write(&file_path, content)
+            .map_err(|e| format!("Failed to write route file {}: {}", file_path.display(), e))?;
+
+        Ok(())
+    }
+
+    /// Save a function to disk
+    fn save_function(&self, func: &FunctionDef) -> Result<(), String> {
+        use std::fs;
+        use std::path::Path;
+
+        let functions_dir = Path::new(&self.data_dir).join("functions");
+        fs::create_dir_all(&functions_dir)
+            .map_err(|e| format!("Failed to create functions dir: {}", e))?;
+
+        let file_path = functions_dir.join(format!("{}.json", func.name));
+        let content = serde_json::to_string_pretty(func)
+            .map_err(|e| format!("Failed to serialize function: {}", e))?;
+        fs::write(&file_path, content)
+            .map_err(|e| format!("Failed to write function file {}: {}", file_path.display(), e))?;
+
+        Ok(())
+    }
+
+    /// Delete a route file
+    fn delete_route_file(&self, route_id: &str) -> Result<(), String> {
+        use std::fs;
+        use std::path::Path;
+
+        let routes_dir = Path::new(&self.data_dir).join("routes");
+        let file_path = routes_dir.join(format!("{}.json", route_id));
+        if file_path.exists() {
+            fs::remove_file(&file_path)
+                .map_err(|e| format!("Failed to delete route file {}: {}", file_path.display(), e))?;
+        }
+        Ok(())
     }
 }
 
