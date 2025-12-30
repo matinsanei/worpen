@@ -426,36 +426,211 @@ csv: "{{names | unique | sort | join(', ')}}"
 
 ## Functions
 
+Worpen supports two types of functions:
+
+### 1. Built-in Helper Functions
+
 Built-in functions for common operations:
 
-### Math Functions
+#### Math Functions
 
-#### `max(a, b, ...)`
+##### `max(a, b, ...)`
 Returns maximum value.
 ```yaml
 highest: "{{max(10, 25, 15, 30, 5)}}"
-# 30
+# Result: 30
 ```
 
-#### `min(a, b, ...)`
+##### `min(a, b, ...)`
 Returns minimum value.
 ```yaml
 lowest: "{{min(10, 25, 15, 30, 5)}}"
-# 5
+# Result: 5
 ```
 
-#### `abs(n)`
+##### `abs(n)`
 Returns absolute value.
 ```yaml
 absolute: "{{abs(-42)}}"
-# 42
+# Result: 42
 ```
 
-#### `len(arr)`
+##### `len(arr)`
 Returns array length.
 ```yaml
 count: "{{len(items)}}"
 # Same as {{items | length}}
+```
+
+#### String Functions
+
+##### `upper(str)`
+Converts string to uppercase.
+```yaml
+name: "{{upper('hello')}}"
+# Result: "HELLO"
+```
+
+##### `lower(str)`
+Converts string to lowercase.
+```yaml
+email: "{{lower('USER@EXAMPLE.COM')}}"
+# Result: "user@example.com"
+```
+
+##### `trim(str)`
+Removes whitespace from both ends.
+```yaml
+clean: "{{trim('  hello  ')}}"
+# Result: "hello"
+```
+
+#### Date/Time Functions
+
+##### `now()`
+Returns current timestamp.
+```yaml
+timestamp: "{{now()}}"
+# Result: "2025-12-30T10:30:00Z"
+```
+
+##### `uuid()`
+Generates a unique identifier.
+```yaml
+id: "{{uuid()}}"
+# Result: "550e8400-e29b-41d4-a716-446655440000"
+```
+
+##### `random(min, max)`
+Returns random number between min and max.
+```yaml
+dice: "{{random(1, 6)}}"
+# Result: 4 (random between 1-6)
+```
+
+#### Utility Functions
+
+##### `hash(str, algorithm)`
+Hashes a string using specified algorithm.
+```yaml
+password_hash: "{{hash('mypassword', 'sha256')}}"
+```
+
+##### `env(var_name)`
+Gets environment variable.
+```yaml
+db_url: "{{env('DATABASE_URL')}}"
+```
+
+### 2. Custom Functions (User-Defined)
+
+You can define your own reusable functions using `!DefineFunction` and call them with `!CallFunction`.
+
+#### Defining a Custom Function
+
+```yaml
+logic:
+  - !DefineFunction
+    name: calculate_discount
+    params: [price, discount_rate]
+    body:
+      - !MathOp
+        operation: multiply
+        args: ["{{price}}", "{{discount_rate}}"]
+      - !Return
+        value: "{{math_result}}"
+```
+
+#### Calling a Custom Function
+
+```yaml
+logic:
+  - !CallFunction
+    name: calculate_discount
+    args: [100, 0.2]  # price = 100, discount_rate = 0.2
+  # Result is stored in {{function_result}}
+  - !Return
+    value:
+      original_price: 100
+      discount: "{{function_result}}"
+      final_price: "{{100 - function_result}}"
+```
+
+#### Function with Multiple Operations
+
+```yaml
+logic:
+  - !DefineFunction
+    name: validate_and_format_email
+    params: [email]
+    body:
+      # Trim whitespace
+      - !Set
+        var: clean_email
+        value: "{{email | trim | lower}}"
+      
+      # Basic validation
+      - !If
+        condition: "{{clean_email | length}} < 5"
+        then:
+          - !Return
+            value:
+              valid: false
+              error: "Email too short"
+        else: []
+      
+      # Return formatted email
+      - !Return
+        value:
+          valid: true
+          formatted_email: "{{clean_email}}"
+  
+  # Use the function
+  - !CallFunction
+    name: validate_and_format_email
+    args: ["{{email}}"]
+  
+  - !Return
+    value: "{{function_result}}"
+```
+
+#### Recursive Functions
+
+Functions can call themselves:
+
+```yaml
+logic:
+  - !DefineFunction
+    name: fibonacci
+    params: [n]
+    body:
+      - !If
+        condition: "{{n}} <= 1"
+        then:
+          - !Return
+            value: "{{n}}"
+        else:
+          - !CallFunction
+            name: fibonacci
+            args: ["{{n}} - 1"]
+          - !Set
+            var: prev_result
+            value: "{{function_result}}"
+          - !CallFunction
+            name: fibonacci
+            args: ["{{n}} - 2"]
+          - !MathOp
+            operation: sum
+            args: ["{{prev_result}}", "{{function_result}}"]
+          - !Return
+            value: "{{math_result}}"
+  
+  - !CallFunction
+    name: fibonacci
+    args: [10]
+  - !Return
+    value:
+      fibonacci_10: "{{function_result}}"
 ```
 
 ---

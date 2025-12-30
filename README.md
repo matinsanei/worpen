@@ -153,7 +153,142 @@ value: "{{env('DATABASE_URL')}}"                # Environment variables
 
 ---
 
-## 💡 𝐄𝐗𝐀𝐌𝐏𝐋𝐄𝐒
+## � 𝐅𝐔𝐍𝐂𝐓𝐈𝐎𝐍𝐒 - 𝐑𝐄𝐔𝐒𝐀𝐁𝐋𝐄 𝐋𝐎𝐆𝐈𝐂
+
+Functions are **reusable blocks of logic** that you can define once and call multiple times. They help you organize complex APIs and avoid code duplication.
+
+### 🎯 What Are Functions?
+
+**Functions** are like mini-programs within your API routes. Instead of repeating the same logic, you define it as a function and call it whenever needed.
+
+**Why Use Functions?**
+- ✅ **DRY Principle**: Don't Repeat Yourself
+- ✅ **Organization**: Break complex logic into smaller pieces  
+- ✅ **Maintainability**: Change logic in one place
+- ✅ **Recursion**: Functions can call themselves
+- ✅ **Parameters**: Pass different data each time
+
+### 📝 How Functions Work
+
+#### 1. Define a Function
+```yaml
+logic:
+  - !DefineFunction
+    name: calculate_tax
+    params: [amount, rate]
+    body:
+      - !MathOp
+        operation: multiply
+        args: ["{{amount}}", "{{rate}}"]
+      - !Return
+        value: "{{math_result}}"
+```
+
+#### 2. Call the Function
+```yaml
+logic:
+  - !CallFunction
+    name: calculate_tax
+    args: [100, 0.15]  # amount = 100, rate = 0.15
+  - !Return
+    value:
+      tax: "{{function_result}}"
+```
+
+### 💡 Simple Example: Greeting Function
+
+```yaml
+name: Greeting API
+path: /greet
+method: GET
+
+logic:
+  # Define the function
+  - !DefineFunction
+    name: create_greeting
+    params: [name]
+    body:
+      - !Return
+        value: "Hello, {{name}}! Welcome to Worpen!"
+  
+  # Call the function
+  - !CallFunction
+    name: create_greeting
+    args: ["{{name | default('Guest')}}"]
+  
+  # Return result
+  - !Return
+    value:
+      message: "{{function_result}}"
+      timestamp: "{{now()}}"
+```
+
+**Test it:**
+```bash
+curl "http://127.0.0.1:3000/greet?name=Alice"
+# {"message": "Hello, Alice! Welcome to Worpen!", "timestamp": "2025-12-30T..."}
+```
+
+### 🔄 Advanced Example: Recursive Function
+
+Functions can call themselves (recursion):
+
+```yaml
+name: Factorial Calculator
+path: /factorial/:n
+method: GET
+
+logic:
+  # Define recursive factorial function
+  - !DefineFunction
+    name: factorial
+    params: [n]
+    body:
+      - !If
+        condition: "{{n}} <= 1"
+        then:
+          - !Return
+            value: 1
+        else:
+          - !CallFunction
+            name: factorial
+            args: ["{{n}} - 1"]
+          - !MathOp
+            operation: multiply
+            args: ["{{n}}", "{{function_result}}"]
+          - !Return
+            value: "{{math_result}}"
+  
+  # Call the function
+  - !CallFunction
+    name: factorial
+    args: ["{{n}}"]
+  
+  - !Return
+    value:
+      number: "{{n}}"
+      factorial: "{{function_result}}"
+```
+
+**Test it:**
+```bash
+curl http://127.0.0.1:3000/factorial/5
+# {"number": "5", "factorial": 120}
+```
+
+### 📚 Function Best Practices
+
+- **Naming**: Use descriptive names (`calculate_total` not `func1`)
+- **Parameters**: Keep functions focused on single responsibility
+- **Return Values**: Always return something useful
+- **Documentation**: Add comments explaining what functions do
+- **Testing**: Test functions independently
+
+📖 **[Complete Functions Guide →](documentation/06-functions.md)**
+
+---
+
+## �💡 𝐄𝐗𝐀𝐌𝐏𝐋𝐄𝐒
 
 ### Example 1: User Registration API
 

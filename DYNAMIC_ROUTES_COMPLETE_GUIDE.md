@@ -187,24 +187,47 @@ The Dynamic Routes Engine is now **completely unlimited**! Create any API logic 
 
 ### 🎭 Custom Functions
 
+Functions are **reusable blocks of code** that you can define once and call multiple times. They help you avoid code duplication and organize complex logic.
+
+#### Why Use Functions?
+
+- **DRY Principle**: Don't Repeat Yourself - write logic once, use everywhere
+- **Organization**: Break complex APIs into smaller, manageable pieces
+- **Maintainability**: Change logic in one place, affects all usages
+- **Recursion**: Functions can call themselves for algorithms like factorial
+- **Parameters**: Pass different data to the same logic
+
 #### `define_function` - Create Reusable Logic
+
 ```json
 {
   "define_function": {
     "name": "calculate_tax",
     "params": ["amount", "rate"],
     "body": [
-      { "math_op": { 
-        "operation": "sum", 
-        "args": ["{{amount}}", "{{amount}} * {{rate}}"] 
-      } },
-      { "return": { "value": "{{math_result}}" } }
+      {
+        "math_op": {
+          "operation": "multiply",
+          "args": ["{{amount}}", "{{rate}}"]
+        }
+      },
+      {
+        "return": {
+          "value": "{{math_result}}"
+        }
+      }
     ]
   }
 }
 ```
 
+**Parameters:**
+- `name`: Function name (must be unique)
+- `params`: Array of parameter names
+- `body`: Array of operations to execute
+
 #### `call_function` - Invoke Custom Function
+
 ```json
 {
   "call_function": {
@@ -214,7 +237,82 @@ The Dynamic Routes Engine is now **completely unlimited**! Create any API logic 
 }
 ```
 
-**Recursion Example:**
+**Result Access:**
+The function result is stored in `{{function_result}}` variable.
+
+```json
+{
+  "call_function": {
+    "name": "calculate_tax",
+    "args": [100, 0.15]
+  }
+},
+{
+  "return": {
+    "value": {
+      "subtotal": 100,
+      "tax": "{{function_result}}",
+      "total": "{{100 + function_result}}"
+    }
+  }
+}
+```
+
+#### Complete Example: User Greeting Function
+
+```json
+{
+  "name": "Greeting API",
+  "path": "/greet",
+  "method": "GET",
+  "logic": [
+    {
+      "define_function": {
+        "name": "create_greeting",
+        "params": ["user_name", "language"],
+        "body": [
+          {
+            "if": {
+              "condition": "language == 'fa'",
+              "then": [
+                {
+                  "return": {
+                    "value": "سلام {{user_name}}! به سیستم خوش آمدید"
+                  }
+                }
+              ],
+              "otherwise": [
+                {
+                  "return": {
+                    "value": "Hello {{user_name}}! Welcome to the system"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "call_function": {
+        "name": "create_greeting",
+        "args": ["{{name | default('Guest')}}", "{{lang | default('en')}}"]
+      }
+    },
+    {
+      "return": {
+        "value": {
+          "message": "{{function_result}}",
+          "timestamp": "{{now()}}"
+        }
+      }
+    }
+  ]
+}
+```
+
+#### Recursion Example: Factorial
+
 ```json
 {
   "define_function": {
@@ -224,11 +322,31 @@ The Dynamic Routes Engine is now **completely unlimited**! Create any API logic 
       {
         "if": {
           "condition": "n <= 1",
-          "then": [{ "return": { "value": 1 } }],
+          "then": [
+            {
+              "return": {
+                "value": 1
+              }
+            }
+          ],
           "otherwise": [
-            { "call_function": { "name": "factorial", "args": ["{{n}} - 1"] } },
-            { "math_op": { "operation": "sum", "args": ["{{n}} * {{factorial_result}}"] } },
-            { "return": { "value": "{{math_result}}" } }
+            {
+              "call_function": {
+                "name": "factorial",
+                "args": ["{{n}} - 1"]
+              }
+            },
+            {
+              "math_op": {
+                "operation": "multiply",
+                "args": ["{{n}}", "{{function_result}}"]
+              }
+            },
+            {
+              "return": {
+                "value": "{{math_result}}"
+              }
+            }
           ]
         }
       }
@@ -236,6 +354,26 @@ The Dynamic Routes Engine is now **completely unlimited**! Create any API logic 
   }
 }
 ```
+
+**Usage:**
+```json
+{
+  "call_function": {
+    "name": "factorial",
+    "args": [5]
+  }
+}
+```
+Result: `120` (5! = 5 × 4 × 3 × 2 × 1 = 120)
+
+#### Function Best Practices
+
+1. **Single Responsibility**: Each function should do one thing well
+2. **Descriptive Names**: Use `calculate_total` not `func1`
+3. **Parameter Validation**: Check parameters at function start
+4. **Consistent Returns**: Always return the same data structure
+5. **Documentation**: Add comments explaining complex functions
+6. **Testing**: Test functions independently before integration
 
 ---
 

@@ -11,13 +11,14 @@
 3. [متغیرها و عملیات پایه](03-variables-basics.md)
 4. [ساختارهای کنترلی](04-control-flow.md)
 5. [حلقه‌ها](05-loops.md)
-6. [توابع سفارشی](06-functions.md)
-7. [عملیات ریاضی](07-math-operations.md)
-8. [عملیات رشته‌ای](08-string-operations.md)
-9. [عملیات تاریخ و زمان](09-date-operations.md)
-10. [مدیریت خطا (Try/Catch)](10-error-handling.md)
-11. [اجرای موازی](11-parallel-execution.md)
-12. [نمونه‌های کامل](12-complete-examples.md)
+6. **[آموزش توابع - گام به گام](functions-tutorial.md)** ⭐ **توصیه می‌شود**
+7. [توابع سفارشی](06-functions.md)
+8. [عملیات ریاضی](07-math-operations.md)
+9. [عملیات رشته‌ای](08-string-operations.md)
+10. [عملیات تاریخ و زمان](09-date-operations.md)
+11. [مدیریت خطا (Try/Catch)](10-error-handling.md)
+12. [اجرای موازی](11-parallel-execution.md)
+13. [نمونه‌های کامل](12-complete-examples.md)
 
 ## شروع سریع
 
