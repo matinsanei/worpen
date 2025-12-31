@@ -1,0 +1,56 @@
+{
+  "id": "4098d542-2f40-4997-a06a-7f571afa4367",
+  "name": "vm_test",
+  "description": "",
+  "path": "/api/test/vm",
+  "method": "POST",
+  "logic": [
+    {
+      "set": {
+        "var": "product",
+        "value": 25
+      }
+    },
+    {
+      "set": {
+        "var": "_0_val",
+        "value": "{{product}}"
+      }
+    },
+    {
+      "math_op": {
+        "operation": "sum",
+        "args": [
+          "{{_0_val}}",
+          10
+        ]
+      }
+    },
+    {
+      "set": {
+        "var": "_0_result",
+        "value": "{{math_result}}"
+      }
+    },
+    {
+      "set": {
+        "var": "final_res",
+        "value": "${_0_result}"
+      }
+    },
+    {
+      "return": {
+        "value": "{{final_res}}"
+      }
+    }
+  ],
+  "parameters": [],
+  "response_schema": null,
+  "auth_required": false,
+  "rate_limit": null,
+  "enabled": true,
+  "version": "1.0.0",
+  "created_at": "2025-12-31T10:08:00.978034+00:00",
+  "updated_at": "2025-12-31T10:08:00.978034+00:00",
+  "created_by": "system"
+}

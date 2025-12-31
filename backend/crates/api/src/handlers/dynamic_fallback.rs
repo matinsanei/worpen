@@ -8,6 +8,10 @@ use axum::{
 use crate::state::AppState;
 use serde_json::Value;
 
+/// Temporary constant to control dynamic fallback logging
+/// Set to false to disable logging, true to enable
+const ENABLE_DYNAMIC_FALLBACK_LOGGING: bool = false;
+
 /// Fallback handler برای dynamic routes
 /// این handler همه request های ثبت‌نشده رو میگیره و چک میکنه آیا dynamic route هست
 #[axum::debug_handler]
@@ -18,7 +22,9 @@ pub async fn dynamic_route_fallback(
     let path = req.uri().path().to_string();
     let method = req.method().clone();
     
-    tracing::info!("Dynamic fallback: {} {}", method, path);
+    if ENABLE_DYNAMIC_FALLBACK_LOGGING {
+        tracing::info!("Dynamic fallback: {} {}", method, path);
+    }
     
     // پیدا کردن route با path و method
     match find_dynamic_route(&state, &path, &method).await {

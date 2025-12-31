@@ -1,5 +1,7 @@
 use std::sync::Arc;
 use proto::models::LogicOperation;
+use crate::vm::instructions::OptimizedOperation;
+use crate::compiler::symbol_table::SymbolTable;
 
 /// A cached execution plan for a dynamic route.
 /// This structure holds a pre-processed, cheap-to-clone version of the route's logic.
@@ -13,6 +15,10 @@ pub struct ExecutionPlan {
     pub enabled: bool,
     /// Route version for invalidation checks (optional, good practice).
     pub version: String,
+    /// Compiled bytecode for VM execution.
+    pub bytecode: Option<Arc<Vec<OptimizedOperation>>>,
+    /// Symbol table for variable resolution.
+    pub symbol_table: Option<Arc<SymbolTable>>,
 }
 
 impl ExecutionPlan {
@@ -22,6 +28,8 @@ impl ExecutionPlan {
             logic: Arc::new(logic),
             enabled,
             version,
+            bytecode: None,
+            symbol_table: None,
         }
     }
 }

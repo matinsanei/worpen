@@ -1,0 +1,23 @@
+{
+  "name": "add_ten",
+  "params": [
+    "val"
+  ],
+  "logic": [
+    {
+      "math_op": {
+        "operation": "sum",
+        "args": [
+          "{{val}}",
+          10
+        ]
+      }
+    },
+    {
+      "set": {
+        "var": "result",
+        "value": "{{math_result}}"
+      }
+    }
+  ]
+}

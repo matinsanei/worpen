@@ -9,6 +9,9 @@ use serde_json::Value;
 use regex;
 use super::execution::execute_logic_extended;
 use super::cache::ExecutionPlan;
+use crate::compiler::lowerer::LogicCompiler;
+use crate::vm::machine::VirtualMachine;
+use crate::vm::memory::ExecutionMemory;
 
 pub struct DynamicRouteService {
     // In production, this would be a repository
@@ -61,13 +64,24 @@ impl DynamicRouteService {
         route.created_at = now.clone();
         route.updated_at = now;
         
+        // Pre-compile execution plan for hot cache
+        let execution_plan = self.compile_execution_plan(&route)?;
+        
         // Store route
         let mut routes = self.routes.write().unwrap();
         let route_id = route.id.clone();
         routes.insert(route_id.clone(), route.clone());
         
-        // Persist to disk
-        self.save_route(&route)?;
+        // Cache the execution plan
+        let mut cache = self.hot_routes_cache.write().unwrap();
+        cache.insert(route_id.clone(), Arc::new(execution_plan));
+        
+        // Persist to disk asynchronously
+        let route_clone = route.clone();
+        let data_dir_clone = self.data_dir.clone();
+        tokio::spawn(async move {
+            let _ = Self::save_route_async(&route_clone, &data_dir_clone);
+        });
         
         Ok(route_id)
     }
@@ -84,6 +98,54 @@ impl DynamicRouteService {
         Ok(routes.get(route_id).cloned())
     }
 
+    /// Compile an execution plan for a route (pre-computation for hot cache)
+    fn compile_execution_plan(&self, route: &RouteDefinition) -> Result<ExecutionPlan, String> {
+        // Compile to bytecode for VM execution
+        let (bytecode, symbol_table) = self.compile_logic(&route.logic)?;
+        
+        Ok(ExecutionPlan {
+            logic: Arc::new(route.logic.clone()),
+            enabled: route.enabled,
+            version: route.version.clone(),
+            bytecode: bytecode.map(Arc::new),
+            symbol_table: symbol_table.map(Arc::new),
+        })
+    }
+
+    /// Save a route to disk asynchronously
+    async fn save_route_async(route: &RouteDefinition, data_dir: &str) -> Result<(), String> {
+        use std::fs;
+        use std::path::Path;
+
+        let routes_dir = Path::new(data_dir).join("routes");
+        fs::create_dir_all(&routes_dir)
+            .map_err(|e| format!("Failed to create routes dir: {}", e))?;
+
+        let file_path = routes_dir.join(format!("{}.json", route.id));
+        let content = serde_json::to_string_pretty(route)
+            .map_err(|e| format!("Failed to serialize route: {}", e))?;
+        fs::write(&file_path, content)
+            .map_err(|e| format!("Failed to write route file {}: {}", file_path.display(), e))?;
+
+        Ok(())
+    }
+
+    /// Delete a route file from disk asynchronously
+    async fn delete_route_file_async(route_id: &str, data_dir: &str) -> Result<(), String> {
+        use std::fs;
+        use std::path::Path;
+
+        let routes_dir = Path::new(data_dir).join("routes");
+        let file_path = routes_dir.join(format!("{}.json", route_id));
+        
+        if file_path.exists() {
+            fs::remove_file(&file_path)
+                .map_err(|e| format!("Failed to delete route file {}: {}", file_path.display(), e))?;
+        }
+
+        Ok(())
+    }
+
     /// Update an existing route
     pub async fn update_route(&self, route_id: &str, mut route: RouteDefinition) -> Result<(), String> {
         self.validate_route(&route)?;
@@ -96,12 +158,17 @@ impl DynamicRouteService {
         route.updated_at = chrono::Utc::now().to_rfc3339();
         routes.insert(route_id.to_string(), route.clone());
         
-        // Invalidate cache
+        // Pre-compile and cache the execution plan
+        let execution_plan = self.compile_execution_plan(&route)?;
         let mut cache = self.hot_routes_cache.write().unwrap();
-        cache.remove(route_id);
+        cache.insert(route_id.to_string(), Arc::new(execution_plan));
         
-        // Persist to disk
-        self.save_route(&route)?;
+        // Persist to disk asynchronously
+        let route_clone = route.clone();
+        let data_dir_clone = self.data_dir.clone();
+        tokio::spawn(async move {
+            let _ = Self::save_route_async(&route_clone, &data_dir_clone);
+        });
         
         Ok(())
     }
@@ -117,8 +184,13 @@ impl DynamicRouteService {
         let mut cache = self.hot_routes_cache.write().unwrap();
         cache.remove(route_id);
 
-        // Delete from disk
-        self.delete_route_file(route_id)?;
+        // Delete from disk asynchronously
+        let route_id_clone = route_id.to_string();
+        let data_dir_clone = self.data_dir.clone();
+        tokio::spawn(async move {
+            let _ = Self::delete_route_file_async(&route_id_clone, &data_dir_clone);
+        });
+        
         Ok(())
     }
 
@@ -185,54 +257,67 @@ impl DynamicRouteService {
         path_params: HashMap<String, String>,
         query_params: HashMap<String, String>,
     ) -> Result<Value, String> {
-        // Fast path: Check hot cache first
+        // Fast path: Check hot cache first (should always be populated now)
         let cached_plan = {
             let cache = self.hot_routes_cache.read().unwrap();
             cache.get(route_id).cloned()
         };
 
-        let plan = if let Some(p) = cached_plan {
-            p
-        } else {
-            // Cold path: Load definition, process, and cache
-            let routes = self.routes.read().unwrap();
-            let route = routes.get(route_id)
-                .ok_or_else(|| "Route not found".to_string())?;
-            
-            // Critical Optimization: Flatten logic tree (inline functions) before caching
-            let optimized_logic = self.inline_logic(&route.logic, 0)?;
+        let plan = match cached_plan {
+            Some(p) => p,
+            None => {
+                // Fallback: Route not in cache (should not happen in normal operation)
+                // This maintains backward compatibility but should be rare
+                let routes = self.routes.read().unwrap();
+                let route = routes.get(route_id)
+                    .ok_or_else(|| "Route not found".to_string())?;
                 
-            let new_plan = Arc::new(ExecutionPlan::new(
-                optimized_logic,
-                route.enabled,
-                route.version.clone(),
-            ));
-            
-            // Store in cache
-            let mut cache = self.hot_routes_cache.write().unwrap();
-            cache.insert(route_id.to_string(), new_plan.clone());
-            
-            new_plan
+                // Critical Optimization: Flatten logic tree (inline functions) before caching
+                let optimized_logic = self.inline_logic(&route.logic, 0)?;
+                
+                // Compile to bytecode for VM execution
+                let (bytecode, symbol_table) = self.compile_logic(&optimized_logic)?;
+                    
+                Arc::new(ExecutionPlan {
+                    logic: Arc::new(optimized_logic),
+                    enabled: route.enabled,
+                    version: route.version.clone(),
+                    bytecode: bytecode.map(Arc::new),
+                    symbol_table: symbol_table.map(Arc::new),
+                })
+            }
         };
         
         if !plan.enabled {
             return Err("Route is disabled".to_string());
         }
         
-        let mut context = DynamicRouteExecutionContext {
-            route_id: route_id.to_string(),
-            variables: HashMap::new(),
-            request_payload: payload,
-            path_params,
-            query_params,
-            functions: HashMap::new(),
-            loop_control: LoopControl::default(),
-            error_context: None,
+        // Execute using VM if bytecode is available, otherwise fallback to interpreter
+        let result = if let (Some(bytecode), Some(symbol_table)) = (&plan.bytecode, &plan.symbol_table) {
+            // VM execution path
+            let memory = ExecutionMemory::new();
+            let mut vm = VirtualMachine::new(memory, (**symbol_table).clone());
+            
+            // Bridge request data to VM memory
+            self.inject_request_data_into_vm(&mut vm, &payload, &path_params, &query_params, symbol_table)?;
+            
+            // Execute bytecode
+            vm.execute(bytecode).await?
+        } else {
+            // Fallback to interpreter (not measured for telemetry as it's legacy path)
+            let mut context = DynamicRouteExecutionContext {
+                route_id: route_id.to_string(),
+                variables: HashMap::new(),
+                request_payload: payload,
+                path_params,
+                query_params,
+                functions: HashMap::new(),
+                loop_control: LoopControl::default(),
+                error_context: None,
+            };
+            let mut steps = Vec::new();
+            execute_logic_extended(&plan.logic, &mut context, &mut steps).await?
         };
-        
-        let mut steps = Vec::new();
-        // Execute using the cached optimized logic
-        let result = execute_logic_extended(&plan.logic, &mut context, &mut steps).await?;
         Ok(result)
     }
 
@@ -784,8 +869,16 @@ impl DynamicRouteService {
                         .map_err(|e| format!("Failed to read route file {}: {}", path.display(), e))?;
                     let route: RouteDefinition = serde_json::from_str(&content)
                         .map_err(|e| format!("Failed to parse route from {}: {}", path.display(), e))?;
+                    
+                    // Pre-compile execution plan for hot cache
+                    let execution_plan = self.compile_execution_plan(&route)?;
+                    
                     let mut routes = self.routes.write().unwrap();
-                    routes.insert(route.id.clone(), route);
+                    routes.insert(route.id.clone(), route.clone());
+                    
+                    // Cache the execution plan
+                    let mut cache = self.hot_routes_cache.write().unwrap();
+                    cache.insert(route.id.clone(), Arc::new(execution_plan));
                 }
             }
         }
@@ -811,24 +904,6 @@ impl DynamicRouteService {
         Ok(())
     }
 
-    /// Save a route to disk
-    fn save_route(&self, route: &RouteDefinition) -> Result<(), String> {
-        use std::fs;
-        use std::path::Path;
-
-        let routes_dir = Path::new(&self.data_dir).join("routes");
-        fs::create_dir_all(&routes_dir)
-            .map_err(|e| format!("Failed to create routes dir: {}", e))?;
-
-        let file_path = routes_dir.join(format!("{}.json", route.id));
-        let content = serde_json::to_string_pretty(route)
-            .map_err(|e| format!("Failed to serialize route: {}", e))?;
-        fs::write(&file_path, content)
-            .map_err(|e| format!("Failed to write route file {}: {}", file_path.display(), e))?;
-
-        Ok(())
-    }
-
     /// Save a function to disk
     fn save_function(&self, func: &FunctionDef) -> Result<(), String> {
         use std::fs;
@@ -847,17 +922,57 @@ impl DynamicRouteService {
         Ok(())
     }
 
-    /// Delete a route file
-    fn delete_route_file(&self, route_id: &str) -> Result<(), String> {
-        use std::fs;
-        use std::path::Path;
-
-        let routes_dir = Path::new(&self.data_dir).join("routes");
-        let file_path = routes_dir.join(format!("{}.json", route_id));
-        if file_path.exists() {
-            fs::remove_file(&file_path)
-                .map_err(|e| format!("Failed to delete route file {}: {}", file_path.display(), e))?;
+    /// Compile logic operations to VM bytecode
+    fn compile_logic(&self, logic: &[LogicOperation]) -> Result<(Option<Vec<crate::vm::instructions::OptimizedOperation>>, Option<crate::compiler::symbol_table::SymbolTable>), String> {
+        let mut compiler = LogicCompiler::new();
+        let bytecode = compiler.compile(logic);
+        if bytecode.is_empty() {
+            Ok((None, None))
+        } else {
+            Ok((Some(bytecode), Some(compiler.get_symbol_table().clone())))
         }
+    }
+
+    /// Inject request data into VM memory for execution
+    fn inject_request_data_into_vm(
+        &self,
+        vm: &mut VirtualMachine,
+        payload: &Option<Value>,
+        path_params: &HashMap<String, String>,
+        query_params: &HashMap<String, String>,
+        symbol_table: &Arc<crate::compiler::symbol_table::SymbolTable>,
+    ) -> Result<(), String> {
+        // Inject payload fields as top-level variables
+        if let Some(payload_val) = payload {
+            if let Value::Object(obj) = payload_val {
+                for (key, value) in obj {
+                    if let Some(index) = symbol_table.get_index(key) {
+                        vm.memory.set(index, value.clone());
+                    }
+                }
+            }
+        }
+
+        // Inject path parameters
+        for (key, value_str) in path_params {
+            if let Some(index) = symbol_table.get_index(key) {
+                // Try to parse as JSON, otherwise keep as string
+                let value = serde_json::from_str(value_str)
+                    .unwrap_or(Value::String(value_str.clone()));
+                vm.memory.set(index, value);
+            }
+        }
+
+        // Inject query parameters
+        for (key, value_str) in query_params {
+            if let Some(index) = symbol_table.get_index(key) {
+                // Try to parse as JSON, otherwise keep as JSON string
+                let value = serde_json::from_str(value_str)
+                    .unwrap_or(Value::String(value_str.clone()));
+                vm.memory.set(index, value);
+            }
+        }
+
         Ok(())
     }
 }

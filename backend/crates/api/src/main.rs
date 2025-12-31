@@ -188,6 +188,7 @@ async fn main() {
     };
 
     tracing::info!("listening on {}", addr);
+
     axum::serve(listener, app).await.unwrap();
 }
 

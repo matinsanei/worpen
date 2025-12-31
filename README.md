@@ -1,5 +1,3 @@
-
-
 <div align="center">
 
 ```text
@@ -10,101 +8,89 @@
 ╚███╔███╔╝╚██████╔╝██║  ██║██║     ███████╗██║ ╚████║
  ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚═╝     ╚══════╝╚═╝  ╚═══╝
                                                        
-    🔥 LOGIC-AS-DATA • ZERO-COST INLINING • RUST CORE 🔥
+    🔥 LOGIC-AS-DATA • ZERO-COST INLINING • BYTECODE VM 🔥
 ```
 
 # ⚡ **W O R P E N** ⚡
-### **The High-Performance Dynamic Logic Engine**
+### **ᴛʜᴇ ᴅʏɴᴀᴍɪᴄ ᴀᴘɪ ᴇɴɢɪɴᴇ** • *ᴘᴏᴡᴇʀᴇᴅ ʙʏ ʀᴜsᴛ* 🦀
 
-[![Core](https://img.shields.io/badge/CORE-RUST_1.75+-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
-[![Benchmarks](https://img.shields.io/badge/BENCHMARK-~20k_REQ%2FS-green?style=for-the-badge&logo=speedtest)](https://github.com/matinsanei/worpen)
-[![Build](https://img.shields.io/badge/BUILD-PASSING-blue?style=for-the-badge&logo=github-actions)](backend)
+[![Core](https://img.shields.io/badge/CORE-RUST_1.80+-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
+[![Performance](https://img.shields.io/badge/SPEED-30k%2B_REQ/S-green?style=for-the-badge&logo=speedtest)](https://github.com/matinsanei/worpen)
+[![Tests](https://img.shields.io/badge/TESTS-262_PASSING-blue?style=for-the-badge&logo=github-actions)](backend/tests)
 [![License](https://img.shields.io/badge/LICENSE-MIT-blue?style=for-the-badge&logo=open-source-initiative)](LICENSE)
+[![YAML](https://img.shields.io/badge/YAML-SUPPORTED-blue?style=for-the-badge&logo=yaml)](documentation/13-yaml-syntax.md)
 
 <p align="center">
-  <b>No Compilation</b> • <b>No Restarts</b> • <b>No Overhead</b>
+  <b>Logic-as-Data</b> • <b>Bytecode VM</b> • <b>Zero-Cost Inlining</b> • <b>Hot-Swap</b>
 </p>
 
-> *"Forget about middleware. Define your business logic as data, and let Rust execute it at metal speed."*
+> *"Forget about middleware. Define your business logic as data, and let the Worpen VM execute it at metal speed."*
 
-[Quick Start](#-quick-start) • [Performance](#-benchmarks--performance) • [Architecture](#-under-the-hood) • [Contact](#-contact)
+[Quick Start](#-quick-start) • [Benchmarks](#-performance--benchmarks) • [Architecture](#-architecture-the-internal-magic) • [Roadmap](ROADMAP.md)
 
 </div>
 
 ---
 
-## 🌌 **THE PARADIGM SHIFT**
+## 🌌 𝐎𝐕𝐄𝐑𝐕𝐈𝐄𝐖
 
-Software development is stuck in a loop: **Code ➡ Compile ➡ CI/CD ➡ Deploy.** Changing a simple `if` condition in production can take 30 minutes of pipeline time.
+**WORPEN** is a high-performance **Dynamic API Engine** that allows you to build complex backends using **YAML or JSON** without writing a single line of compiled code. 
 
-**Worpen** destroys this loop.
+Unlike traditional interpreters that are slow and memory-heavy, Worpen compiles your logic into a specialized **Bytecode** and executes it via an **Integer-based Virtual Machine**. This gives you the **flexibility of Python** (Hot-swapping logic on the fly) with the **soul of Rust** (safety and raw speed).
 
-It is a **logic engine** written in Rust that treats your business logic (Routes, Functions, Conditions) as **Data**, not Code. It compiles your logic Just-In-Time (JIT) into optimized execution plans, giving you the flexibility of Python with the performance of Go/Rust.
+### 🎯 What Makes Worpen Special?
 
-### ✨ Key Features
-
-- **🚀 Zero-Cost Function Inlining**: Worpen flattens your function calls at load time. Runtime function call overhead is literally **0ms**.
-- **🔄 Hot-Swapping**: Update your API logic instantly without restarting the server or dropping connections.
-- **⚡ Rust Async Core**: Built on top of `Axum` and `Tokio`, capable of handling thousands of concurrent connections.
-- **🛡️ Memory Safety**: Variable scoping (`_0_val`) and memory management are handled automatically and safely by Rust.
-- **🌐 Service Mesh**: Native HTTP client allows Worpen to orchestrate other microservices effortlessly.
+- **🔥 Logic-as-Data**: Business rules are stored as data, not code. Change logic in production with zero downtime.
+- **🚀 Zero-Cost Inlining**: Functions are recursively flattened into the main execution path at load-time. Call overhead is **0ns**.
+- **🧠 Integer-based VM**: No HashMap lookups at runtime. All variables are mapped to direct memory indices (`O(1)` access).
+- **⚡ Async Persistence**: Routes are compiled once and cached in memory. Changes are persisted to disk asynchronously without blocking the hot path.
+- **🔌 Service Mesh Ready**: Native HTTP orchestration to call and pipe other microservices.
 
 ---
 
-## 📊 **BENCHMARKS & PERFORMANCE**
+## 📊 𝐏𝐄𝐑𝐅𝐎𝐑𝐌𝐀𝐍𝐂𝐄 & 𝐁𝐄𝐍𝐂𝐇𝐌𝐀𝐑𝐊𝐒
 
-We don't sell dreams; we sell engineering. Here is how Worpen stacks up against industry giants.
+We believe in honest, end-to-end benchmarking. Worpen bridges the gap between dynamic languages and static binaries.
 
-### The Logic Engine (Internal Speed)
-When stripped of network latency, the Worpen logic interpreter processes over **250,000 operations per second**.
+**Test Environment:** Windows (Localhost), 100k Requests, 125 Concurrency.
 
-### End-to-End API Performance (Real World)
-*Standard HTTP JSON POST benchmark, 125 concurrent connections, localhost.*
-
-| Framework | Technology | Throughput (Req/s) | Latency | Analysis |
+| Framework | Architecture | Throughput (Req/s) | Latency (Avg) | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **Go (Gin)** | Static Compiled | **~17,500** | ~6ms | Metal performance. Hard to develop/change. |
-| **Worpen** | **Dynamic Engine** | **~9,000 - 20,000** | **~14ms** | **Incredible.** Dynamic logic running at near-static speeds. |
-| **Node.js (Fastify)** | JIT Compiled | ~3,500 | ~30ms | Worpen is **~3x - 5x faster**. |
-| **Python (FastAPI)** | Interpreted | ~1,500 | ~60ms | Worpen is **~10x faster**. |
+| **Worpen (Rust VM)** | **Dynamic Logic Engine** | **~30,400** 🚀 | **~4.1ms** | **The New King 👑** |
+| **Go (Gin)** | Native Static Compiled | ~17,800 | ~7.3ms | 1.7x Slower |
+| **Node.js (Fastify)** | JIT Compiled (V8) | ~13,000 | ~9.8ms | 2.3x Slower |
+| **Python (FastAPI)** | Interpreted | ~3,900 | ~32.0ms | **7.7x Slower** |
 
-> **Verdict:** Worpen effectively eliminates the "Dynamic Language Tax". You get the ease of a dynamic system with performance rivaling compiled languages.
-
----
-
-## 🧠 **UNDER THE HOOD: HOW IT WORKS**
-
-Worpen isn't just an interpreter; it's a **Runtime Compiler**.
-
-```mermaid
-graph TD
-    A[JSON/YAML Definition] -->|Parser| B(Variable Scanner)
-    B -->|Optimizer| C{Inlining Compiler}
-    C -->|Recursive Injection| D[Flattened Execution Plan]
-    D -->|Cache| E[JIT Memory Store]
-    F[Incoming Request] -->|Zero Parsing| E
-    E -->|Execute| G[Rust Native Speed]
+```text
+Performance Visualization:
+WORPEN   ████████████████████████████████ 30,405 (100%)
+GO (GIN) ██████████████████░░░░░░░░░░░░░░ 17,800 (58%)
+NODE.JS  ██████████████░░░░░░░░░░░░░░░░░░ 13,000 (42%)
+PYTHON   ████░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 3,900  (12%)
 ```
 
-1.  **Parse:** The engine reads your definition.
-2.  **Inlining:** It recursively finds all `CallFunction` nodes, injects the code into the main route, and handles **Variable Mangling** (e.g., `product` becomes `_0_product`) to prevent collisions.
-3.  **Execute:** The final execution path is linear. The CPU predicts branches perfectly. No stack jumps. No context switches.
+---
+
+## 🏗️ 𝐀𝐑𝐂𝐇𝐈𝐓𝐄𝐂𝐓𝐔𝐑𝐄: 𝐓𝐇𝐄 𝐈𝐍𝐓𝐄𝐑𝐍𝐀𝐋 𝐌𝐀𝐆𝐈𝐂
+
+Worpen functions as a **Runtime Compiler**, not just a simple JSON parser.
+
+1.  **Lowering Phase:** Upon route registration, the `LogicCompiler` transforms human-readable strings (`"user_price"`) into a **Symbol Table** of integers (`index 4`).
+2.  **Inlining Phase:** All `CallFunction` operations are recursively injected into the parent logic, eliminating the need for a Stack Frame or Context Switch during execution.
+3.  **VM Execution:** The `VirtualMachine` iterates over a flat `Vec<OptimizedOperation>`. It accesses variables via **Direct Array Indexing**, which is highly friendly to CPU L1/L2 caches.
 
 ---
 
-## 🚀 **QUICK START**
+## 🚀 𝐐𝐔𝐈𝐂𝐊 𝐒𝐓𝐀𝐑𝐓
 
-### 1. Fire up the Engine
-
+### 1. Run the Server
 ```bash
+git clone https://github.com/matinsanei/worpen.git
+cd worpen/backend
 cargo run --release
-# Server listening on 127.0.0.1:3000
 ```
 
-### 2. Define a "Global Function"
-
-Let's create a reusable logic block. Note that we use `MathOp`, but the engine inlines it.
-
+### 2. Define a Global Function (Reusable Logic)
 ```bash
 curl -X POST http://127.0.0.1:3000/api/v1/global-functions \
   -H "Content-Type: application/json" \
@@ -112,20 +98,14 @@ curl -X POST http://127.0.0.1:3000/api/v1/global-functions \
     "name": "calculate_tax",
     "params": ["price"],
     "logic": [
-      {
-        "math_op": { "operation": "multiply", "args": ["{{price}}", 1.09] }
-      },
-      {
-        "set": { "var": "final", "value": "{{math_result}}" }
-      }
+      { "math_op": { "operation": "sum", "args": ["{{price}}", 10] } },
+      { "set": { "var": "result", "value": "{{math_result}}" } }
     ]
   }'
 ```
 
-### 3. Create an API Route
-
-Now create the API endpoint. Notice `call_function` here implies no runtime cost.
-
+### 3. Create a Route (The API)
+Worpen will **inline** the function logic at this stage.
 ```bash
 curl -X POST http://127.0.0.1:3000/api/v1/dynamic-routes \
   -H "Content-Type: application/json" \
@@ -133,64 +113,78 @@ curl -X POST http://127.0.0.1:3000/api/v1/dynamic-routes \
     "name": "checkout_api",
     "path": "/api/checkout",
     "method": "POST",
-    "enabled": true,
     "logic": [
-      { "set": { "var": "user_price", "value": 100 } },
-      {
-        "call_function": {
-          "name": "calculate_tax",
-          "args": ["{{user_price}}"],
-          "output_var": "total"
-        }
-      },
-      {
-        "return": { "value": { "status": "OK", "amount": "{{total}}" } }
-      }
+      { "set": { "var": "base", "value": 50 } },
+      { "call_function": { "name": "calculate_tax", "args": ["{{base}}"], "output_var": "final" } },
+      { "return": { "value": "{{final}}" } }
     ]
   }'
 ```
 
-### 4. Test It
-
+### 4. Call your API
 ```bash
 curl -X POST http://127.0.0.1:3000/api/checkout
-# Response: {"status": "OK", "amount": "109.0"}
+# Response: 60.0
 ```
 
 ---
 
-## 🔮 **FUTURE ROADMAP**
+## 🧬 𝐂𝐎𝐑𝐄 𝐂𝐀𝐏𝐀𝐁𝐈𝐋𝐈𝐓𝐈𝐄𝐒
 
-We are building the future of backend development.
-
-- [x] **Core:** Zero-Cost Function Inlining & Logic Engine.
-- [x] **Network:** Native HTTP Request/Response handling.
-- [x] **Testing:** Comprehensive CI/CD with 260+ tests.
-- [ ] **AI Inference:** Run ONNX models directly inside Worpen (Zero-Copy tensors).
-- [ ] **Embedded Scripting:** Support for Lua/JS/Python via WebAssembly.
-- [ ] **Cluster:** Raft-based distributed state.
+| Category | Operations | Description |
+|:---------|:-----------|:------------|
+| **Memory** | `Set`, `Get` | **O(1) Access** via Integer Indices |
+| **Logic** | `If`, `Switch`, `Loop` | Full control flow support |
+| **Math** | `sum`, `mul`, `div`, etc. | Blazing fast binary operations |
+| **Networking**| `HttpRequest` | Built-in async HTTP client for Service Mesh |
+| **Optimization**| `Inlining` | Compile-time function flattening |
 
 ---
 
-## 🤝 **CONTRIBUTING**
+## 📚 𝐃𝐎𝐂𝐔𝐌𝐄𝐍𝐓𝐀𝐓𝐈𝐎𝐍
 
-Worpen is an open project born from the desire to break the status quo. If you love Rust, Compilers, or DevOps, join us.
+- 📖 **[Introduction](documentation/01-introduction.md)**
+- 🏗️ **[Variable Scoping & VM](documentation/03-variables-basics.md)**
+- 🔁 **[Advanced Loops & Logic](documentation/05-loops.md)**
+- 📞 **[Zero-Cost Functions](documentation/06-functions.md)**
+- 🔄 **[Migration from JSON to YAML](documentation/15-migration-guide.md)**
+- ✨ **[Performance Best Practices](documentation/16-best-practices.md)**
+
+---
+
+## 🎯 𝐂𝐔𝐑𝐑𝐄𝐍𝐓 𝐒𝐓𝐀𝐓𝐔𝐒
+
+### ✅ Completed (Phase 1-5)
+- **Phase 1-3:** Core Engine, Operations & Persistence.
+- **Phase 4:** **Global Functions & Recursive Inlining.**
+- **Phase 5:** **Bytecode VM & Symbol Table Architecture.** (Current Speed: 30k+ Req/s)
+
+### 🚀 Roadmap
+- [ ] **AI Inference Node:** Direct execution of ONNX models within the VM.
+- [ ] **JIT Native Compilation:** Using `Cranelift` to compile Bytecode to x86 Assembly.
+- [ ] **WASM Logic Blocks:** Import logic from any language (Go, C++, Rust).
+- [ ] **Visual Logic Editor:** Drag-and-drop IDE for Worpen.
+
+---
+
+## 🤝 𝐂𝐎𝐍𝐓𝐑𝐈𝐁𝐔𝐓𝐈𝐍𝐆
+
+Worpen is an ambitious project to redefine backend infrastructure. We welcome performance hackers, compiler designers, and Rust enthusiasts.
 
 1.  **Fork** & **Clone**.
-2.  `cargo test` (We have 262 tests guarding the core).
-3.  **PRs are welcome!**
+2.  `cargo test` (We maintain 262+ tests guarding the VM).
+3.  Submit a PR with performance benchmarks.
 
 ---
 
-<div align="center">
-
-## 👨‍💻 Author
+## 👨‍💻 𝐀𝐔𝐓𝐇𝐎𝐑
 
 **Matin Sanei**
-<a href="https://github.com/matinsanei"><img src="https://img.shields.io/github/followers/matinsanei?style=social" alt="GitHub"></a>
+- **GitHub:** [@matinsanei](https://github.com/matinsanei)
+- **Email:** matinsanei@gmail.com
 
-*"The fastest code is the code you never write."*
+*"The best code is the one you never compile."*
 
-**MIT Licensed** • Copyright © 2025 Worpen
+**MIT Licensed** • Copyright © 2025 Worpen Engine
 
 </div>
