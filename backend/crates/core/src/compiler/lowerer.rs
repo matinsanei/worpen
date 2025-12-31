@@ -179,3 +179,9 @@ impl LogicCompiler {
         &self.symbol_table
     }
 }
+
+impl Default for LogicCompiler {
+    fn default() -> Self {
+        Self::new()
+    }
+}

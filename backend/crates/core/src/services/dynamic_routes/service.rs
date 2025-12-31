@@ -80,7 +80,7 @@ impl DynamicRouteService {
         let route_clone = route.clone();
         let data_dir_clone = self.data_dir.clone();
         tokio::spawn(async move {
-            let _ = Self::save_route_async(&route_clone, &data_dir_clone);
+            drop(Self::save_route_async(&route_clone, &data_dir_clone));
         });
         
         Ok(route_id)
@@ -167,7 +167,7 @@ impl DynamicRouteService {
         let route_clone = route.clone();
         let data_dir_clone = self.data_dir.clone();
         tokio::spawn(async move {
-            let _ = Self::save_route_async(&route_clone, &data_dir_clone);
+            drop(Self::save_route_async(&route_clone, &data_dir_clone));
         });
         
         Ok(())
@@ -188,7 +188,7 @@ impl DynamicRouteService {
         let route_id_clone = route_id.to_string();
         let data_dir_clone = self.data_dir.clone();
         tokio::spawn(async move {
-            let _ = Self::delete_route_file_async(&route_id_clone, &data_dir_clone);
+            drop(Self::delete_route_file_async(&route_id_clone, &data_dir_clone));
         });
         
         Ok(())
@@ -943,12 +943,10 @@ impl DynamicRouteService {
         symbol_table: &Arc<crate::compiler::symbol_table::SymbolTable>,
     ) -> Result<(), String> {
         // Inject payload fields as top-level variables
-        if let Some(payload_val) = payload {
-            if let Value::Object(obj) = payload_val {
-                for (key, value) in obj {
-                    if let Some(index) = symbol_table.get_index(key) {
-                        vm.memory.set(index, value.clone());
-                    }
+        if let Some(Value::Object(obj)) = payload {
+            for (key, value) in obj {
+                if let Some(index) = symbol_table.get_index(key) {
+                    vm.memory.set(index, value.clone());
                 }
             }
         }

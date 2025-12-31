@@ -47,3 +47,9 @@ impl SymbolTable {
         self.index_to_name.is_empty()
     }
 }
+
+impl Default for SymbolTable {
+    fn default() -> Self {
+        Self::new()
+    }
+}

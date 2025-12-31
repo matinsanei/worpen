@@ -37,3 +37,9 @@ impl ExecutionMemory {
         self.data.is_empty()
     }
 }
+
+impl Default for ExecutionMemory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
