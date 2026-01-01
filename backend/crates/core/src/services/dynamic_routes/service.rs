@@ -31,7 +31,22 @@ impl Default for DynamicRouteService {
 
 impl DynamicRouteService {
     pub fn new() -> Self {
-        Self::with_data_dir("data".to_string())
+        // Use DATA_DIR env var or auto-detect based on current directory
+        let data_dir = std::env::var("DATA_DIR")
+            .unwrap_or_else(|_| {
+                // Try to find the data directory intelligently
+                let current_dir = std::env::current_dir()
+                    .unwrap_or_else(|_| std::path::PathBuf::from("."));
+                
+                // Check if we're in the backend directory
+                if current_dir.ends_with("backend") || current_dir.join("crates").exists() {
+                    "data".to_string()
+                } else {
+                    // Assume we're in root, so use backend/data
+                    "backend/data".to_string()
+                }
+            });
+        Self::with_data_dir(data_dir)
     }
 
     pub fn with_data_dir(data_dir: String) -> Self {
@@ -79,8 +94,11 @@ impl DynamicRouteService {
         // Persist to disk asynchronously
         let route_clone = route.clone();
         let data_dir_clone = self.data_dir.clone();
+        let route_id_for_log = route_id.clone();
         tokio::spawn(async move {
-            drop(Self::save_route_async(&route_clone, &data_dir_clone));
+            if let Err(e) = Self::save_route_async(&route_clone, &data_dir_clone).await {
+                eprintln!("[ERROR] Failed to persist route {}: {}", route_id_for_log, e);
+            }
         });
         
         Ok(route_id)
@@ -114,17 +132,27 @@ impl DynamicRouteService {
 
     /// Save a route to disk asynchronously
     async fn save_route_async(route: &RouteDefinition, data_dir: &str) -> Result<(), String> {
-        use std::fs;
+        use tokio::fs;
         use std::path::Path;
 
         let routes_dir = Path::new(data_dir).join("routes");
         fs::create_dir_all(&routes_dir)
+            .await
             .map_err(|e| format!("Failed to create routes dir: {}", e))?;
 
         let file_path = routes_dir.join(format!("{}.json", route.id));
-        let content = serde_json::to_string_pretty(route)
-            .map_err(|e| format!("Failed to serialize route: {}", e))?;
+        
+        // Serialize in blocking task to avoid blocking async runtime
+        let content = tokio::task::spawn_blocking({
+            let route = route.clone();
+            move || serde_json::to_string_pretty(&route)
+        })
+        .await
+        .map_err(|e| format!("Serialization task failed: {}", e))?
+        .map_err(|e| format!("Failed to serialize route: {}", e))?;
+        
         fs::write(&file_path, content)
+            .await
             .map_err(|e| format!("Failed to write route file {}: {}", file_path.display(), e))?;
 
         Ok(())
@@ -132,14 +160,16 @@ impl DynamicRouteService {
 
     /// Delete a route file from disk asynchronously
     async fn delete_route_file_async(route_id: &str, data_dir: &str) -> Result<(), String> {
-        use std::fs;
+        use tokio::fs;
         use std::path::Path;
 
         let routes_dir = Path::new(data_dir).join("routes");
         let file_path = routes_dir.join(format!("{}.json", route_id));
         
-        if file_path.exists() {
+        // Check existence and remove using tokio::fs
+        if tokio::fs::try_exists(&file_path).await.unwrap_or(false) {
             fs::remove_file(&file_path)
+                .await
                 .map_err(|e| format!("Failed to delete route file {}: {}", file_path.display(), e))?;
         }
 
@@ -166,8 +196,11 @@ impl DynamicRouteService {
         // Persist to disk asynchronously
         let route_clone = route.clone();
         let data_dir_clone = self.data_dir.clone();
+        let route_id_clone = route_id.to_string();
         tokio::spawn(async move {
-            drop(Self::save_route_async(&route_clone, &data_dir_clone));
+            if let Err(e) = Self::save_route_async(&route_clone, &data_dir_clone).await {
+                eprintln!("[ERROR] Failed to persist route update {}: {}", route_id_clone, e);
+            }
         });
         
         Ok(())
@@ -188,7 +221,9 @@ impl DynamicRouteService {
         let route_id_clone = route_id.to_string();
         let data_dir_clone = self.data_dir.clone();
         tokio::spawn(async move {
-            drop(Self::delete_route_file_async(&route_id_clone, &data_dir_clone));
+            if let Err(e) = Self::delete_route_file_async(&route_id_clone, &data_dir_clone).await {
+                eprintln!("[ERROR] Failed to delete route file {}: {}", route_id_clone, e);
+            }
         });
         
         Ok(())
@@ -379,8 +414,17 @@ impl DynamicRouteService {
     pub async fn define_global_function(&self, func: FunctionDef) -> Result<(), String> {
         let mut functions = self.global_functions.write().unwrap();
         functions.insert(func.name.clone(), func.clone());
-        // Persist to disk
-        self.save_function(&func)?;
+        
+        // Persist to disk asynchronously
+        let func_clone = func.clone();
+        let data_dir_clone = self.data_dir.clone();
+        let func_name = func.name.clone();
+        tokio::spawn(async move {
+            if let Err(e) = Self::save_function_async(&func_clone, &data_dir_clone).await {
+                eprintln!("[ERROR] Failed to persist function {}: {}", func_name, e);
+            }
+        });
+        
         Ok(())
     }
 
@@ -904,19 +948,19 @@ impl DynamicRouteService {
         Ok(())
     }
 
-    /// Save a function to disk
-    fn save_function(&self, func: &FunctionDef) -> Result<(), String> {
-        use std::fs;
+    /// Save a function to disk asynchronously
+    async fn save_function_async(func: &FunctionDef, data_dir: &str) -> Result<(), String> {
+        use tokio::fs;
         use std::path::Path;
 
-        let functions_dir = Path::new(&self.data_dir).join("functions");
-        fs::create_dir_all(&functions_dir)
+        let functions_dir = Path::new(data_dir).join("functions");
+        fs::create_dir_all(&functions_dir).await
             .map_err(|e| format!("Failed to create functions dir: {}", e))?;
 
         let file_path = functions_dir.join(format!("{}.json", func.name));
         let content = serde_json::to_string_pretty(func)
             .map_err(|e| format!("Failed to serialize function: {}", e))?;
-        fs::write(&file_path, content)
+        fs::write(&file_path, content).await
             .map_err(|e| format!("Failed to write function file {}: {}", file_path.display(), e))?;
 
         Ok(())
