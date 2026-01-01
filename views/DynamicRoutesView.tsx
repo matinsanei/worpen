@@ -21,6 +21,7 @@ export const DynamicRoutesView: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<'editor' | 'test'>('editor');
     const [registrationError, setRegistrationError] = useState<any>(null);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
     
     // UI State
     const [sidebarWidth, setSidebarWidth] = useState(() => {
@@ -109,10 +110,8 @@ ${trimmedCode.split('\n').map(line => '    ' + line).join('\n')}`;
             }
         }
         
-        setRegistrationError({ 
-            error: 'Success', 
-            details: 'Code applied from Copilot! Review and deploy when ready.' 
-        });
+        setSuccessMessage('Code applied from Copilot! Review and deploy when ready.');
+        setTimeout(() => setSuccessMessage(null), 5000);
     };
 
     // Effects
@@ -208,8 +207,10 @@ ${trimmedCode.split('\n').map(line => '    ' + line).join('\n')}`;
             const response = await fetch(`${getApiBaseUrl()}/api/v1/dynamic-routes`);
             const data = await response.json();
             setRoutes(data);
+            return data;
         } catch (error) {
             console.error('Failed to fetch routes:', error);
+            return null;
         }
     };
 
@@ -229,8 +230,19 @@ ${trimmedCode.split('\n').map(line => '    ' + line).join('\n')}`;
             });
 
             if (response.ok) {
-                await fetchRoutes();
-                setRouteDefinition('');
+                const newRoutes = await fetchRoutes();
+                
+                // If there was a selected route, update it with fresh data
+                if (selectedRoute && newRoutes) {
+                    const updatedRoute = newRoutes.find((r: any) => r.id === selectedRoute.id);
+                    if (updatedRoute) {
+                        setSelectedRoute(updatedRoute);
+                        setRouteDefinition(updatedRoute.yaml_definition || JSON.stringify(updatedRoute, null, 2));
+                    }
+                } else {
+                    setRouteDefinition('');
+                }
+                
                 setActiveTab('editor');
                 setRegistrationError(null);
             } else {
@@ -259,9 +271,19 @@ ${trimmedCode.split('\n').map(line => '    ' + line).join('\n')}`;
             });
 
             if (response.ok) {
-                await fetchRoutes();
+                const newRoutes = await fetchRoutes();
+                
+                // If deleted route was selected, clear selection
                 if (selectedRoute?.id === routeId) {
                     setSelectedRoute(null);
+                    setRouteDefinition('');
+                } else if (selectedRoute && newRoutes) {
+                    // Update selected route with fresh data
+                    const updatedRoute = newRoutes.find((r: any) => r.id === selectedRoute.id);
+                    if (updatedRoute) {
+                        setSelectedRoute(updatedRoute);
+                        setRouteDefinition(updatedRoute.yaml_definition || JSON.stringify(updatedRoute, null, 2));
+                    }
                 }
             }
         } catch (error) {
@@ -384,7 +406,9 @@ ${trimmedCode.split('\n').map(line => '    ' + line).join('\n')}`;
                         routeDefinition={routeDefinition}
                         onRouteDefinitionChange={setRouteDefinition}
                         registrationError={registrationError}
+                        successMessage={successMessage}
                         onClearError={() => setRegistrationError(null)}
+                        onClearSuccess={() => setSuccessMessage(null)}
                         loading={loading}
                         onDeploy={registerRoute}
                         onOpenAI={() => setShowAIModal(true)}

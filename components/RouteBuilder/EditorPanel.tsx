@@ -3,6 +3,7 @@ import Editor from "@monaco-editor/react";
 import { Braces, Save, RefreshCw, Sparkles, MessageSquare } from 'lucide-react';
 import { IDETheme } from '../../src/themes/ide';
 import { ErrorDisplay } from './ErrorDisplay';
+import { SuccessDisplay } from './SuccessDisplay';
 
 interface EditorPanelProps {
     currentTheme: IDETheme;
@@ -11,7 +12,9 @@ interface EditorPanelProps {
     routeDefinition: string;
     onRouteDefinitionChange: (value: string) => void;
     registrationError: any;
+    successMessage: string | null;
     onClearError: () => void;
+    onClearSuccess: () => void;
     loading: boolean;
     onDeploy: () => void;
     onOpenAI?: () => void;
@@ -25,7 +28,9 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
     routeDefinition,
     onRouteDefinitionChange,
     registrationError,
+    successMessage,
     onClearError,
+    onClearSuccess,
     loading,
     onDeploy,
     onOpenAI,
@@ -114,6 +119,9 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                         }}
                     />
                     <ErrorDisplay error={registrationError} onClose={onClearError} />
+                    {successMessage && (
+                        <SuccessDisplay message={successMessage} onClose={onClearSuccess} />
+                    )}
                 </div>
             </div>
         </div>

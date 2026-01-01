@@ -6,4 +6,5 @@ export { SettingsModal } from './SettingsModal';
 export { EditorPanel } from './EditorPanel';
 export { TestPanel } from './TestPanel';
 export { ErrorDisplay } from './ErrorDisplay';
+export { SuccessDisplay } from './SuccessDisplay';
 export { ROUTE_TEMPLATES, AVAILABLE_FONTS } from './constants';

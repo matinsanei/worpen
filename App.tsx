@@ -90,15 +90,6 @@ const AppContent: React.FC = () => {
     navigate(viewToPath[view]);
   };
 
-  // Inject startup notification
-  const { addNotification } = useNotifications();
-  useEffect(() => {
-    // Simulate system boot notification
-    setTimeout(() => {
-      addNotification('INFO', 'SYSTEM_INIT', 'Worpen OS v2.4 initialized. All systems nominal.', 4000);
-    }, 1000);
-  }, [addNotification]);
-
   // Command Palette Shortcut
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
