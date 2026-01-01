@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
 import { TerminalFrame } from '../components/TerminalFrame';
-import { Save, Shield, Globe, Key, Plus, X, Settings, Bell, Hash } from 'lucide-react';
+import { Save, Shield, Globe, Key, Plus, X, Settings, Bell, Hash, Sparkles, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import { useNotifications } from '../components/NotificationSystem';
+import { getAIConfig, saveAIConfig, testAIConnection, AIConfig, AVAILABLE_MODELS, POPULAR_ENDPOINTS } from '../services/aiConfig';
 
 export const SettingsView: React.FC = () => {
   const { addNotification } = useNotifications();
@@ -14,6 +15,11 @@ export const SettingsView: React.FC = () => {
 
   const [newKey, setNewKey] = useState('');
   const [newValue, setNewValue] = useState('');
+  
+  // AI Configuration State
+  const [aiConfig, setAiConfig] = useState<AIConfig>(() => getAIConfig());
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
 
   const addEnv = () => {
     if (newKey && newValue) {
@@ -34,6 +40,42 @@ export const SettingsView: React.FC = () => {
   const handleCommit = () => {
     localStorage.setItem('WORPEN_API_URL', apiUrl);
     addNotification('SUCCESS', 'SYSTEM_COMMIT', 'Configuration successfully propagated to fleet.', 3000);
+  };
+
+  const handleSaveAIConfig = () => {
+    try {
+      saveAIConfig(aiConfig);
+      addNotification('SUCCESS', 'AI_CONFIG_SAVED', 'AI configuration saved successfully.', 3000);
+      setConnectionStatus({ type: null, message: '' });
+    } catch (error: any) {
+      addNotification('ERROR', 'AI_CONFIG_ERROR', error.message || 'Failed to save AI configuration');
+    }
+  };
+
+  const handleTestConnection = async () => {
+    setTestingConnection(true);
+    setConnectionStatus({ type: null, message: '' });
+
+    try {
+      const result = await testAIConnection(aiConfig);
+      setConnectionStatus({
+        type: result.success ? 'success' : 'error',
+        message: result.message,
+      });
+
+      if (result.success) {
+        addNotification('SUCCESS', 'AI_CONNECTED', 'AI connection verified!', 3000);
+      } else {
+        addNotification('ERROR', 'AI_CONNECTION_FAILED', result.message);
+      }
+    } catch (error: any) {
+      setConnectionStatus({
+        type: 'error',
+        message: error.message || 'Connection test failed',
+      });
+    } finally {
+      setTestingConnection(false);
+    }
   };
 
   return (
@@ -230,6 +272,183 @@ export const SettingsView: React.FC = () => {
               </div>
             </section>
           </div>
+        </div>
+
+        {/* AI Integration Section */}
+        <div className="w-full">
+          <section className="jb-card p-6 space-y-5">
+            <div className="flex items-center justify-between pb-4 border-b border-[#43454a]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#3574f0] to-[#c678dd] flex items-center justify-center shadow-lg">
+                  <Sparkles size={20} className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-[#dfe1e5]">AI Integration</h2>
+                  <p className="text-xs text-[#6e7073] mt-0.5">
+                    Configure AI provider for Logic Generator
+                  </p>
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  className="sr-only peer"
+                  checked={aiConfig.enabled}
+                  onChange={(e) => setAiConfig({ ...aiConfig, enabled: e.target.checked })}
+                />
+                <div className="w-11 h-6 bg-[#43454a] rounded-full peer peer-checked:bg-[#59a869] transition-colors relative">
+                  <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+                </div>
+                <span className="ml-3 text-sm font-medium text-[#dfe1e5]">
+                  {aiConfig.enabled ? 'Enabled' : 'Disabled'}
+                </span>
+              </label>
+            </div>
+
+            <div className="bg-[#3574f010] text-[#3574f0] text-xs px-4 py-3 border-l-4 border-[#3574f0] rounded-[2px] font-medium leading-relaxed">
+              <strong>GitHub Models (Free):</strong> Get your free API key from{' '}
+              <a 
+                href="https://github.com/marketplace/models" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="underline hover:text-[#4a8fff] transition-colors"
+              >
+                github.com/marketplace/models
+              </a>
+              . No credit card required!
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* API Endpoint */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#6e7073] uppercase px-1">
+                  API Endpoint
+                </label>
+                <select
+                  value={aiConfig.endpoint}
+                  onChange={(e) => setAiConfig({ ...aiConfig, endpoint: e.target.value })}
+                  className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2.5 rounded-[var(--radius)] text-sm focus:border-[#3574f0] outline-none transition-colors"
+                >
+                  {POPULAR_ENDPOINTS.map((ep) => (
+                    <option key={ep.url} value={ep.url}>
+                      {ep.name} - {ep.url}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  value={aiConfig.endpoint}
+                  onChange={(e) => setAiConfig({ ...aiConfig, endpoint: e.target.value })}
+                  placeholder="https://models.inference.ai.azure.com"
+                  className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2 rounded-[var(--radius)] text-sm font-mono focus:border-[#3574f0] outline-none transition-colors mt-2"
+                />
+              </div>
+
+              {/* Model Name */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#6e7073] uppercase px-1">
+                  Model Name
+                </label>
+                <select
+                  value={aiConfig.model}
+                  onChange={(e) => setAiConfig({ ...aiConfig, model: e.target.value })}
+                  className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2.5 rounded-[var(--radius)] text-sm focus:border-[#3574f0] outline-none transition-colors"
+                >
+                  {AVAILABLE_MODELS.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.name} ({model.provider})
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  value={aiConfig.model}
+                  onChange={(e) => setAiConfig({ ...aiConfig, model: e.target.value })}
+                  placeholder="gpt-4o"
+                  className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2 rounded-[var(--radius)] text-sm font-mono focus:border-[#3574f0] outline-none transition-colors mt-2"
+                />
+              </div>
+            </div>
+
+            {/* API Key */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#6e7073] uppercase px-1">
+                API Key
+              </label>
+              <div className="relative group">
+                <input
+                  type="password"
+                  value={aiConfig.apiKey}
+                  onChange={(e) => setAiConfig({ ...aiConfig, apiKey: e.target.value })}
+                  placeholder="Enter your API key..."
+                  className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2.5 pr-10 rounded-[var(--radius)] text-sm font-mono focus:border-[#3574f0] outline-none transition-colors"
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6e7073]">
+                  <Key size={16} />
+                </div>
+              </div>
+              <p className="text-[10px] text-[#6e7073] px-1">
+                Your API key is stored locally in your browser and never sent to Worpen servers.
+              </p>
+            </div>
+
+            {/* Connection Status */}
+            {connectionStatus.type && (
+              <div className={`flex items-start gap-3 p-4 rounded-[var(--radius)] border ${
+                connectionStatus.type === 'success'
+                  ? 'bg-[#59a869]/10 border-[#59a869]/30 text-[#59a869]'
+                  : 'bg-[#e06c75]/10 border-[#e06c75]/30 text-[#e06c75]'
+              }`}>
+                {connectionStatus.type === 'success' ? (
+                  <CheckCircle size={20} className="flex-shrink-0 mt-0.5" />
+                ) : (
+                  <AlertTriangle size={20} className="flex-shrink-0 mt-0.5" />
+                )}
+                <div className="flex-1">
+                  <p className="text-sm font-semibold">
+                    {connectionStatus.type === 'success' ? 'Connection Successful' : 'Connection Failed'}
+                  </p>
+                  <p className="text-xs mt-1 opacity-90">
+                    {connectionStatus.message}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setConnectionStatus({ type: null, message: '' })}
+                  className="text-current hover:opacity-70 transition-opacity"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-3 pt-4 border-t border-[#43454a]">
+              <button
+                onClick={handleTestConnection}
+                disabled={testingConnection || !aiConfig.apiKey || !aiConfig.endpoint}
+                className="flex items-center gap-2 px-5 py-2.5 bg-[#2b2d30] hover:bg-[#393b40] disabled:bg-[#2b2d30] disabled:opacity-50 disabled:cursor-not-allowed text-[#dfe1e5] text-sm font-medium border border-[#43454a] rounded-[var(--radius)] transition-all active:scale-95"
+              >
+                {testingConnection ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Testing Connection...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={16} />
+                    Test Connection
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleSaveAIConfig}
+                className="flex items-center gap-2 px-5 py-2.5 bg-[#3574f0] hover:bg-[#2d5fc7] text-white text-sm font-bold rounded-[var(--radius)] transition-all active:scale-95 shadow-lg"
+              >
+                <Save size={16} />
+                Save AI Config
+              </button>
+            </div>
+          </section>
         </div>
       </div>
     </div>

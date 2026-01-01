@@ -168,3 +168,28 @@ export const terminalApi = {
 export const healthApi = {
   check: () => fetch(`${getApiBaseUrl()}/health`).then(r => r.text()),
 };
+
+// Global Functions API
+export interface FunctionDef {
+  name: string;
+  params: string[];
+  logic: any[]; // Array of LogicOperations
+}
+
+export interface FunctionRegistryResponse {
+  count: number;
+  functions: Record<string, FunctionDef>; // Key is function name
+}
+
+export const functionsApi = {
+  list: () => apiRequest<FunctionRegistryResponse>('/api/v1/global-functions'),
+  create: (payload: FunctionDef) =>
+    apiRequest<{ success: boolean; message: string }>('/api/v1/global-functions', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  delete: (name: string) =>
+    apiRequest<{ success: boolean; message: string }>(`/api/v1/global-functions/${name}`, {
+      method: 'DELETE',
+    }),
+};

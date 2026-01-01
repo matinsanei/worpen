@@ -2,8 +2,8 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-    LayoutGrid, Server, AlertTriangle, Settings,
-    Box, Bot, Layers, GitBranch, Hexagon, Zap, Code
+    Activity, Database, AlertCircle, Settings,
+    Network, Code2, List, Hexagon
 } from 'lucide-react';
 import { ViewState } from '../types';
 
@@ -17,14 +17,17 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ isOpen, currentView, o
 
     const viewToPath: Record<ViewState, string> = {
         'DASHBOARD': '/',
+        'DYNAMIC_ROUTES': '/routes',
+        'FUNCTIONS': '/functions',
+        'STORAGE': '/storage',
+        'CICD': '/traces',
+        'INCIDENTS': '/errors',
+        'SETTINGS': '/settings',
+        // Legacy paths (hidden from UI but kept for compatibility)
         'FLEET': '/fleet',
         'DOCKER': '/containers',
         'AUTOMATION': '/auto-healing',
         'DEPENDENCY': '/artifacts',
-        'CICD': '/pipeline',
-        'DYNAMIC_ROUTES': '/route-builder',
-        'INCIDENTS': '/incidents',
-        'SETTINGS': '/settings',
     };
 
     const NavItem = ({ view, icon: Icon, label, alert }: { view: ViewState, icon: any, label: string, alert?: boolean }) => {
@@ -107,21 +110,19 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ isOpen, currentView, o
 
             {/* Navigation */}
             <div className={`flex-1 overflow-y-auto py-4 custom-scrollbar flex flex-col overflow-x-hidden ${isOpen ? 'px-3' : 'px-1.5'}`}>
-                <NavGroup label="Overview">
-                    <NavItem view="DASHBOARD" icon={LayoutGrid} label="Dashboard" />
-                    <NavItem view="FLEET" icon={Server} label="Fleet Nodes" />
+                <NavGroup label="CORE">
+                    <NavItem view="DASHBOARD" icon={Activity} label="Overview" />
+                    <NavItem view="DYNAMIC_ROUTES" icon={Network} label="API Routes" />
+                    <NavItem view="FUNCTIONS" icon={Code2} label="Functions Lib" />
+                    <NavItem view="STORAGE" icon={Database} label="Storage" />
                 </NavGroup>
 
-                <NavGroup label="Orchestration">
-                    <NavItem view="DOCKER" icon={Box} label="Containers" />
-                    <NavItem view="AUTOMATION" icon={Bot} label="Auto-Healing" />
-                    <NavItem view="DEPENDENCY" icon={Layers} label="Artifacts" />
-                    <NavItem view="CICD" icon={GitBranch} label="Pipeline" />
-                    <NavItem view="DYNAMIC_ROUTES" icon={Code} label="Route Builder" />
+                <NavGroup label="OBSERVABILITY">
+                    <NavItem view="CICD" icon={List} label="Live Traces" />
+                    <NavItem view="INCIDENTS" icon={AlertCircle} label="Error Logs" alert={true} />
                 </NavGroup>
 
-                <NavGroup label="System">
-                    <NavItem view="INCIDENTS" icon={AlertTriangle} label="Incidents" alert={true} />
+                <NavGroup label="SETTINGS">
                     <NavItem view="SETTINGS" icon={Settings} label="Settings" />
                 </NavGroup>
             </div>

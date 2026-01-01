@@ -1,0 +1,53 @@
+{
+  "name": "calc_damage",
+  "params": [
+    "atk",
+    "def"
+  ],
+  "logic": [
+    {
+      "math_op": {
+        "operation": "divide",
+        "args": [
+          "{{def}}",
+          2
+        ]
+      }
+    },
+    {
+      "set": {
+        "var": "def_val",
+        "value": "{{math_result}}"
+      }
+    },
+    {
+      "math_op": {
+        "operation": "subtract",
+        "args": [
+          "{{atk}}",
+          "{{def_val}}"
+        ]
+      }
+    },
+    {
+      "if": {
+        "condition": "{{math_result}} < 0",
+        "then": [
+          {
+            "set": {
+              "var": "final_dmg",
+              "value": 0
+            }
+          }
+        ],
+        "otherwise": null
+      }
+    },
+    {
+      "set": {
+        "var": "result",
+        "value": "{{final_dmg}}"
+      }
+    }
+  ]
+}

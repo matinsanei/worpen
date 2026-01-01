@@ -92,4 +92,4 @@ export interface Pipeline {
   stages: PipelineStage[];
 }
 
-export type ViewState = 'DASHBOARD' | 'FLEET' | 'DOCKER' | 'AUTOMATION' | 'INCIDENTS' | 'SETTINGS' | 'DEPENDENCY' | 'CICD' | 'DYNAMIC_ROUTES';
+export type ViewState = 'DASHBOARD' | 'DYNAMIC_ROUTES' | 'FUNCTIONS' | 'STORAGE' | 'CICD' | 'INCIDENTS' | 'SETTINGS' | 'FLEET' | 'DOCKER' | 'AUTOMATION' | 'DEPENDENCY';

@@ -13,6 +13,8 @@ import { DependencyView } from './views/DependencyView';
 import { CicdView } from './views/CicdView';
 import { DynamicRoutesView } from './views/DynamicRoutesView';
 import { IncidentsView } from './views/IncidentsView';
+import { FunctionsView } from './views/FunctionsView';
+import { StorageView } from './views/StorageView';
 import { LeftSidebar } from './components/LeftSidebar';
 import { NotificationPanel } from './components/NotificationPanel';
 import {
@@ -52,6 +54,13 @@ const AppContent: React.FC = () => {
   // Map URL paths to ViewState
   const pathToView: Record<string, ViewState> = {
     '/': 'DASHBOARD',
+    '/routes': 'DYNAMIC_ROUTES',
+    '/functions': 'FUNCTIONS',
+    '/storage': 'STORAGE',
+    '/traces': 'CICD',
+    '/errors': 'INCIDENTS',
+    '/settings': 'SETTINGS',
+    // Legacy routes (kept for compatibility)
     '/fleet': 'FLEET',
     '/containers': 'DOCKER',
     '/auto-healing': 'AUTOMATION',
@@ -59,7 +68,6 @@ const AppContent: React.FC = () => {
     '/pipeline': 'CICD',
     '/route-builder': 'DYNAMIC_ROUTES',
     '/incidents': 'INCIDENTS',
-    '/settings': 'SETTINGS',
   };
 
   const currentView = pathToView[location.pathname] || 'DASHBOARD';
@@ -67,14 +75,17 @@ const AppContent: React.FC = () => {
   const handleViewChange = (view: ViewState) => {
     const viewToPath: Record<ViewState, string> = {
       'DASHBOARD': '/',
+      'DYNAMIC_ROUTES': '/routes',
+      'FUNCTIONS': '/functions',
+      'STORAGE': '/storage',
+      'CICD': '/traces',
+      'INCIDENTS': '/errors',
+      'SETTINGS': '/settings',
+      // Legacy views
       'FLEET': '/fleet',
       'DOCKER': '/containers',
       'AUTOMATION': '/auto-healing',
       'DEPENDENCY': '/artifacts',
-      'CICD': '/pipeline',
-      'DYNAMIC_ROUTES': '/route-builder',
-      'INCIDENTS': '/incidents',
-      'SETTINGS': '/settings',
     };
     navigate(viewToPath[view]);
   };
@@ -169,11 +180,20 @@ const AppContent: React.FC = () => {
         </header>
 
         {/* VIEWPORT */}
-        <main className={`flex-1 ${['/', '/pipeline', '/artifacts'].includes(location.pathname) ? 'overflow-y-auto' : 'overflow-hidden'} custom-scrollbar relative bg-[#1e1f22] m-1.5 rounded-[var(--radius)] border border-[#43454a] shadow-inner overflow-x-hidden`}>
+        <main className={`flex-1 ${['/', '/traces', '/artifacts'].includes(location.pathname) ? 'overflow-y-auto' : 'overflow-hidden'} custom-scrollbar relative bg-[#1e1f22] m-1.5 rounded-[var(--radius)] border border-[#43454a] shadow-inner overflow-x-hidden`}>
           <AnimatePresence mode="wait">
             <PageTransition key={location.pathname} className="h-full">
               <Routes location={location}>
+                {/* Primary IDE Routes */}
                 <Route path="/" element={<Dashboard />} />
+                <Route path="/routes" element={<DynamicRoutesView />} />
+                <Route path="/functions" element={<FunctionsView />} />
+                <Route path="/storage" element={<StorageView />} />
+                <Route path="/traces" element={<CicdView />} />
+                <Route path="/errors" element={<IncidentsView />} />
+                <Route path="/settings" element={<SettingsView />} />
+                
+                {/* Legacy Routes (for backward compatibility) */}
                 <Route path="/fleet" element={<Fleet />} />
                 <Route path="/containers" element={<DockerView />} />
                 <Route path="/auto-healing" element={<AutomationView />} />
@@ -181,7 +201,6 @@ const AppContent: React.FC = () => {
                 <Route path="/pipeline" element={<CicdView />} />
                 <Route path="/route-builder" element={<DynamicRoutesView />} />
                 <Route path="/incidents" element={<IncidentsView />} />
-                <Route path="/settings" element={<SettingsView />} />
               </Routes>
             </PageTransition>
           </AnimatePresence>

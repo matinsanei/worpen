@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Terminal, Cpu, Shield, Zap, Server, Code, X } from 'lucide-react';
+import { Search, Activity, Network, Code2, Database, List, AlertCircle, Settings, X } from 'lucide-react';
 
 interface CommandPaletteProps {
     isOpen: boolean;
@@ -13,12 +13,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
     const inputRef = useRef<HTMLInputElement>(null);
 
     const commands = [
-        { id: 'dashboard', label: 'Go to Dashboard', icon: Terminal, shortcut: 'G D' },
-        { id: 'fleet', label: 'View Fleet Nodes', icon: Server, shortcut: 'G F' },
-        { id: 'deploy', label: 'Trigger Deployment', icon: Zap, shortcut: 'Alt D' },
-        { id: 'logs', label: 'System Logs', icon: Code, shortcut: 'Alt L' },
-        { id: 'security', label: 'Security Scan', icon: Shield, shortcut: 'Alt S' },
-        { id: 'kernel', label: 'Kernel Panic (Simulation)', icon: Cpu, shortcut: '!!!' },
+        { id: 'overview', label: 'Go to Overview', icon: Activity, shortcut: 'G O' },
+        { id: 'routes', label: 'API Routes Builder', icon: Network, shortcut: 'G R' },
+        { id: 'functions', label: 'Functions Library', icon: Code2, shortcut: 'G F' },
+        { id: 'storage', label: 'Storage Manager', icon: Database, shortcut: 'G S' },
+        { id: 'traces', label: 'Live Traces', icon: List, shortcut: 'G T' },
+        { id: 'errors', label: 'Error Logs', icon: AlertCircle, shortcut: 'G E' },
+        { id: 'settings', label: 'Settings', icon: Settings, shortcut: 'G ,' },
     ];
 
     const filteredCommands = commands.filter(cmd =>

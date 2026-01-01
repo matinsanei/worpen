@@ -1,0 +1,49 @@
+{
+  "name": "roll_crit",
+  "params": [
+    "dmg"
+  ],
+  "logic": [
+    {
+      "set": {
+        "var": "dice",
+        "value": "{{random_int(1, 10)}}"
+      }
+    },
+    {
+      "if": {
+        "condition": "{{dice}} > 8",
+        "then": [
+          {
+            "math_op": {
+              "operation": "multiply",
+              "args": [
+                "{{dmg}}",
+                2
+              ]
+            }
+          },
+          {
+            "set": {
+              "var": "is_crit",
+              "value": true
+            }
+          },
+          {
+            "set": {
+              "var": "out_dmg",
+              "value": "{{math_result}}"
+            }
+          }
+        ],
+        "otherwise": null
+      }
+    },
+    {
+      "set": {
+        "var": "result",
+        "value": "{{out_dmg}}"
+      }
+    }
+  ]
+}
