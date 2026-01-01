@@ -4,9 +4,10 @@ import { functionsApi, FunctionDef, FunctionRegistryResponse } from '../api';
 import Editor from "@monaco-editor/react";
 import { 
   RefreshCw, Code2, AlertCircle, Loader2, Plus, Search, 
-  Save, Trash2, X, FileCode, AlertTriangle, CheckCircle, FunctionSquare, Sparkles
+  Save, Trash2, X, FileCode, AlertTriangle, CheckCircle, FunctionSquare, Sparkles, MessageSquare
 } from 'lucide-react';
 import { AIGeneratorModal } from '../components/AIGeneratorModal';
+import { CopilotSidebar } from '../components/CopilotSidebar';
 
 export const FunctionsView: React.FC = () => {
   const [functions, setFunctions] = useState<Record<string, FunctionDef>>({});
@@ -26,6 +27,7 @@ export const FunctionsView: React.FC = () => {
   const [saving, setSaving] = useState<boolean>(false);
   const [deleting, setDeleting] = useState<boolean>(false);
   const [showAIModal, setShowAIModal] = useState<boolean>(false);
+  const [showCopilot, setShowCopilot] = useState<boolean>(false);
 
   const loadFunctions = useCallback(async () => {
     try {
@@ -152,6 +154,22 @@ export const FunctionsView: React.FC = () => {
   const handleAIGenerated = (code: string) => {
     setEditedLogic(code);
     setSaveSuccess('AI generated logic inserted! Review and save when ready.');
+  };
+
+  const handleCopilotApply = (code: string) => {
+    // Try to parse as JSON array or insert as-is
+    const trimmedCode = code.trim();
+    
+    try {
+      // If it's valid JSON, format it nicely
+      const parsed = JSON.parse(trimmedCode);
+      setEditedLogic(JSON.stringify(parsed, null, 2));
+    } catch {
+      // If not valid JSON, just append to existing logic
+      setEditedLogic(editedLogic + '\n' + trimmedCode);
+    }
+    
+    setSaveSuccess('Code applied from Copilot! Review and save when ready.');
   };
 
   const filteredFunctions = Object.entries(functions).filter(([key, func]) =>
@@ -324,6 +342,13 @@ export const FunctionsView: React.FC = () => {
                   </button>
                 )}
                 <button
+                  onClick={() => setShowCopilot(!showCopilot)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#c678dd]/20 hover:bg-[#c678dd]/30 border border-[#c678dd]/30 text-[#c678dd] text-xs font-bold rounded-[var(--radius)] transition-all active:scale-95"
+                >
+                  <MessageSquare size={12} />
+                  Copilot
+                </button>
+                <button
                   onClick={() => setShowAIModal(true)}
                   className="flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-[#3574f0] to-[#c678dd] hover:from-[#2d5fc7] hover:to-[#a85ec4] text-white text-xs font-bold rounded-[var(--radius)] transition-all active:scale-95 shadow-lg"
                 >
@@ -444,6 +469,16 @@ export const FunctionsView: React.FC = () => {
             </div>
           </>
         )}
+
+        {/* Copilot Sidebar */}
+        <CopilotSidebar
+          isOpen={showCopilot}
+          onClose={() => setShowCopilot(false)}
+          currentCode={editedLogic}
+          codeLanguage="json"
+          contextType="function"
+          onApplyCode={handleCopilotApply}
+        />
       </div>
 
       {/* AI Generator Modal */}

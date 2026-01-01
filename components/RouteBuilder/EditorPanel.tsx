@@ -1,6 +1,6 @@
 import React from 'react';
 import Editor from "@monaco-editor/react";
-import { Braces, Save, RefreshCw, Sparkles } from 'lucide-react';
+import { Braces, Save, RefreshCw, Sparkles, MessageSquare } from 'lucide-react';
 import { IDETheme } from '../../src/themes/ide';
 import { ErrorDisplay } from './ErrorDisplay';
 
@@ -15,6 +15,7 @@ interface EditorPanelProps {
     loading: boolean;
     onDeploy: () => void;
     onOpenAI?: () => void;
+    onOpenCopilot?: () => void;
 }
 
 export const EditorPanel: React.FC<EditorPanelProps> = ({
@@ -27,7 +28,8 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
     onClearError,
     loading,
     onDeploy,
-    onOpenAI
+    onOpenAI,
+    onOpenCopilot
 }) => {
     return (
         <div className="flex-1 flex flex-col overflow-hidden m-1.5 rounded-[var(--radius)] border shadow-lg"
@@ -46,6 +48,15 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2 px-4">
+                    {onOpenCopilot && (
+                        <button
+                            onClick={onOpenCopilot}
+                            className="flex items-center gap-1.5 px-3 py-1 bg-[#c678dd]/20 hover:bg-[#c678dd]/30 border border-[#c678dd]/30 text-[#c678dd] text-[11px] font-bold rounded-[var(--radius)] transition-all shadow-md active:scale-95"
+                        >
+                            <MessageSquare size={12} />
+                            Copilot
+                        </button>
+                    )}
                     {onOpenAI && (
                         <button
                             onClick={onOpenAI}

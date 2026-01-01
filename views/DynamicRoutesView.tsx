@@ -9,6 +9,7 @@ import { SettingsModal } from '../components/RouteBuilder/SettingsModal';
 import { EditorPanel } from '../components/RouteBuilder/EditorPanel';
 import { TestPanel } from '../components/RouteBuilder/TestPanel';
 import { AIGeneratorModal } from '../components/AIGeneratorModal';
+import { CopilotSidebar } from '../components/CopilotSidebar';
 
 export const DynamicRoutesView: React.FC = () => {
     // State Management
@@ -53,6 +54,7 @@ export const DynamicRoutesView: React.FC = () => {
     });
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [showAIModal, setShowAIModal] = useState(false);
+    const [showCopilot, setShowCopilot] = useState(false);
 
     // AI Generation Handler
     const handleAIGenerated = (code: string) => {
@@ -76,6 +78,41 @@ ${code.split('\n').map(line => '    ' + line).join('\n')}`;
             // If not valid JSON, just insert as-is
             setRouteDefinition(code);
         }
+    };
+
+    // Copilot Apply Handler
+    const handleCopilotApply = (code: string) => {
+        // Try to intelligently merge or replace code
+        const trimmedCode = code.trim();
+        
+        // If it's a JSON array, try to parse and merge with existing logic
+        if (trimmedCode.startsWith('[') && trimmedCode.endsWith(']')) {
+            try {
+                const parsed = JSON.parse(trimmedCode);
+                const yamlLogic = `route:
+  path: "${selectedRoute?.path || '/api/generated'}"
+  method: ${selectedRoute?.method || 'POST'}
+  logic:
+${trimmedCode.split('\n').map(line => '    ' + line).join('\n')}`;
+                setRouteDefinition(yamlLogic);
+            } catch {
+                // If parsing fails, just append
+                setRouteDefinition(routeDefinition + '\n' + trimmedCode);
+            }
+        } else {
+            // Otherwise, replace entire content or append based on format
+            if (trimmedCode.includes('route:') || trimmedCode.includes('logic:')) {
+                setRouteDefinition(trimmedCode);
+            } else {
+                // Append to existing
+                setRouteDefinition(routeDefinition + '\n' + trimmedCode);
+            }
+        }
+        
+        setRegistrationError({ 
+            error: 'Success', 
+            details: 'Code applied from Copilot! Review and deploy when ready.' 
+        });
     };
 
     // Effects
@@ -351,6 +388,7 @@ ${code.split('\n').map(line => '    ' + line).join('\n')}`;
                         loading={loading}
                         onDeploy={registerRoute}
                         onOpenAI={() => setShowAIModal(true)}
+                        onOpenCopilot={() => setShowCopilot(!showCopilot)}
                     />
                 ) : (
                     <TestPanel
@@ -364,6 +402,16 @@ ${code.split('\n').map(line => '    ' + line).join('\n')}`;
                         onRunTest={testRoute}
                     />
                 )}
+
+                {/* Copilot Sidebar */}
+                <CopilotSidebar
+                    isOpen={showCopilot}
+                    onClose={() => setShowCopilot(false)}
+                    currentCode={routeDefinition}
+                    codeLanguage="yaml"
+                    contextType="route"
+                    onApplyCode={handleCopilotApply}
+                />
             </div>
 
             {/* Settings Modal */}
