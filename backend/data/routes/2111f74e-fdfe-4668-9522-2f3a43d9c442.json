@@ -1,0 +1,64 @@
+{
+  "id": "2111f74e-fdfe-4668-9522-2f3a43d9c442",
+  "name": "tg_text_reader_fixed",
+  "description": "Telegram Static Fetcher",
+  "path": "/api/read-channel",
+  "method": "POST",
+  "logic": [
+    {
+      "log": {
+        "level": "info",
+        "message": "Starting fetch for Telegram Channel..."
+      }
+    },
+    {
+      "set": {
+        "var": "channel",
+        "value": "{{request.payload.channel}}"
+      }
+    },
+    {
+      "log": {
+        "level": "debug",
+        "message": "Target Channel: {{channel}}"
+      }
+    },
+    {
+      "http_request": {
+        "url": "https://t.me/s/{{channel}}",
+        "method": "GET",
+        "body": null,
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        },
+        "timeout_ms": null
+      }
+    },
+    {
+      "log": {
+        "level": "info",
+        "message": "Fetch Status: {{http_response.status}}"
+      }
+    },
+    {
+      "return": {
+        "value": {
+          "headers": {
+            "Content-Type": "text/html; charset=utf-8"
+          },
+          "raw_body": "{{http_response.body}}",
+          "status": 200
+        }
+      }
+    }
+  ],
+  "parameters": [],
+  "response_schema": null,
+  "auth_required": false,
+  "rate_limit": null,
+  "enabled": true,
+  "version": "1.0.0",
+  "created_at": "2026-01-02T15:10:46.752276800+00:00",
+  "updated_at": "2026-01-02T15:10:46.752276800+00:00",
+  "created_by": "system"
+}
