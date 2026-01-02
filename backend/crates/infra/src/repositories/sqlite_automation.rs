@@ -1,7 +1,7 @@
 use std::pin::Pin;
 use std::future::Future;
 use sqlx::SqlitePool;
-use core::ports::repository::AutomationRepository;
+use worpen_core::ports::repository::AutomationRepository;
 use proto::models::AutomationRule;
 
 pub struct SqliteAutomationRepository {

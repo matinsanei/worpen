@@ -19,7 +19,7 @@ use serde_json::Value;
 /// # Example
 /// ```
 /// use serde_json::json;
-/// use core::validation::validate_input;
+/// use worpen_core::validation::validate_input;
 /// 
 /// let schema = json!({
 ///     "type": "object",

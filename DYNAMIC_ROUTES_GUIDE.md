@@ -114,6 +114,81 @@ Execute SQL with full VM optimization and variable resolution:
 - ✅ VM-optimized execution
 - ✅ Named output for result storage
 
+### 4.5. Redis Operations (redis_op) ⚡ NEW
+Execute Redis commands for high-performance caching and sessions:
+
+```json
+{
+  "redis_op": {
+    "command": "SET",
+    "key": "user:{{user_id}}:token",
+    "value": "{{auth_token}}",
+    "ttl_seconds": 3600,
+    "output_var": "cache_status"
+  }
+}
+```
+
+**Complete Caching Example:**
+```json
+{
+  "logic": [
+    {
+      "set": { "var": "user_id", "value": 123 }
+    },
+    {
+      "redis_op": {
+        "command": "GET",
+        "key": "user:{{user_id}}:profile",
+        "output_var": "cached_profile"
+      }
+    },
+    {
+      "if": {
+        "condition": "{{cached_profile}} != null",
+        "then": [
+          { "return": { "value": "{{cached_profile}}" } }
+        ],
+        "otherwise": [
+          {
+            "sql_op": {
+              "query": "SELECT * FROM users WHERE id = ?",
+              "args": ["{{user_id}}"],
+              "output_var": "user_data"
+            }
+          },
+          {
+            "redis_op": {
+              "command": "SET",
+              "key": "user:{{user_id}}:profile",
+              "value": "{{json_stringify(user_data)}}",
+              "ttl_seconds": 300,
+              "output_var": "cache_set"
+            }
+          },
+          { "return": { "value": "{{user_data}}" } }
+        ]
+      }
+    }
+  ]
+}
+```
+
+**Supported Commands:**
+- `GET` - Retrieve value (returns string or null)
+- `SET` - Store value with optional TTL (returns "OK")
+- `DEL` - Delete key (returns count)
+- `EXPIRE` - Set TTL on existing key (returns boolean)
+- `INCR` - Increment counter atomically (returns new value)
+- `DECR` - Decrement counter atomically (returns new value)
+
+**Benefits:**
+- ✅ Sub-millisecond response times
+- ✅ Connection pooling
+- ✅ Variable interpolation in keys/values
+- ✅ Automatic TTL management
+- ✅ Atomic operations for counters
+
 ### 5. HTTP Request
 ```json
 {
@@ -476,7 +551,7 @@ GET /api/v1/dynamic-routes/stats
 - [ ] Authentication/Authorization hooks
 - [ ] Route templates marketplace
 - [ ] GraphQL support
-- [ ] WebSocket route support
+- [x] ✅ **WebSocket route support** - See [WEBSOCKET_GUIDE.md](WEBSOCKET_GUIDE.md)
 
 ## 💡 Tips
 

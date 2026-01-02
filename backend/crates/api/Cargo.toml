@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-core = { path = "../core" }
+worpen-core = { path = "../core" }
 infra = { path = "../infra" }
 proto = { path = "../proto" }
 axum = { version = "0.7", features = ["ws", "macros"] }

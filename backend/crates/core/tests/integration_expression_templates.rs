@@ -1,7 +1,7 @@
 // Integration tests for expression templates in YAML routes
 // Tests {{variable}} and {{expression | filter}} syntax
 
-use core::expression::resolve_templates;
+use worpen_core::expression::resolve_templates;
 use serde_json::json;
 use std::collections::HashMap;
 

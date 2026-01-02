@@ -1,6 +1,6 @@
-use core::compiler::lowerer::LogicCompiler;
-use core::vm::machine::VirtualMachine;
-use core::vm::memory::ExecutionMemory;
+use worpen_core::compiler::lowerer::LogicCompiler;
+use worpen_core::vm::machine::VirtualMachine;
+use worpen_core::vm::memory::ExecutionMemory;
 use proto::models::LogicOperation;
 use serde_json::Value;
 use tokio::runtime::Runtime;

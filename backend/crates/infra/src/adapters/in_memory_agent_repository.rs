@@ -1,5 +1,5 @@
-use core::domain::Agent;
-use core::ports::AgentRepository;
+use worpen_core::domain::Agent;
+use worpen_core::ports::AgentRepository;
 use dashmap::DashMap;
 use std::sync::Arc;
 use uuid::Uuid;

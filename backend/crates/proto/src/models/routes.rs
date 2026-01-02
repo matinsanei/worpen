@@ -2,6 +2,19 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use std::collections::HashMap;
 
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RouteType {
+    Http,
+    WebSocket,
+}
+
+impl Default for RouteType {
+    fn default() -> Self {
+        RouteType::Http
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub enum HttpMethod {
     GET,
@@ -22,6 +35,22 @@ pub enum LogicOperation {
     
     #[serde(rename = "sql_op")]
     SqlOp { query: String, args: Vec<serde_json::Value>, output_var: String },
+    
+    #[serde(rename = "redis_op")]
+    RedisOp { 
+        command: String,  // "GET", "SET", "DEL", "EXPIRE", "INCR", "DECR"
+        key: String,      // Target key (supports {{vars}})
+        value: Option<String>, // Value for SET (supports {{vars}})
+        ttl_seconds: Option<u64>, // For EXPIRE or SETEX
+        output_var: Option<String> // Where to store result
+    },
+    
+    #[serde(rename = "ws_op")]
+    WsOp {
+        command: String,  // "send" | "broadcast"
+        message: String,  // Message to send (supports {{vars}})
+        channel: Option<String>, // Optional channel for targeted broadcast
+    },
     
     #[serde(rename = "http_request")]
     HttpRequest { url: String, method: String, body: Option<serde_json::Value>, headers: Option<HashMap<String, String>>, timeout_ms: Option<u64> },
@@ -116,13 +145,25 @@ pub struct SwitchCase {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct WebSocketHooks {
+    #[serde(default)]
+    pub on_connect: Vec<LogicOperation>,
+    pub on_message: Vec<LogicOperation>,
+    #[serde(default)]
+    pub on_disconnect: Vec<LogicOperation>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct RouteDefinition {
     pub id: String,
     pub name: String,
     pub description: String,
     pub path: String,
     pub method: HttpMethod,
+    #[serde(default)]
+    pub route_type: RouteType,
     pub logic: Vec<LogicOperation>,
+    pub ws_hooks: Option<WebSocketHooks>,
     pub parameters: Vec<RouteParameter>,
     pub response_schema: Option<serde_json::Value>,
     pub auth_required: bool,
@@ -142,7 +183,10 @@ pub struct RegisterRouteRequest {
     pub description: String,
     pub path: String,
     pub method: HttpMethod,
+    #[serde(default)]
+    pub route_type: RouteType,
     pub logic: Vec<LogicOperation>,
+    pub ws_hooks: Option<WebSocketHooks>,
     #[serde(default)]
     pub parameters: Vec<RouteParameter>,
     pub response_schema: Option<serde_json::Value>,

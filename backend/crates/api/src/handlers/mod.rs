@@ -14,6 +14,7 @@ pub mod terminal;
 pub mod dynamic_routes;
 pub mod dynamic_routes_yaml;
 pub mod dynamic_fallback;
+pub mod dynamic_ws;
 
 pub use ws::ws_handler;
 pub use dashboard::*;
@@ -27,6 +28,7 @@ pub use terminal::*;
 pub use dynamic_routes::*;
 pub use dynamic_routes_yaml::*;
 pub use dynamic_fallback::*;
+pub use dynamic_ws::*;
 
 /// Register a new agent in the Hive
 #[utoipa::path(

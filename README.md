@@ -15,13 +15,14 @@
 ### **ᴛʜᴇ ᴅʏɴᴀᴍɪᴄ ᴀᴘɪ ᴇɴɢɪɴᴇ** • *ᴘᴏᴡᴇʀᴇᴅ ʙʏ ʀᴜsᴛ* 🦀
 
 [![Core](https://img.shields.io/badge/CORE-RUST_1.80+-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
-[![Performance](https://img.shields.io/badge/SPEED-30k%2B_REQ/S-green?style=for-the-badge&logo=speedtest)](https://github.com/matinsanei/worpen)
-[![Tests](https://img.shields.io/badge/TESTS-262_PASSING-blue?style=for-the-badge&logo=github-actions)](backend/tests)
+[![Performance](https://img.shields.io/badge/SPEED-38k%2B_REQ/S-green?style=for-the-badge&logo=speedtest)](https://github.com/matinsanei/worpen)
+[![Tests](https://img.shields.io/badge/TESTS-255_PASSING-blue?style=for-the-badge&logo=github-actions)](backend/tests)
 [![License](https://img.shields.io/badge/LICENSE-MIT-blue?style=for-the-badge&logo=open-source-initiative)](LICENSE)
 [![YAML](https://img.shields.io/badge/YAML-SUPPORTED-blue?style=for-the-badge&logo=yaml)](documentation/13-yaml-syntax.md)
+[![WebSocket](https://img.shields.io/badge/WEBSOCKET-SUPPORTED-green?style=for-the-badge&logo=socket.io)](WEBSOCKET_GUIDE.md)
 
 <p align="center">
-  <b>Logic-as-Data</b> • <b>Bytecode VM</b> • <b>Zero-Cost Inlining</b> • <b>Hot-Swap</b>
+  <b>Logic-as-Data</b> • <b>Bytecode VM</b> • <b>Zero-Cost Inlining</b> • <b>Hot-Swap</b> • <b>WebSocket</b>
 </p>
 
 > *"Forget about middleware. Define your business logic as data, and let the Worpen VM execute it at metal speed."*
@@ -45,6 +46,7 @@ Unlike traditional interpreters that are slow and memory-heavy, Worpen compiles 
 - **🧠 Integer-based VM**: No HashMap lookups at runtime. All variables are mapped to direct memory indices (`O(1)` access).
 - **⚡ Async Persistence**: Routes are compiled once and cached in memory. Changes are persisted to disk asynchronously without blocking the hot path.
 - **🔌 Service Mesh Ready**: Native HTTP orchestration to call and pipe other microservices.
+- **🌐 WebSocket Support**: Real-time bidirectional communication with event-driven hooks and channel broadcasting.
 
 ---
 
@@ -136,11 +138,12 @@ curl -X POST http://127.0.0.1:3000/api/checkout
 | **Memory** | `Set`, `Get` | **O(1) Access** via Integer Indices |
 | **Logic** | `If`, `Switch`, `Loop` | Full control flow support |
 | **Math** | `sum`, `mul`, `div`, etc. | Blazing fast binary operations |
-| **Database** | `SqlOp` ⚡ NEW | VM-optimized parameterized SQL queries |
+| **Database** | `SqlOp` ⚡ | VM-optimized parameterized SQL queries |
+| **Caching** | `RedisOp` ⚡ NEW | High-speed Redis operations with pooling |
 | **Networking**| `HttpRequest` | Built-in async HTTP client for Service Mesh |
 | **Optimization**| `Inlining` | Compile-time function flattening |
 
-### 💾 SQL Operations Example (NEW)
+### 💾 SQL Operations Example
 ```yaml
 logic:
   - set:
@@ -148,6 +151,41 @@ logic:
       value: 123
   - sql_op:
       query: "SELECT * FROM users WHERE id = ?"
+      args: ["{{user_id}}"]
+      output_var: user_data
+```
+
+### ⚡ Redis Caching Example (NEW)
+```yaml
+logic:
+  - set:
+      var: user_id
+      value: 123
+  - redis_op:
+      command: GET
+      key: "user:{{user_id}}:profile"
+      output_var: cached_profile
+  - if:
+      condition: "{{cached_profile}} == null"
+      then:
+        - sql_op:
+            query: "SELECT * FROM users WHERE id = ?"
+            args: ["{{user_id}}"]
+            output_var: user_data
+        - redis_op:
+            command: SET
+            key: "user:{{user_id}}:profile"
+            value: "{{json_stringify(user_data)}}"
+            ttl_seconds: 300
+            output_var: cache_status
+        - return:
+            value: "{{user_data}}"
+      otherwise:
+        - return:
+            value: "{{cached_profile}}"
+```
+
+---
       args: ["{{user_id}}"]
       output_var: user_data
   - return:
@@ -168,16 +206,20 @@ logic:
 - 🏗️ **[Variable Scoping & VM](documentation/03-variables-basics.md)**
 - 🔁 **[Advanced Loops & Logic](documentation/05-loops.md)**
 - 📞 **[Zero-Cost Functions](documentation/06-functions.md)**
+- 🔌 **[WebSocket Support](WEBSOCKET_GUIDE.md)** ⭐ NEW
+  - 📋 **[Quick Reference](WEBSOCKET_QUICKREF.md)**
 - 🔄 **[Migration from JSON to YAML](documentation/15-migration-guide.md)**
 - ✨ **[Performance Best Practices](documentation/16-best-practices.md)**
+- 📝 **[Changelog](CHANGELOG.md)**
 
 ---
 
 ## 🎯 𝐂𝐔𝐑𝐑𝐄𝐍𝐓 𝐒𝐓𝐀𝐓𝐔𝐒
-
-### ✅ Completed (Phase 1-5)
+6)
 - **Phase 1-3:** Core Engine, Operations & Persistence.
 - **Phase 4:** **Global Functions & Recursive Inlining.**
+- **Phase 5:** **Bytecode VM & Symbol Table Architecture.** (Speed: 38k+ Req/s)
+- **Phase 6:** **WebSocket Support with Event Hooks.** ⭐ NEW
 - **Phase 5:** **Bytecode VM & Symbol Table Architecture.** (Current Speed: 30k+ Req/s)
 
 ### 🚀 Roadmap
@@ -191,7 +233,7 @@ logic:
 ## 🤝 𝐂𝐎𝐍𝐓𝐑𝐈𝐁𝐔𝐓𝐈𝐍𝐆
 
 Worpen is an ambitious project to redefine backend infrastructure. We welcome performance hackers, compiler designers, and Rust enthusiasts.
-
+55
 1.  **Fork** & **Clone**.
 2.  `cargo test` (We maintain 262+ tests guarding the VM).
 3.  Submit a PR with performance benchmarks.
@@ -202,7 +244,7 @@ Worpen is an ambitious project to redefine backend infrastructure. We welcome pe
 
 **Matin Sanei**
 - **GitHub:** [@matinsanei](https://github.com/matinsanei)
-- **Email:** matinsanei@gmail.com
+- **Email:** saneimatin33@gmail.com
 
 *"The best code is the one you never compile."*
 

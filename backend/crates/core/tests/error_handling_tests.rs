@@ -12,9 +12,9 @@
 
 #[cfg(test)]
 mod error_handling_tests {
-    use core::parsers::route_parser::parse_route;
-    use core::expression::{Tokenizer, Parser, Evaluator};
-    use core::validation::validate_input;
+    use worpen_core::parsers::route_parser::parse_route;
+    use worpen_core::expression::{Tokenizer, Parser, Evaluator};
+    use worpen_core::validation::validate_input;
     use serde_json::{json, Value};
     use std::collections::HashMap;
 

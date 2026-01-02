@@ -9,7 +9,7 @@ use axum::{
 use crate::state::AppState;
 use proto::models::RouteDefinition;
 use serde_json::Value;
-use core::parsers::{parse_route, detect_format, InputFormat};
+use worpen_core::parsers::{parse_route, detect_format, InputFormat};
 
 /// Register a new dynamic route (YAML/JSON auto-detect)
 /// 
@@ -74,7 +74,9 @@ pub async fn register_route_raw(
         description: req.description.clone(),
         path: req.path.clone(),
         method: req.method.clone(),
+        route_type: req.route_type.clone(),
         logic: req.logic.clone(),
+        ws_hooks: req.ws_hooks.clone(),
         parameters: req.parameters.clone(),
         response_schema: req.response_schema.clone(),
         auth_required: req.auth_required,

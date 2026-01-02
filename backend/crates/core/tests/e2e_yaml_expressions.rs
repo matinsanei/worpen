@@ -1,7 +1,7 @@
 // End-to-End tests for YAML routes with expression evaluation
 // Tests actual route execution with {{expressions}}
 
-use core::expression::resolve_templates;
+use worpen_core::expression::resolve_templates;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;

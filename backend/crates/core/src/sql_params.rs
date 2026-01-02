@@ -28,7 +28,7 @@ impl NamedQuery {
     /// 
     /// # Example
     /// ```
-    /// use core::sql_params::NamedQuery;
+    /// use worpen_core::sql_params::NamedQuery;
     /// 
     /// let query = "SELECT * FROM users WHERE email = :email AND age > :min_age";
     /// let named = NamedQuery::parse(query);
@@ -77,7 +77,7 @@ impl NamedQuery {
     /// 
     /// # Example
     /// ```
-    /// use core::sql_params::NamedQuery;
+    /// use worpen_core::sql_params::NamedQuery;
     /// use serde_json::json;
     /// use std::collections::HashMap;
     /// 
@@ -106,7 +106,7 @@ impl NamedQuery {
     /// 
     /// # Example
     /// ```
-    /// use core::sql_params::NamedQuery;
+    /// use worpen_core::sql_params::NamedQuery;
     /// use serde_json::json;
     /// use std::collections::HashMap;
     /// 

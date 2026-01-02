@@ -22,7 +22,7 @@ use crate::parsers::yaml_normalizer::yaml_to_json;
 /// # Examples
 /// 
 /// ```
-/// use core::parsers::route_parser::parse_route;
+/// use worpen_core::parsers::route_parser::parse_route;
 /// 
 /// let json = r#"{"name":"test","path":"/test","method":"GET","logic":[]}"#;
 /// let route = parse_route(json).unwrap();

@@ -1,6 +1,6 @@
-use core::compiler::symbol_table::SymbolTable;
-use core::vm::memory::ExecutionMemory;
-use core::vm::instructions::OptimizedOperation;
+use worpen_core::compiler::symbol_table::SymbolTable;
+use worpen_core::vm::memory::ExecutionMemory;
+use worpen_core::vm::instructions::OptimizedOperation;
 use serde_json::Value;
 
 #[test]
@@ -47,7 +47,7 @@ fn test_symbol_table_and_memory() {
 
 #[test]
 fn test_logic_compiler() {
-    use core::compiler::lowerer::LogicCompiler;
+    use worpen_core::compiler::lowerer::LogicCompiler;
     use proto::models::LogicOperation;
     use serde_json::Value;
 
@@ -96,8 +96,8 @@ fn test_logic_compiler() {
 
 #[test]
 fn test_vm_execution() {
-    use core::compiler::lowerer::LogicCompiler;
-    use core::vm::machine::VirtualMachine;
+    use worpen_core::compiler::lowerer::LogicCompiler;
+    use worpen_core::vm::machine::VirtualMachine;
     use proto::models::LogicOperation;
     use serde_json::Value;
     use tokio::runtime::Runtime;

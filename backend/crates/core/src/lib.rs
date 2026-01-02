@@ -9,6 +9,7 @@ pub mod sql_params;
 pub mod loops;
 pub mod compiler;
 pub mod vm;
+pub mod websocket;
 
 pub use domain::*;
 pub use ports::*;

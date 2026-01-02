@@ -12,7 +12,7 @@ pub enum InputFormat {
 /// # Examples
 /// 
 /// ```
-/// use core::parsers::detector::{detect_format, InputFormat};
+/// use worpen_core::parsers::detector::{detect_format, InputFormat};
 /// 
 /// let json = r#"{"name": "test"}"#;
 /// assert_eq!(detect_format(json), InputFormat::Json);

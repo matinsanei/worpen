@@ -1,4 +1,4 @@
-use core::services::{
+use worpen_core::services::{
     AgentService, DashboardService, DockerService, IncidentService, 
     AutomationService, PipelineService, DynamicRouteService
 };

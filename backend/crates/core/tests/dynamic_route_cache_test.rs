@@ -1,4 +1,4 @@
-use core::services::dynamic_routes::service::DynamicRouteService;
+use worpen_core::services::dynamic_routes::service::DynamicRouteService;
 use proto::models::{RouteDefinition, HttpMethod, LogicOperation};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -33,6 +33,8 @@ fn test_hot_routes_cache() {
             rate_limit: None,
             enabled: true,
             version: "1.0.0".to_string(),
+            route_type: proto::models::RouteType::Http,
+            ws_hooks: None,
             created_at: "".to_string(),
             updated_at: "".to_string(),
             created_by: "system".to_string(),

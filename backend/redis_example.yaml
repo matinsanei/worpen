@@ -1,0 +1,504 @@
+# Redis Operations Examples
+# Complete guide for high-performance caching with Worpen
+
+# ============================================
+# Example 1: Session Management
+# ============================================
+name: session_manager
+description: Store and retrieve user sessions with automatic expiration
+path: /api/session
+method: POST
+logic:
+  # Generate unique session ID
+  - set:
+      var: session_id
+      value: "{{uuid()}}"
+  
+  # Extract user data from request
+  - set:
+      var: user_data
+      value: "{{request.body.user_data}}"
+  
+  # Store session in Redis with 1 hour TTL
+  - redis_op:
+      command: SET
+      key: "session:{{session_id}}"
+      value: "{{user_data}}"
+      ttl_seconds: 3600
+      output_var: set_status
+  
+  # Return session info
+  - return:
+      value:
+        session_id: "{{session_id}}"
+        expires_in: 3600
+        status: "{{set_status}}"
+
+---
+
+# ============================================
+# Example 2: Session Validation
+# ============================================
+name: validate_session
+description: Check if session is still valid
+path: /api/session/{{session_id}}
+method: GET
+logic:
+  - set:
+      var: session_id
+      value: "{{path_params.session_id}}"
+  
+  # Retrieve session from Redis
+  - redis_op:
+      command: GET
+      key: "session:{{session_id}}"
+      output_var: session_data
+  
+  # Check if session exists
+  - if:
+      condition: "{{session_data}} == null"
+      then:
+        - return:
+            value:
+              valid: false
+              error: "Session not found or expired"
+      otherwise:
+        - return:
+            value:
+              valid: true
+              data: "{{session_data}}"
+
+---
+
+# ============================================
+# Example 3: Rate Limiting
+# ============================================
+name: rate_limiter
+description: Limit API requests per user per hour
+path: /api/limited-endpoint
+method: GET
+logic:
+  # Get client IP from headers
+  - set:
+      var: client_ip
+      value: "{{request.headers.x-forwarded-for}}"
+  
+  # Get current hour key
+  - set:
+      var: hour_key
+      value: "{{date('YYYY-MM-DD-HH')}}"
+  
+  # Increment request counter
+  - redis_op:
+      command: INCR
+      key: "ratelimit:{{client_ip}}:{{hour_key}}"
+      output_var: request_count
+  
+  # Set expiration on first request (1 hour)
+  - if:
+      condition: "{{request_count}} == 1"
+      then:
+        - redis_op:
+            command: EXPIRE
+            key: "ratelimit:{{client_ip}}:{{hour_key}}"
+            ttl_seconds: 3600
+            output_var: expire_status
+  
+  # Check if limit exceeded (100 requests per hour)
+  - if:
+      condition: "{{request_count}} > 100"
+      then:
+        - return:
+            value:
+              error: "Rate limit exceeded"
+              limit: 100
+              current: "{{request_count}}"
+              retry_after: 3600
+      otherwise:
+        - return:
+            value:
+              success: true
+              requests_remaining: "{{100 - request_count}}"
+              limit: 100
+
+---
+
+# ============================================
+# Example 4: Cache-Aside Pattern
+# ============================================
+name: cached_user_profile
+description: Get user profile with cache-aside strategy
+path: /api/users/{{user_id}}/profile
+method: GET
+logic:
+  - set:
+      var: user_id
+      value: "{{path_params.user_id}}"
+  
+  # Try to get from cache first
+  - redis_op:
+      command: GET
+      key: "user:{{user_id}}:profile"
+      output_var: cached_profile
+  
+  # If cache hit, return it
+  - if:
+      condition: "{{cached_profile}} != null"
+      then:
+        - return:
+            value:
+              source: cache
+              data: "{{json_parse(cached_profile)}}"
+  
+  # Cache miss - query database
+  - sql_op:
+      query: "SELECT id, name, email, created_at FROM users WHERE id = ?"
+      args: ["{{user_id}}"]
+      output_var: user_data
+  
+  # Check if user exists
+  - if:
+      condition: "{{user_data | length}} == 0"
+      then:
+        - return:
+            value:
+              error: "User not found"
+  
+  # Store in cache for 5 minutes
+  - redis_op:
+      command: SET
+      key: "user:{{user_id}}:profile"
+      value: "{{json_stringify(user_data[0])}}"
+      ttl_seconds: 300
+      output_var: cache_status
+  
+  # Return user data
+  - return:
+      value:
+        source: database
+        data: "{{user_data[0]}}"
+
+---
+
+# ============================================
+# Example 5: Write-Through Cache
+# ============================================
+name: update_user_profile
+description: Update user profile in DB and cache simultaneously
+path: /api/users/{{user_id}}/profile
+method: PUT
+logic:
+  - set:
+      var: user_id
+      value: "{{path_params.user_id}}"
+  
+  - set:
+      var: new_name
+      value: "{{request.body.name}}"
+  
+  - set:
+      var: new_email
+      value: "{{request.body.email}}"
+  
+  # Update database
+  - sql_op:
+      query: "UPDATE users SET name = ?, email = ? WHERE id = ?"
+      args: ["{{new_name}}", "{{new_email}}", "{{user_id}}"]
+      output_var: update_result
+  
+  # Get updated user data
+  - sql_op:
+      query: "SELECT * FROM users WHERE id = ?"
+      args: ["{{user_id}}"]
+      output_var: updated_user
+  
+  # Update cache
+  - redis_op:
+      command: SET
+      key: "user:{{user_id}}:profile"
+      value: "{{json_stringify(updated_user[0])}}"
+      ttl_seconds: 300
+      output_var: cache_status
+  
+  # Return updated data
+  - return:
+      value:
+        success: true
+        data: "{{updated_user[0]}}"
+
+---
+
+# ============================================
+# Example 6: Cache Invalidation
+# ============================================
+name: delete_user
+description: Delete user and invalidate all related caches
+path: /api/users/{{user_id}}
+method: DELETE
+logic:
+  - set:
+      var: user_id
+      value: "{{path_params.user_id}}"
+  
+  # Delete from database
+  - sql_op:
+      query: "DELETE FROM users WHERE id = ?"
+      args: ["{{user_id}}"]
+      output_var: delete_result
+  
+  # Invalidate profile cache
+  - redis_op:
+      command: DEL
+      key: "user:{{user_id}}:profile"
+      output_var: profile_deleted
+  
+  # Invalidate session cache
+  - redis_op:
+      command: DEL
+      key: "session:user:{{user_id}}"
+      output_var: session_deleted
+  
+  # Return deletion status
+  - return:
+      value:
+        success: true
+        user_id: "{{user_id}}"
+        caches_cleared: "{{profile_deleted + session_deleted}}"
+
+---
+
+# ============================================
+# Example 7: Distributed Counter
+# ============================================
+name: page_view_tracker
+description: Track page views with atomic counters
+path: /api/track/pageview/{{page_id}}
+method: POST
+logic:
+  - set:
+      var: page_id
+      value: "{{path_params.page_id}}"
+  
+  - set:
+      var: today
+      value: "{{date('YYYY-MM-DD')}}"
+  
+  # Increment daily counter
+  - redis_op:
+      command: INCR
+      key: "analytics:page:{{page_id}}:views:{{today}}"
+      output_var: daily_views
+  
+  # Set 90 day expiration on first view
+  - if:
+      condition: "{{daily_views}} == 1"
+      then:
+        - redis_op:
+            command: EXPIRE
+            key: "analytics:page:{{page_id}}:views:{{today}}"
+            ttl_seconds: 7776000
+            output_var: expire_set
+  
+  # Increment all-time counter
+  - redis_op:
+      command: INCR
+      key: "analytics:page:{{page_id}}:views:total"
+      output_var: total_views
+  
+  # Return analytics
+  - return:
+      value:
+        page_id: "{{page_id}}"
+        daily_views: "{{daily_views}}"
+        total_views: "{{total_views}}"
+        date: "{{today}}"
+
+---
+
+# ============================================
+# Example 8: Feature Flags
+# ============================================
+name: feature_flag_check
+description: Check if feature is enabled for user
+path: /api/features/{{flag_name}}/check
+method: GET
+logic:
+  - set:
+      var: flag_name
+      value: "{{path_params.flag_name}}"
+  
+  - set:
+      var: user_id
+      value: "{{query_params.user_id}}"
+  
+  # Check global flag status
+  - redis_op:
+      command: GET
+      key: "feature:{{flag_name}}:enabled"
+      output_var: global_enabled
+  
+  # If disabled globally, return false
+  - if:
+      condition: "{{global_enabled}} != 'true'"
+      then:
+        - return:
+            value:
+              enabled: false
+              reason: "Feature disabled globally"
+              flag: "{{flag_name}}"
+  
+  # Check user-specific override
+  - redis_op:
+      command: GET
+      key: "feature:{{flag_name}}:user:{{user_id}}"
+      output_var: user_override
+  
+  # Check percentage rollout
+  - redis_op:
+      command: GET
+      key: "feature:{{flag_name}}:percentage"
+      output_var: rollout_percentage
+  
+  # Return feature flag status
+  - return:
+      value:
+        enabled: true
+        flag: "{{flag_name}}"
+        user_id: "{{user_id}}"
+        rollout_percentage: "{{rollout_percentage}}"
+
+---
+
+# ============================================
+# Example 9: Leaderboard System
+# ============================================
+name: update_score
+description: Update user score and rank
+path: /api/leaderboard/{{user_id}}/score
+method: POST
+logic:
+  - set:
+      var: user_id
+      value: "{{path_params.user_id}}"
+  
+  - set:
+      var: points
+      value: "{{request.body.points}}"
+  
+  # Get current score
+  - redis_op:
+      command: GET
+      key: "leaderboard:user:{{user_id}}:score"
+      output_var: current_score
+  
+  # Set default if no score exists
+  - if:
+      condition: "{{current_score}} == null"
+      then:
+        - set:
+            var: current_score
+            value: 0
+  
+  # Calculate new score
+  - set:
+      var: new_score
+      value: "{{current_score + points}}"
+  
+  # Update score in cache
+  - redis_op:
+      command: SET
+      key: "leaderboard:user:{{user_id}}:score"
+      value: "{{new_score}}"
+      output_var: score_updated
+  
+  # Update timestamp
+  - redis_op:
+      command: SET
+      key: "leaderboard:user:{{user_id}}:updated"
+      value: "{{timestamp()}}"
+      output_var: timestamp_updated
+  
+  # Return new score
+  - return:
+      value:
+        user_id: "{{user_id}}"
+        previous_score: "{{current_score}}"
+        points_added: "{{points}}"
+        new_score: "{{new_score}}"
+
+---
+
+# ============================================
+# Example 10: Shopping Cart
+# ============================================
+name: add_to_cart
+description: Add item to user's shopping cart
+path: /api/cart/add
+method: POST
+logic:
+  - set:
+      var: user_id
+      value: "{{request.body.user_id}}"
+  
+  - set:
+      var: product_id
+      value: "{{request.body.product_id}}"
+  
+  - set:
+      var: quantity
+      value: "{{request.body.quantity}}"
+  
+  # Get current cart
+  - redis_op:
+      command: GET
+      key: "cart:{{user_id}}"
+      output_var: cart_data
+  
+  # Parse cart or create new
+  - if:
+      condition: "{{cart_data}} == null"
+      then:
+        - set:
+            var: cart
+            value: []
+      otherwise:
+        - set:
+            var: cart
+            value: "{{json_parse(cart_data)}}"
+  
+  # Add item to cart
+  - set:
+      var: new_item
+      value:
+        product_id: "{{product_id}}"
+        quantity: "{{quantity}}"
+        added_at: "{{timestamp()}}"
+  
+  # Store updated cart with 7 day expiration
+  - redis_op:
+      command: SET
+      key: "cart:{{user_id}}"
+      value: "{{json_stringify(cart | append(new_item))}}"
+      ttl_seconds: 604800
+      output_var: cart_updated
+  
+  # Increment cart item count
+  - redis_op:
+      command: INCR
+      key: "cart:{{user_id}}:count"
+      output_var: item_count
+  
+  # Set expiration on counter
+  - redis_op:
+      command: EXPIRE
+      key: "cart:{{user_id}}:count"
+      ttl_seconds: 604800
+      output_var: expire_set
+  
+  # Return cart info
+  - return:
+      value:
+        success: true
+        user_id: "{{user_id}}"
+        item_count: "{{item_count}}"
+        cart: "{{cart | append(new_item)}}"

@@ -72,6 +72,38 @@ impl LogicCompiler {
                     output_var_index 
                 }
             },
+            LogicOperation::RedisOp { command, key, value, ttl_seconds, output_var } => {
+                // Register variables in key and value strings
+                self.register_variables_in_string(key);
+                if let Some(v) = value {
+                    self.register_variables_in_string(v);
+                }
+                
+                // Register output variable if provided
+                let output_var_index = output_var.as_ref()
+                    .map(|var| self.symbol_table.register(var.clone()));
+                
+                OptimizedOperation::RedisOp {
+                    command: command.clone(),
+                    key: key.clone(),
+                    value: value.clone(),
+                    ttl_seconds: *ttl_seconds,
+                    output_var_index,
+                }
+            },
+            LogicOperation::WsOp { command, message, channel } => {
+                // Register variables in message string
+                self.register_variables_in_string(message);
+                if let Some(ch) = channel {
+                    self.register_variables_in_string(ch);
+                }
+                
+                OptimizedOperation::WsOp {
+                    command: command.clone(),
+                    message: message.clone(),
+                    channel: channel.clone(),
+                }
+            },
             LogicOperation::HttpRequest { url, method, body, headers, timeout_ms } => {
                 if let Some(b) = body {
                     self.register_variables_in_value(b);

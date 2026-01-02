@@ -180,7 +180,7 @@ See [LICENSE](LICENSE) for full attribution requirements.
 
 - 💬 **Discussions**: [GitHub Discussions](https://github.com/matinsanei/worpen/discussions)
 - 🐛 **Bug Reports**: [GitHub Issues](https://github.com/matinsanei/worpen/issues)
-- 📧 **Email**: matinsanei@gmail.com
+- 📧 **Email**: saneimatin33@gmail.com
 
 ---
 

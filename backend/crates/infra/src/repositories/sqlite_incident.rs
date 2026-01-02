@@ -1,7 +1,7 @@
 use std::pin::Pin;
 use std::future::Future;
 use sqlx::SqlitePool;
-use core::ports::repository::IncidentRepository;
+use worpen_core::ports::repository::IncidentRepository;
 use proto::models::{Incident, IncidentStatus};
 
 pub struct SqliteIncidentRepository {

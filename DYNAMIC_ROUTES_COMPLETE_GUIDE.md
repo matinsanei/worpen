@@ -470,6 +470,87 @@ Execute SQL queries with full VM optimization and variable resolution.
 - Empty array for no results: `[]`
 - Automatically converts types: INTEGER → Number, TEXT → String, REAL → Number
 
+**See Also:** [SQL Operations Guide](SQL_OPERATIONS_GUIDE.md)
+
+---
+
+#### `redis_op` - Native Redis Operations (VM-Optimized) ⚡ NEW
+Execute Redis commands with high-performance caching and session management.
+
+**Features:**
+- ✅ Connection pooling for optimal performance
+- ✅ Variable interpolation in keys and values
+- ✅ TTL support for automatic expiration
+- ✅ Six core commands: GET, SET, DEL, EXPIRE, INCR, DECR
+- ✅ Full VM optimization (sub-millisecond execution)
+
+**SET Example:**
+```json
+{
+  "redis_op": {
+    "command": "SET",
+    "key": "user:123:token",
+    "value": "abc-def-ghi",
+    "ttl_seconds": 3600,
+    "output_var": "set_result"
+  }
+}
+```
+
+**GET Example:**
+```json
+{
+  "redis_op": {
+    "command": "GET",
+    "key": "user:{{user_id}}:profile",
+    "output_var": "cached_profile"
+  }
+}
+```
+
+**INCR Example (Atomic Counter):**
+```json
+{
+  "redis_op": {
+    "command": "INCR",
+    "key": "page:views:{{page_id}}",
+    "output_var": "view_count"
+  }
+}
+```
+
+**DEL Example:**
+```json
+{
+  "redis_op": {
+    "command": "DEL",
+    "key": "session:{{session_id}}",
+    "output_var": "deleted_count"
+  }
+}
+```
+
+**EXPIRE Example:**
+```json
+{
+  "redis_op": {
+    "command": "EXPIRE",
+    "key": "cache:{{key}}",
+    "ttl_seconds": 1800,
+    "output_var": "expire_result"
+  }
+}
+```
+
+**Result Format:**
+- GET: Returns string value or `null` if key doesn't exist
+- SET: Returns `"OK"` on success
+- DEL: Returns number of keys deleted (integer)
+- EXPIRE: Returns `true` if TTL set, `false` if key doesn't exist
+- INCR/DECR: Returns new value after operation (integer)
+
+**See Also:** [Redis Operations Guide](REDIS_OPERATIONS_GUIDE.md)
+
 ---
 
 ### 🔧 Helper Functions

@@ -1,6 +1,6 @@
 // Integration tests for YAML routes with JSON Schema validation
 
-use core::validation::{validate_input, validate_with_details};
+use worpen_core::validation::{validate_input, validate_with_details};
 use serde_json::json;
 
 #[test]

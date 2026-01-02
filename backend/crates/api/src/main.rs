@@ -2,7 +2,7 @@ use axum::{routing::{get, post}, Router};
 use std::net::{SocketAddr, IpAddr};
 use std::io::{self, Write};
 use infra::{adapters::SqliteAgentRepository, initialize_db};
-use core::services::AgentService;
+use worpen_core::services::AgentService;
 use state::AppState;
 use tower_http::cors::{CorsLayer, Any};
 
@@ -30,12 +30,12 @@ async fn main() {
     let automation_repo = std::sync::Arc::new(infra::repositories::SqliteAutomationRepository::new(pool.clone()));
 
     let agent_service = std::sync::Arc::new(AgentService::new(repo.clone()));
-    let dashboard_service = std::sync::Arc::new(core::services::DashboardService::new(repo.clone(), incident_repo.clone()));
-    let docker_service = std::sync::Arc::new(core::services::DockerService::new());
-    let incident_service = std::sync::Arc::new(core::services::IncidentService::new(incident_repo));
-    let automation_service = std::sync::Arc::new(core::services::AutomationService::new(automation_repo));
-    let pipeline_service = std::sync::Arc::new(core::services::PipelineService::new());
-    let dynamic_route_service = std::sync::Arc::new(core::services::DynamicRouteService::new());
+    let dashboard_service = std::sync::Arc::new(worpen_core::services::DashboardService::new(repo.clone(), incident_repo.clone()));
+    let docker_service = std::sync::Arc::new(worpen_core::services::DockerService::new());
+    let incident_service = std::sync::Arc::new(worpen_core::services::IncidentService::new(incident_repo));
+    let automation_service = std::sync::Arc::new(worpen_core::services::AutomationService::new(automation_repo));
+    let pipeline_service = std::sync::Arc::new(worpen_core::services::PipelineService::new());
+    let dynamic_route_service = std::sync::Arc::new(worpen_core::services::DynamicRouteService::new());
     
     let connected_agents = std::sync::Arc::new(dashmap::DashMap::new());
     
@@ -118,6 +118,8 @@ async fn main() {
         .route("/api/v1/dynamic-routes/:id", get(handlers::get_route).put(handlers::update_route).delete(handlers::delete_route))
         .route("/api/v1/dynamic-routes/:id/execute", post(handlers::execute_route))
         .route("/api/v1/dynamic-routes/:id/export", get(handlers::export_route))
+        // WebSocket Dynamic Routes
+        .route("/api/ws/*path", get(handlers::dynamic_ws_handler))
         // Global Functions for zero-cost inlining
         .route("/api/v1/global-functions", get(handlers::list_global_functions).post(handlers::define_global_function))
         // Fallback handler برای dynamic routes

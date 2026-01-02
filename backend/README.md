@@ -13,7 +13,7 @@ The backend follows a modular **Clean Architecture** approach using Rust workspa
 | CRATE | PATH | TYPE | DESCRIPTION |
 | :--- | :--- | :--- | :--- |
 | **API** | [`crates/api`](crates/api) | `Entry Point` | The neuron interface. Exposes HTTP/REST/gRPC endpoints (Axum) for the Cockpit and external systems. |
-| **CORE** | [`crates/core`](crates/core) | `Domain` | Pure business logic and domain entities. The "thought" processing center. Zero external dependencies where possible. |
+| **CORE** | [`crates/core`](crates/core) | `Domain` | Pure business logic and domain entities. The "thought" processing center. Zero external dependencies where possible. Now renamed to `worpen-core` to avoid std::core collision. |
 | **INFRA** | [`crates/infra`](crates/infra) | `Infrastructure` | Database connections, external adapters, and system I/O. The physical link to the digital world. |
 | **PROTO** | [`crates/proto`](crates/proto) | `Shared` | Protocol definitions, shared types, and DTOs. The "language" of the Hive. |
 
@@ -82,11 +82,26 @@ This specification correlates directly with the Frontend Views and Mock Data (`c
 - 25+ helper functions (date, UUID, validation, etc.)
 - 4 loop types (for_each, while, until, loop with break/continue)
 - Expression engine with full operators (+, -, *, /, %, **, ==, !=, >, <, &&, ||, !, ternary)
-- **SQL operations with parameterized queries (VM-optimized)** ⚡ NEW
+- **SQL operations with parameterized queries (VM-optimized)** ⚡
+- **Redis operations with connection pooling (VM-optimized)** ⚡ NEW
 - HTTP requests with timeout/retry
 - Conditional logic (if/else)
 - Error handling (try/catch)
 - Variable scoping and metadata
+
+**💾 Database Operations (SqlOp):**
+- Parameterized queries (SQL injection safe)
+- Full VM optimization (3-5µs overhead)
+- Variable interpolation
+- Transaction support
+
+**⚡ Caching Operations (RedisOp - NEW):**
+- 6 commands: GET, SET, DEL, EXPIRE, INCR, DECR
+- Connection pooling with deadpool-redis
+- Sub-millisecond response times
+- Variable interpolation in keys/values
+- Automatic TTL management
+- Atomic counter operations
 
 ### 2. 🐝 Fleet (Agents)
 | METHOD | ROUTE | DESC | PAYLOAD / PARAMS |

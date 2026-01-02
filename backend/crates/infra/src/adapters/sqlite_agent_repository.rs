@@ -1,5 +1,5 @@
-use core::domain::{Agent, AgentStatus};
-use core::ports::AgentRepository;
+use worpen_core::domain::{Agent, AgentStatus};
+use worpen_core::ports::AgentRepository;
 use sqlx::{SqlitePool, Row};
 use uuid::Uuid;
 use std::future::Future;

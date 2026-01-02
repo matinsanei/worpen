@@ -12,6 +12,7 @@ use super::cache::ExecutionPlan;
 use crate::compiler::lowerer::LogicCompiler;
 use crate::vm::machine::VirtualMachine;
 use crate::vm::memory::ExecutionMemory;
+use crate::websocket::WebSocketManager;
 
 pub struct DynamicRouteService {
     // In production, this would be a repository
@@ -21,6 +22,12 @@ pub struct DynamicRouteService {
     // Hot routes cache for optimized execution
     hot_routes_cache: Arc<std::sync::RwLock<HashMap<String, Arc<ExecutionPlan>>>>,
     data_dir: String,
+    // WebSocket manager for real-time connections
+    ws_manager: Arc<WebSocketManager>,
+    // Database pool for SQL operations
+    db_pool: Option<Arc<sqlx::Pool<sqlx::Sqlite>>>,
+    // Redis pool for caching operations
+    redis_pool: Option<Arc<deadpool_redis::Pool>>,
 }
 
 impl Default for DynamicRouteService {
@@ -55,10 +62,38 @@ impl DynamicRouteService {
             global_functions: Arc::new(std::sync::RwLock::new(HashMap::new())),
             hot_routes_cache: Arc::new(std::sync::RwLock::new(HashMap::new())),
             data_dir,
+            ws_manager: Arc::new(WebSocketManager::new()),
+            db_pool: None,
+            redis_pool: None,
         };
         // Load persisted data
         let _ = service.load_persisted_data();
         service
+    }
+    
+    /// Get WebSocket manager
+    pub fn get_ws_manager(&self) -> Option<WebSocketManager> {
+        Some((*self.ws_manager).clone())
+    }
+    
+    /// Get database pool
+    pub fn get_db_pool(&self) -> Option<sqlx::Pool<sqlx::Sqlite>> {
+        self.db_pool.as_ref().map(|p| (**p).clone())
+    }
+    
+    /// Get Redis pool
+    pub fn get_redis_pool(&self) -> Option<deadpool_redis::Pool> {
+        self.redis_pool.as_ref().map(|p| (**p).clone())
+    }
+    
+    /// Set database pool
+    pub fn set_db_pool(&mut self, pool: sqlx::Pool<sqlx::Sqlite>) {
+        self.db_pool = Some(Arc::new(pool));
+    }
+    
+    /// Set Redis pool
+    pub fn set_redis_pool(&mut self, pool: deadpool_redis::Pool) {
+        self.redis_pool = Some(Arc::new(pool));
     }
 
     /// Register a new dynamic route
@@ -690,6 +725,23 @@ impl DynamicRouteService {
                         output_var: scoped_output,
                     });
                 },
+                LogicOperation::RedisOp { command, key, value, ttl_seconds, output_var } => {
+                    // Scope key and value strings
+                    let scoped_key = self.scope_string_references(key, scope_prefix, variables);
+                    let scoped_value = value.as_ref()
+                        .map(|v| self.scope_string_references(v, scope_prefix, variables));
+                    // Scope output variable if provided
+                    let scoped_output = output_var.as_ref()
+                        .map(|var| format!("{}{}", scope_prefix, var));
+                    
+                    result.push(LogicOperation::RedisOp {
+                        command: command.clone(),
+                        key: scoped_key,
+                        value: scoped_value,
+                        ttl_seconds: *ttl_seconds,
+                        output_var: scoped_output,
+                    });
+                },
                 // For simplicity, handle other operations by scoping string fields
                 _ => {
                     // For now, just pass through other operations (they would need individual handling)
@@ -803,6 +855,27 @@ impl DynamicRouteService {
                 LogicOperation::MathOp { operation: _, args } => {
                     for arg in args {
                         self.scan_value_for_variables(arg, variables);
+                    }
+                },
+                LogicOperation::SqlOp { query: _, args, output_var } => {
+                    variables.insert(output_var.clone());
+                    for arg in args {
+                        self.scan_value_for_variables(arg, variables);
+                    }
+                },
+                LogicOperation::RedisOp { key, value, output_var, .. } => {
+                    self.scan_string_for_variables(key, variables);
+                    if let Some(v) = value {
+                        self.scan_string_for_variables(v, variables);
+                    }
+                    if let Some(out_var) = output_var {
+                        variables.insert(out_var.clone());
+                    }
+                },
+                LogicOperation::WsOp { message, channel, .. } => {
+                    self.scan_string_for_variables(message, variables);
+                    if let Some(ch) = channel {
+                        self.scan_string_for_variables(ch, variables);
                     }
                 },
                 _ => {} // Other operations might not contain variable references

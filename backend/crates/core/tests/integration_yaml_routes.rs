@@ -1,5 +1,5 @@
 // Integration tests for YAML route parsing and execution
-use core::parsers::{detect_format, parse_route, InputFormat};
+use worpen_core::parsers::{detect_format, parse_route, InputFormat};
 
 #[test]
 fn test_simple_yaml_route_basic_fields() {

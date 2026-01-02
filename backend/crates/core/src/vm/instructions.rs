@@ -13,6 +13,22 @@ pub enum OptimizedOperation {
     
     #[serde(rename = "sql_op")]
     SqlOp { query: String, arg_indices: Vec<usize>, output_var_index: usize },
+    
+    #[serde(rename = "redis_op")]
+    RedisOp {
+        command: String,  // "GET", "SET", "DEL", "EXPIRE", "INCR", "DECR"
+        key: String,      // Template string with {{vars}}
+        value: Option<String>, // Template string with {{vars}}
+        ttl_seconds: Option<u64>,
+        output_var_index: Option<usize> // Where to store result
+    },
+    
+    #[serde(rename = "ws_op")]
+    WsOp {
+        command: String,  // "send" | "broadcast"
+        message: String,  // Template string with {{vars}}
+        channel: Option<String>, // Optional channel
+    },
 
     #[serde(rename = "http_request")]
     HttpRequest { url: String, method: String, body: Option<Value>, headers: Option<HashMap<String, String>>, timeout_ms: Option<u64> },

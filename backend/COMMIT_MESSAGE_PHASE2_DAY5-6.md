@@ -64,7 +64,7 @@ test result: ok. 34 passed; 0 failed; 0 ignored
 
 ### Parse Simple Expression
 ```rust
-use core::expression::{Tokenizer, Parser};
+use worpen_core::expression::{Tokenizer, Parser};
 
 let mut tokenizer = Tokenizer::new("2 + 3 * 4");
 let tokens = tokenizer.tokenize()?;

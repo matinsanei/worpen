@@ -375,6 +375,21 @@ pub async fn execute_logic_extended(
                 last_result = Value::Array(vec![]);
             },
             
+            LogicOperation::RedisOp { command: _, key: _, value: _, ttl_seconds: _, output_var } => {
+                // Note: RedisOp is handled by the VM execution path
+                // This fallback is for legacy interpreter path
+                if let Some(var) = output_var {
+                    context.variables.insert(var.clone(), Value::Null);
+                }
+                last_result = Value::Null;
+            },
+            
+            LogicOperation::WsOp { command: _, message: _, channel: _ } => {
+                // Note: WsOp is handled by the VM execution path with WebSocket manager
+                // This fallback is for legacy interpreter path (no-op)
+                last_result = Value::String("WebSocket operations require VM execution".to_string());
+            },
+            
             LogicOperation::AwaitAll { task_ids: _ } => {
                 // steps.push("Await all tasks".to_string());
                 last_result = Value::Array(vec![]);

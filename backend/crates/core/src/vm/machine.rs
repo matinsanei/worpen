@@ -1,15 +1,20 @@
 use crate::vm::memory::ExecutionMemory;
 use crate::compiler::symbol_table::SymbolTable;
 use crate::vm::instructions::OptimizedOperation;
+use crate::websocket::WebSocketManager;
 use proto::models::LoopControl;
 use serde_json::Value;
 use regex::Regex;
 use sqlx::{Row, Column};
+use redis::AsyncCommands;
 
 pub struct VirtualMachine {
     pub memory: ExecutionMemory,
     symbol_table: SymbolTable,
     db_pool: Option<sqlx::Pool<sqlx::Sqlite>>,
+    redis_pool: Option<deadpool_redis::Pool>,
+    ws_manager: Option<WebSocketManager>,
+    ws_connection_id: Option<String>,
 }
 
 impl VirtualMachine {
@@ -18,6 +23,9 @@ impl VirtualMachine {
             memory, 
             symbol_table,
             db_pool: None,
+            redis_pool: None,
+            ws_manager: None,
+            ws_connection_id: None,
         }
     }
     
@@ -26,6 +34,70 @@ impl VirtualMachine {
             memory, 
             symbol_table,
             db_pool: Some(db_pool),
+            redis_pool: None,
+            ws_manager: None,
+            ws_connection_id: None,
+        }
+    }
+    
+    pub fn with_redis_pool(memory: ExecutionMemory, symbol_table: SymbolTable, redis_pool: deadpool_redis::Pool) -> Self {
+        Self {
+            memory,
+            symbol_table,
+            db_pool: None,
+            redis_pool: Some(redis_pool),
+            ws_manager: None,
+            ws_connection_id: None,
+        }
+    }
+    
+    pub fn with_both_pools(
+        memory: ExecutionMemory, 
+        symbol_table: SymbolTable, 
+        db_pool: sqlx::Pool<sqlx::Sqlite>,
+        redis_pool: deadpool_redis::Pool
+    ) -> Self {
+        Self {
+            memory,
+            symbol_table,
+            db_pool: Some(db_pool),
+            redis_pool: Some(redis_pool),
+            ws_manager: None,
+            ws_connection_id: None,
+        }
+    }
+    
+    pub fn with_websocket(
+        memory: ExecutionMemory,
+        symbol_table: SymbolTable,
+        ws_manager: WebSocketManager,
+        connection_id: String,
+    ) -> Self {
+        Self {
+            memory,
+            symbol_table,
+            db_pool: None,
+            redis_pool: None,
+            ws_manager: Some(ws_manager),
+            ws_connection_id: Some(connection_id),
+        }
+    }
+    
+    pub fn with_all(
+        memory: ExecutionMemory,
+        symbol_table: SymbolTable,
+        db_pool: Option<sqlx::Pool<sqlx::Sqlite>>,
+        redis_pool: Option<deadpool_redis::Pool>,
+        ws_manager: Option<WebSocketManager>,
+        connection_id: Option<String>,
+    ) -> Self {
+        Self {
+            memory,
+            symbol_table,
+            db_pool,
+            redis_pool,
+            ws_manager,
+            ws_connection_id: connection_id,
         }
     }
 
@@ -147,6 +219,116 @@ impl VirtualMachine {
                         result = Value::Array(json_rows);
                     } else {
                         return Err("Database pool not available for SqlOp".to_string());
+                    }
+                },
+                OptimizedOperation::RedisOp { command, key, value, ttl_seconds, output_var_index } => {
+                    if let Some(redis_pool) = &self.redis_pool {
+                        // Resolve key template
+                        let resolved_key = self.resolve_string(key)?;
+                        
+                        // Get Redis connection
+                        let mut conn = redis_pool.get().await
+                            .map_err(|e| format!("Failed to get Redis connection: {}", e))?;
+                        
+                        // Execute Redis command
+                        let redis_result: Value = match command.as_str() {
+                            "GET" => {
+                                let value: Option<String> = conn.get(&resolved_key).await
+                                    .map_err(|e| format!("Redis GET error: {}", e))?;
+                                value.map(Value::String).unwrap_or(Value::Null)
+                            },
+                            "SET" => {
+                                if let Some(val) = value {
+                                    let resolved_value = self.resolve_string(val)?;
+                                    
+                                    if let Some(ttl) = ttl_seconds {
+                                        // SET with TTL
+                                        let _: () = conn.set_ex(&resolved_key, &resolved_value, *ttl).await
+                                            .map_err(|e| format!("Redis SET with TTL error: {}", e))?;
+                                    } else {
+                                        // SET without TTL
+                                        let _: () = conn.set(&resolved_key, &resolved_value).await
+                                            .map_err(|e| format!("Redis SET error: {}", e))?;
+                                    }
+                                    Value::String("OK".to_string())
+                                } else {
+                                    return Err("SET command requires a value".to_string());
+                                }
+                            },
+                            "DEL" => {
+                                let count: i32 = conn.del(&resolved_key).await
+                                    .map_err(|e| format!("Redis DEL error: {}", e))?;
+                                Value::Number(count.into())
+                            },
+                            "EXPIRE" => {
+                                if let Some(ttl) = ttl_seconds {
+                                    let success: bool = conn.expire(&resolved_key, *ttl as i64).await
+                                        .map_err(|e| format!("Redis EXPIRE error: {}", e))?;
+                                    Value::Bool(success)
+                                } else {
+                                    return Err("EXPIRE command requires ttl_seconds".to_string());
+                                }
+                            },
+                            "INCR" => {
+                                let new_value: i64 = conn.incr(&resolved_key, 1).await
+                                    .map_err(|e| format!("Redis INCR error: {}", e))?;
+                                Value::Number(new_value.into())
+                            },
+                            "DECR" => {
+                                let new_value: i64 = conn.decr(&resolved_key, 1).await
+                                    .map_err(|e| format!("Redis DECR error: {}", e))?;
+                                Value::Number(new_value.into())
+                            },
+                            _ => {
+                                return Err(format!("Unsupported Redis command: {}", command));
+                            }
+                        };
+                        
+                        // Store result in memory if output variable specified
+                        if let Some(index) = output_var_index {
+                            self.memory.set(*index, redis_result.clone());
+                        }
+                        result = redis_result;
+                    } else {
+                        return Err("Redis pool not available for RedisOp".to_string());
+                    }
+                },
+                OptimizedOperation::WsOp { command, message, channel } => {
+                    if let Some(ws_manager) = &self.ws_manager {
+                        // Resolve message template
+                        let resolved_message = self.resolve_string(message)?;
+                        
+                        // Execute WebSocket command
+                        match command.as_str() {
+                            "send" => {
+                                // Send to current connection only
+                                if let Some(conn_id) = &self.ws_connection_id {
+                                    ws_manager.send_to(conn_id, resolved_message)
+                                        .map_err(|e| format!("WebSocket send error: {}", e))?;
+                                    result = Value::String("sent".to_string());
+                                } else {
+                                    return Err("No active WebSocket connection for send command".to_string());
+                                }
+                            },
+                            "broadcast" => {
+                                // Broadcast to all or to specific channel
+                                if let Some(ch) = channel {
+                                    let resolved_channel = self.resolve_string(ch)?;
+                                    ws_manager.broadcast_to_channel(&resolved_channel, resolved_message)
+                                        .map_err(|e| format!("WebSocket broadcast error: {}", e))?;
+                                    result = Value::String(format!("broadcast to channel {}", resolved_channel));
+                                } else {
+                                    ws_manager.broadcast(resolved_message)
+                                        .map_err(|e| format!("WebSocket broadcast error: {}", e))?;
+                                    result = Value::String("broadcast to all".to_string());
+                                }
+                            },
+                            _ => {
+                                return Err(format!("Unsupported WebSocket command: {}", command));
+                            }
+                        }
+                    } else {
+                        return Err("WebSocket manager not available for WsOp".to_string());
                     }
                 },
                 // Add more operations as needed
