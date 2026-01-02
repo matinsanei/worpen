@@ -40,6 +40,38 @@ impl LogicCompiler {
                 }
                 OptimizedOperation::QueryDb { query: query.clone(), params: params.clone() }
             },
+            LogicOperation::SqlOp { query, args, output_var } => {
+                // Register variables in args
+                for arg in args {
+                    self.register_variables_in_value(arg);
+                }
+                // Register output variable
+                let output_var_index = self.symbol_table.register(output_var.clone());
+                
+                // For args, we need to convert them to indices
+                // We'll resolve the args at runtime from variable references
+                let arg_indices: Vec<usize> = args.iter()
+                    .filter_map(|arg| {
+                        if let serde_json::Value::String(s) = arg {
+                            // Extract variable name from {{var}}
+                            let re = regex::Regex::new(r"\{\{([^}]+)\}\}").unwrap();
+                            if let Some(cap) = re.captures(s) {
+                                if let Some(var_match) = cap.get(1) {
+                                    let var_name = var_match.as_str();
+                                    return Some(self.symbol_table.register(var_name.to_string()));
+                                }
+                            }
+                        }
+                        None
+                    })
+                    .collect();
+                
+                OptimizedOperation::SqlOp { 
+                    query: query.clone(), 
+                    arg_indices,
+                    output_var_index 
+                }
+            },
             LogicOperation::HttpRequest { url, method, body, headers, timeout_ms } => {
                 if let Some(b) = body {
                     self.register_variables_in_value(b);

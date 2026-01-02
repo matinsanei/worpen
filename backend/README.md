@@ -82,7 +82,7 @@ This specification correlates directly with the Frontend Views and Mock Data (`c
 - 25+ helper functions (date, UUID, validation, etc.)
 - 4 loop types (for_each, while, until, loop with break/continue)
 - Expression engine with full operators (+, -, *, /, %, **, ==, !=, >, <, &&, ||, !, ternary)
-- SQL operations with parameterized queries
+- **SQL operations with parameterized queries (VM-optimized)** ⚡ NEW
 - HTTP requests with timeout/retry
 - Conditional logic (if/else)
 - Error handling (try/catch)

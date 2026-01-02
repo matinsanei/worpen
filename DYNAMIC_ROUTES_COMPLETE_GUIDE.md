@@ -402,7 +402,7 @@ Result: `120` (5! = 5 × 4 × 3 × 2 × 1 = 120)
 
 ### 💾 Database Operations
 
-#### `query_db` - Execute SQL
+#### `query_db` - Execute SQL (Legacy)
 ```json
 {
   "query_db": {
@@ -411,6 +411,64 @@ Result: `120` (5! = 5 × 4 × 3 × 2 × 1 = 120)
   }
 }
 ```
+
+#### `sql_op` - Native SQL Operations (VM-Optimized) ⚡ NEW
+Execute SQL queries with full VM optimization and variable resolution.
+
+**Features:**
+- ✅ Parameterized queries (SQL injection safe)
+- ✅ Variable interpolation from execution context
+- ✅ Results stored in named output variable
+- ✅ Full VM optimization (3-5µs execution overhead)
+
+```json
+{
+  "sql_op": {
+    "query": "INSERT INTO users (id, name, age) VALUES (?, ?, ?)",
+    "args": ["{{user_id}}", "{{user_name}}", "{{user_age}}"],
+    "output_var": "insert_result"
+  }
+}
+```
+
+**SELECT Example:**
+```json
+{
+  "set": { "var": "min_age", "value": 18 }
+},
+{
+  "sql_op": {
+    "query": "SELECT id, name, age FROM users WHERE age > ? ORDER BY name",
+    "args": ["{{min_age}}"],
+    "output_var": "users"
+  }
+},
+{
+  "return": { "value": "{{users}}" }
+}
+```
+
+**UPDATE Example:**
+```json
+{
+  "set": { "var": "new_status", "value": "verified" }
+},
+{
+  "set": { "var": "user_id", "value": 123 }
+},
+{
+  "sql_op": {
+    "query": "UPDATE users SET status = ? WHERE id = ?",
+    "args": ["{{new_status}}", "{{user_id}}"],
+    "output_var": "update_result"
+  }
+}
+```
+
+**Result Format:**
+- Returns array of objects: `[{"id": 1, "name": "Alice", "age": 30}, ...]`
+- Empty array for no results: `[]`
+- Automatically converts types: INTEGER → Number, TEXT → String, REAL → Number
 
 ---
 

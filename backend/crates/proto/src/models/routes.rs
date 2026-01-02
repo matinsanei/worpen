@@ -20,6 +20,9 @@ pub enum LogicOperation {
     #[serde(rename = "query_db")]
     QueryDb { query: String, params: Vec<serde_json::Value> },
     
+    #[serde(rename = "sql_op")]
+    SqlOp { query: String, args: Vec<serde_json::Value>, output_var: String },
+    
     #[serde(rename = "http_request")]
     HttpRequest { url: String, method: String, body: Option<serde_json::Value>, headers: Option<HashMap<String, String>>, timeout_ms: Option<u64> },
     

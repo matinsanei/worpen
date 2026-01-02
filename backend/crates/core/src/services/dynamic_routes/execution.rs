@@ -368,6 +368,13 @@ pub async fn execute_logic_extended(
                 });
             },
             
+            LogicOperation::SqlOp { query: _, args: _, output_var } => {
+                // Note: SqlOp is handled by the VM execution path
+                // This fallback is for legacy interpreter path
+                context.variables.insert(output_var.clone(), Value::Array(vec![]));
+                last_result = Value::Array(vec![]);
+            },
+            
             LogicOperation::AwaitAll { task_ids: _ } => {
                 // steps.push("Await all tasks".to_string());
                 last_result = Value::Array(vec![]);

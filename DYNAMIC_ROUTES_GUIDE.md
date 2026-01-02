@@ -61,7 +61,7 @@ The **Dynamic Route Engine** is a revolutionary feature that allows you to creat
 }
 ```
 
-### 4. Query Database
+### 4. Query Database (Legacy)
 ```json
 {
   "query_db": {
@@ -70,6 +70,49 @@ The **Dynamic Route Engine** is a revolutionary feature that allows you to creat
   }
 }
 ```
+
+### 4b. SQL Operations (VM-Optimized) ⚡ NEW
+Execute SQL with full VM optimization and variable resolution:
+
+```json
+{
+  "sql_op": {
+    "query": "SELECT * FROM users WHERE age > ? AND status = ?",
+    "args": ["{{min_age}}", "{{user_status}}"],
+    "output_var": "filtered_users"
+  }
+}
+```
+
+**Complete Example:**
+```json
+{
+  "logic": [
+    {
+      "set": { "var": "min_age", "value": 18 }
+    },
+    {
+      "set": { "var": "user_status", "value": "active" }
+    },
+    {
+      "sql_op": {
+        "query": "SELECT id, name, age FROM users WHERE age > ? AND status = ?",
+        "args": ["{{min_age}}", "{{user_status}}"],
+        "output_var": "users"
+      }
+    },
+    {
+      "return": { "value": "{{users}}" }
+    }
+  ]
+}
+```
+
+**Benefits:**
+- ✅ Parameterized queries (SQL injection safe)
+- ✅ Variable interpolation
+- ✅ VM-optimized execution
+- ✅ Named output for result storage
 
 ### 5. HTTP Request
 ```json

@@ -10,6 +10,9 @@ pub enum OptimizedOperation {
 
     #[serde(rename = "query_db")]
     QueryDb { query: String, params: Vec<Value> },
+    
+    #[serde(rename = "sql_op")]
+    SqlOp { query: String, arg_indices: Vec<usize>, output_var_index: usize },
 
     #[serde(rename = "http_request")]
     HttpRequest { url: String, method: String, body: Option<Value>, headers: Option<HashMap<String, String>>, timeout_ms: Option<u64> },

@@ -4,15 +4,29 @@ use crate::vm::instructions::OptimizedOperation;
 use proto::models::LoopControl;
 use serde_json::Value;
 use regex::Regex;
+use sqlx::{Row, Column};
 
 pub struct VirtualMachine {
     pub memory: ExecutionMemory,
     symbol_table: SymbolTable,
+    db_pool: Option<sqlx::Pool<sqlx::Sqlite>>,
 }
 
 impl VirtualMachine {
     pub fn new(memory: ExecutionMemory, symbol_table: SymbolTable) -> Self {
-        Self { memory, symbol_table }
+        Self { 
+            memory, 
+            symbol_table,
+            db_pool: None,
+        }
+    }
+    
+    pub fn with_db_pool(memory: ExecutionMemory, symbol_table: SymbolTable, db_pool: sqlx::Pool<sqlx::Sqlite>) -> Self {
+        Self { 
+            memory, 
+            symbol_table,
+            db_pool: Some(db_pool),
+        }
     }
 
     pub async fn execute(&mut self, program: &[OptimizedOperation]) -> Result<Value, String> {
@@ -55,6 +69,84 @@ impl VirtualMachine {
                         result = Box::pin(self.execute(then)).await?;
                     } else if let Some(else_ops) = otherwise {
                         result = Box::pin(self.execute(else_ops)).await?;
+                    }
+                },
+                OptimizedOperation::SqlOp { query, arg_indices, output_var_index } => {
+                    // Resolve all args from memory
+                    let resolved_args: Vec<sqlx::Either<String, i64>> = arg_indices.iter()
+                        .map(|idx| {
+                            if let Some(val) = self.memory.get(*idx) {
+                                // Convert Value to sqlx compatible type
+                                match val {
+                                    Value::Number(n) => {
+                                        if let Some(i) = n.as_i64() {
+                                            Ok(sqlx::Either::Right(i))
+                                        } else if let Some(f) = n.as_f64() {
+                                            Ok(sqlx::Either::Left(f.to_string()))
+                                        } else {
+                                            Ok(sqlx::Either::Left(n.to_string()))
+                                        }
+                                    },
+                                    Value::String(s) => Ok(sqlx::Either::Left(s.clone())),
+                                    _ => Ok(sqlx::Either::Left(val.to_string())),
+                                }
+                            } else {
+                                Err(format!("Variable at index {} not set", idx))
+                            }
+                        })
+                        .collect::<Result<Vec<_>, String>>()?;
+                    
+                    // Execute SQL query
+                    if let Some(pool) = &self.db_pool {
+                        let mut query_builder = sqlx::query(query);
+                        
+                        // Bind all arguments
+                        for arg in resolved_args {
+                            match arg {
+                                sqlx::Either::Left(s) => {
+                                    query_builder = query_builder.bind(s);
+                                },
+                                sqlx::Either::Right(i) => {
+                                    query_builder = query_builder.bind(i);
+                                },
+                            }
+                        }
+                        
+                        // Execute and fetch results
+                        let rows = query_builder.fetch_all(pool).await
+                            .map_err(|e| format!("SQL execution error: {}", e))?;
+                        
+                        // Convert rows to JSON array
+                        let json_rows: Vec<Value> = rows.iter()
+                            .map(|row| {
+                                let mut obj = serde_json::Map::new();
+                                for (i, col) in row.columns().iter().enumerate() {
+                                    let col_name = col.name().to_string();
+                                    
+                                    // Try to get the value as different types
+                                    let val = if let Ok(v) = row.try_get::<String, _>(i) {
+                                        Value::String(v)
+                                    } else if let Ok(v) = row.try_get::<i64, _>(i) {
+                                        Value::Number(v.into())
+                                    } else if let Ok(v) = row.try_get::<f64, _>(i) {
+                                        Value::Number(serde_json::Number::from_f64(v).unwrap_or(0.into()))
+                                    } else if let Ok(v) = row.try_get::<bool, _>(i) {
+                                        Value::Bool(v)
+                                    } else {
+                                        Value::Null
+                                    };
+                                    
+                                    obj.insert(col_name, val);
+                                }
+                                Value::Object(obj)
+                            })
+                            .collect();
+                        
+                        // Store result in memory
+                        self.memory.set(*output_var_index, Value::Array(json_rows.clone()));
+                        result = Value::Array(json_rows);
+                    } else {
+                        return Err("Database pool not available for SqlOp".to_string());
                     }
                 },
                 // Add more operations as needed

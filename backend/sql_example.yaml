@@ -1,0 +1,219 @@
+# Example: SQL Operations with VM-Optimized Execution
+# This demonstrates the new SqlOp feature with parameterized queries
+
+name: user_management_api
+description: Complete user management with SQL operations
+path: /api/users
+method: POST
+enabled: true
+
+logic:
+  # Step 1: Extract user data from request
+  - set:
+      var: user_name
+      value: "{{request.payload.name}}"
+  
+  - set:
+      var: user_email
+      value: "{{request.payload.email}}"
+  
+  - set:
+      var: user_age
+      value: "{{request.payload.age}}"
+  
+  # Step 2: Validate age
+  - if:
+      condition: "user_age < 18"
+      then:
+        - return:
+            value:
+              error: "User must be 18 or older"
+              status: 400
+  
+  # Step 3: Check if user already exists
+  - sql_op:
+      query: "SELECT COUNT(*) as count FROM users WHERE email = ?"
+      args: ["{{user_email}}"]
+      output_var: user_exists
+  
+  - if:
+      condition: "user_exists[0].count > 0"
+      then:
+        - return:
+            value:
+              error: "User with this email already exists"
+              status: 409
+  
+  # Step 4: Insert new user
+  - sql_op:
+      query: "INSERT INTO users (name, email, age, created_at) VALUES (?, ?, ?, datetime('now'))"
+      args: ["{{user_name}}", "{{user_email}}", "{{user_age}}"]
+      output_var: insert_result
+  
+  # Step 5: Fetch the newly created user
+  - sql_op:
+      query: "SELECT id, name, email, age, created_at FROM users WHERE email = ?"
+      args: ["{{user_email}}"]
+      output_var: new_user
+  
+  # Step 6: Return success response
+  - return:
+      value:
+        message: "User created successfully"
+        user: "{{new_user[0]}}"
+        status: 201
+
+---
+
+# Example 2: Bulk User Query with Filtering
+
+name: get_users_filtered
+description: Get users with age filtering
+path: /api/users/filter
+method: GET
+enabled: true
+
+logic:
+  # Get min_age from query params or default to 0
+  - set:
+      var: min_age
+      value: "{{request.query.min_age || 0}}"
+  
+  - set:
+      var: max_age
+      value: "{{request.query.max_age || 150}}"
+  
+  # Query with parameterized filters
+  - sql_op:
+      query: "SELECT id, name, email, age FROM users WHERE age >= ? AND age <= ? ORDER BY age ASC"
+      args: ["{{min_age}}", "{{max_age}}"]
+      output_var: filtered_users
+  
+  # Calculate statistics
+  - math_op:
+      operation: count
+      args: ["{{filtered_users}}"]
+  
+  - set:
+      var: user_count
+      value: "{{math_result}}"
+  
+  - return:
+      value:
+        total: "{{user_count}}"
+        users: "{{filtered_users}}"
+        filters:
+          min_age: "{{min_age}}"
+          max_age: "{{max_age}}"
+
+---
+
+# Example 3: Update User Status
+
+name: update_user_status
+description: Update user status with transaction safety
+path: /api/users/{{user_id}}/status
+method: PUT
+enabled: true
+
+logic:
+  - set:
+      var: user_id
+      value: "{{request.params.user_id}}"
+  
+  - set:
+      var: new_status
+      value: "{{request.payload.status}}"
+  
+  # Validate status value
+  - if:
+      condition: "new_status != 'active' && new_status != 'inactive' && new_status != 'suspended'"
+      then:
+        - return:
+            value:
+              error: "Invalid status. Must be: active, inactive, or suspended"
+              status: 400
+  
+  # Check if user exists
+  - sql_op:
+      query: "SELECT id FROM users WHERE id = ?"
+      args: ["{{user_id}}"]
+      output_var: user_check
+  
+  - if:
+      condition: "user_check.length == 0"
+      then:
+        - return:
+            value:
+              error: "User not found"
+              status: 404
+  
+  # Update user status
+  - sql_op:
+      query: "UPDATE users SET status = ?, updated_at = datetime('now') WHERE id = ?"
+      args: ["{{new_status}}", "{{user_id}}"]
+      output_var: update_result
+  
+  # Get updated user
+  - sql_op:
+      query: "SELECT id, name, email, status, updated_at FROM users WHERE id = ?"
+      args: ["{{user_id}}"]
+      output_var: updated_user
+  
+  - return:
+      value:
+        message: "User status updated successfully"
+        user: "{{updated_user[0]}}"
+
+---
+
+# Example 4: Complex Join Query
+
+name: get_user_with_orders
+description: Get user details with their orders
+path: /api/users/{{user_id}}/details
+method: GET
+enabled: true
+
+logic:
+  - set:
+      var: user_id
+      value: "{{request.params.user_id}}"
+  
+  # Get user info
+  - sql_op:
+      query: "SELECT id, name, email, age, created_at FROM users WHERE id = ?"
+      args: ["{{user_id}}"]
+      output_var: user_info
+  
+  - if:
+      condition: "user_info.length == 0"
+      then:
+        - return:
+            value:
+              error: "User not found"
+              status: 404
+  
+  # Get user's orders
+  - sql_op:
+      query: |
+        SELECT o.id, o.total, o.status, o.created_at
+        FROM orders o
+        WHERE o.user_id = ?
+        ORDER BY o.created_at DESC
+        LIMIT 10
+      args: ["{{user_id}}"]
+      output_var: user_orders
+  
+  # Calculate total spent
+  - sql_op:
+      query: "SELECT SUM(total) as total_spent FROM orders WHERE user_id = ? AND status = 'completed'"
+      args: ["{{user_id}}"]
+      output_var: spending
+  
+  - return:
+      value:
+        user: "{{user_info[0]}}"
+        orders: "{{user_orders}}"
+        total_orders: "{{user_orders.length}}"
+        total_spent: "{{spending[0].total_spent || 0}}"

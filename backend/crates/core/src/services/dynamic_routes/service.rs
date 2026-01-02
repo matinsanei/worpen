@@ -677,6 +677,19 @@ impl DynamicRouteService {
                         args: scoped_args,
                     });
                 },
+                LogicOperation::SqlOp { query, args, output_var } => {
+                    // Scope all args
+                    let scoped_args = args.iter()
+                        .map(|arg| self.scope_value_references(arg, scope_prefix, variables))
+                        .collect();
+                    // Scope output variable
+                    let scoped_output = format!("{}{}", scope_prefix, output_var);
+                    result.push(LogicOperation::SqlOp {
+                        query: query.clone(),
+                        args: scoped_args,
+                        output_var: scoped_output,
+                    });
+                },
                 // For simplicity, handle other operations by scoping string fields
                 _ => {
                     // For now, just pass through other operations (they would need individual handling)
