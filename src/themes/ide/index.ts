@@ -1,5 +1,6 @@
 export * from './types';
 export * from './worpenDark';
+export * from './hybrex';
 export * from './midnightPurple';
 export * from './monokaiNight';
 export * from './nord';
@@ -16,6 +17,7 @@ export * from './ayuMirage';
 export * from './rosePine';
 
 import { worpenDark } from './worpenDark';
+import { hybrex } from './hybrex';
 import { midnightPurple } from './midnightPurple';
 import { monokaiNight } from './monokaiNight';
 import { nord } from './nord';
@@ -33,6 +35,7 @@ import { IDETheme } from './types';
 
 export const ALL_THEMES: IDETheme[] = [
     worpenDark,
+    hybrex,
     dracula,
     oneDark,
     midnightPurple,

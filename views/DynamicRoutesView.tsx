@@ -5,11 +5,13 @@ import { ALL_THEMES, IDETheme, worpenDark } from '../src/themes/ide';
 import { ROUTE_TEMPLATES, AVAILABLE_FONTS } from '../components/RouteBuilder/constants';
 import { ActivityBar } from '../components/RouteBuilder/ActivityBar';
 import { RoutesSidebar } from '../components/RouteBuilder/RoutesSidebar';
+import { SearchSidebar } from '../components/RouteBuilder/SearchSidebar';
 import { SettingsModal } from '../components/RouteBuilder/SettingsModal';
 import { EditorPanel } from '../components/RouteBuilder/EditorPanel';
 import { TestPanel } from '../components/RouteBuilder/TestPanel';
 import { AIGeneratorModal } from '../components/AIGeneratorModal';
 import { CopilotSidebar } from '../components/CopilotSidebar';
+import { getRouteFoldersManager, RouteFolder } from '../src/utils/routeFolders';
 
 export const DynamicRoutesView: React.FC = () => {
     // State Management
@@ -33,7 +35,15 @@ export const DynamicRoutesView: React.FC = () => {
         return saved !== null ? JSON.parse(saved) : true;
     });
     const [activeActivityId, setActiveActivityId] = useState<'explorer' | 'search' | 'git' | 'debug'>('explorer');
-    const [expandedFolders, setExpandedFolders] = useState<string[]>(['templates', 'active-routes']);
+    const [expandedFolders, setExpandedFolders] = useState<string[]>(() => {
+        const saved = localStorage.getItem('worpen_builder_expanded_folders');
+        return saved !== null ? JSON.parse(saved) : ['active-routes', 'custom-folders'];
+    });
+    
+    // Folder Management
+    const [folders, setFolders] = useState<RouteFolder[]>([]);
+    const [expandedFolderIds, setExpandedFolderIds] = useState<string[]>([]);
+    const foldersManagerRef = useRef(getRouteFoldersManager());
     
     // Use ref for dragging state to avoid re-render issues
     const isDraggingRef = useRef(false);
@@ -114,7 +124,62 @@ ${trimmedCode.split('\n').map(line => '    ' + line).join('\n')}`;
         setTimeout(() => setSuccessMessage(null), 5000);
     };
 
+    // Folder Management Handlers
+    const loadFolders = useCallback(() => {
+        const manager = foldersManagerRef.current;
+        setFolders(manager.getAllFolders());
+    }, []);
+
+    const handleCreateFolder = useCallback((name: string, color?: string) => {
+        const manager = foldersManagerRef.current;
+        manager.createFolder(name, color);
+        loadFolders();
+    }, [loadFolders]);
+
+    const handleRenameFolder = useCallback((folderId: string, newName: string) => {
+        const manager = foldersManagerRef.current;
+        manager.renameFolder(folderId, newName);
+        loadFolders();
+    }, [loadFolders]);
+
+    const handleDeleteFolder = useCallback((folderId: string) => {
+        const manager = foldersManagerRef.current;
+        manager.deleteFolder(folderId);
+        loadFolders();
+    }, [loadFolders]);
+
+    const handleToggleFolderExpansion = useCallback((folderId: string) => {
+        setExpandedFolderIds(prev =>
+            prev.includes(folderId)
+                ? prev.filter(id => id !== folderId)
+                : [...prev, folderId]
+        );
+    }, []);
+
+    const handleAddRouteToFolder = useCallback((folderId: string, routeId: string) => {
+        const manager = foldersManagerRef.current;
+        manager.addRouteToFolder(folderId, routeId);
+        loadFolders();
+    }, [loadFolders]);
+
+    const handleRemoveRouteFromFolder = useCallback((folderId: string, routeId: string) => {
+        const manager = foldersManagerRef.current;
+        manager.removeRouteFromFolder(folderId, routeId);
+        loadFolders();
+    }, [loadFolders]);
+
+    const getUncategorizedRoutes = useCallback(() => {
+        const manager = foldersManagerRef.current;
+        const allRouteIds = routes.map(r => r.id);
+        const uncategorizedIds = manager.getUncategorizedRouteIds(allRouteIds);
+        return routes.filter(r => uncategorizedIds.includes(r.id));
+    }, [routes]);
+
     // Effects
+    useEffect(() => {
+        loadFolders();
+    }, [loadFolders]);
+
     useEffect(() => {
         localStorage.setItem('worpen_ide_font', currentFont);
     }, [currentFont]);
@@ -326,9 +391,11 @@ ${trimmedCode.split('\n').map(line => '    ' + line).join('\n')}`;
     };
 
     const handleToggleFolder = (folder: string) => {
-        setExpandedFolders(prev =>
-            prev.includes(folder) ? prev.filter(f => f !== folder) : [...prev, folder]
-        );
+        setExpandedFolders(prev => {
+            const newFolders = prev.includes(folder) ? prev.filter(f => f !== folder) : [...prev, folder];
+            localStorage.setItem('worpen_builder_expanded_folders', JSON.stringify(newFolders));
+            return newFolders;
+        });
     };
 
     const handleLoadTemplate = (key: string) => {
@@ -383,6 +450,26 @@ ${trimmedCode.split('\n').map(line => '    ' + line).join('\n')}`;
                                 onLoadTemplate={handleLoadTemplate}
                                 onSelectRoute={handleSelectRoute}
                                 onDeleteRoute={deleteRoute}
+                                // Folder management props
+                                folders={folders}
+                                onCreateFolder={handleCreateFolder}
+                                onRenameFolder={handleRenameFolder}
+                                onDeleteFolder={handleDeleteFolder}
+                                onToggleFolderExpansion={handleToggleFolderExpansion}
+                                onAddRouteToFolder={handleAddRouteToFolder}
+                                onRemoveRouteFromFolder={handleRemoveRouteFromFolder}
+                                expandedFolderIds={expandedFolderIds}
+                                uncategorizedRoutes={getUncategorizedRoutes()}
+                            />
+                        )}
+
+                        {activeActivityId === 'search' && (
+                            <SearchSidebar
+                                currentTheme={currentTheme}
+                                routes={routes}
+                                folders={folders}
+                                onSelectRoute={handleSelectRoute}
+                                selectedRoute={selectedRoute}
                             />
                         )}
 
