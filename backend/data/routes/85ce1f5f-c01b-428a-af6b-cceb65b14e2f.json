@@ -1,0 +1,37 @@
+{
+  "id": "85ce1f5f-c01b-428a-af6b-cceb65b14e2f",
+  "name": "debug_ws",
+  "description": "",
+  "path": "/api/debug/ws",
+  "method": "GET",
+  "route_type": "web_socket",
+  "logic": [
+    {
+      "log": {
+        "level": "info",
+        "message": "HTTP logic ran (FAIL)"
+      }
+    }
+  ],
+  "ws_hooks": {
+    "on_connect": [
+      {
+        "log": {
+          "level": "info",
+          "message": "WS Connected (PASS)"
+        }
+      }
+    ],
+    "on_message": [],
+    "on_disconnect": []
+  },
+  "parameters": [],
+  "response_schema": null,
+  "auth_required": false,
+  "rate_limit": null,
+  "enabled": true,
+  "version": "1.0.0",
+  "created_at": "2026-01-03T11:24:43.833865700+00:00",
+  "updated_at": "2026-01-03T11:24:43.833865700+00:00",
+  "created_by": "system"
+}

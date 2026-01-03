@@ -1,0 +1,41 @@
+{
+  "id": "eda2c1a9-06c4-496d-8c57-0c49333e274b",
+  "name": "websocket_client_ui_v2",
+  "description": "Enhanced WebSocket client with detailed error logging",
+  "path": "/app/ws-test",
+  "method": "GET",
+  "route_type": "http",
+  "logic": [
+    {
+      "comment": {
+        "text": "Enhanced WebSocket client with debugging"
+      }
+    },
+    {
+      "set": {
+        "var": "client_html",
+        "value": "<!DOCTYPE html><html dir='rtl' lang='fa'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1.0'><title>Worpen WebSocket Debug</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0a0a0a;color:#eee;font-family:Tahoma,sans-serif;display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:20px}h2{color:#3b82f6;margin-bottom:10px}#status{position:fixed;top:10px;left:10px;padding:8px 16px;border-radius:5px;font-size:0.85rem;font-weight:bold;background:#1f2937;color:#ef4444;border:2px solid #ef4444;z-index:1000}#status.connected{color:#10b981;border-color:#10b981;background:#064e3b}#status.connecting{color:#f59e0b;border-color:#f59e0b;background:#78350f}#debug-panel{width:90%;max-width:800px;background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:15px;margin-bottom:15px;max-height:200px;overflow-y:auto;font-size:0.8rem;font-family:'Courier New',monospace}#debug-panel .log{padding:4px 0;border-bottom:1px solid #222}.log.error{color:#f87171}.log.success{color:#34d399}.log.info{color:#60a5fa}.log.warn{color:#fbbf24}#chat-box{width:90%;max-width:800px;height:50vh;border:1px solid #333;background:#1a1a1a;border-radius:8px;padding:15px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:15px}.msg{padding:10px 14px;background:#262626;border-radius:6px;border-left:3px solid #3b82f6;word-wrap:break-word}.msg.user{background:#1e3a5f;border-left-color:#60a5fa}.msg.system{background:#1a2e1a;border-left-color:#10b981;font-size:0.85rem;text-align:center}#input-area{display:flex;gap:10px;width:90%;max-width:800px}#msg{flex:1;padding:12px;border-radius:6px;border:1px solid #333;background:#1a1a1a;color:#fff;outline:none;font-size:1rem}#msg:focus{border-color:#3b82f6}button{padding:12px 24px;background:#3b82f6;border:none;border-radius:6px;color:#fff;font-weight:bold;cursor:pointer;transition:background 0.2s}button:hover{background:#2563eb}button:active{transform:scale(0.98)}.clear-btn{background:#6b7280}#conn-info{margin-top:10px;font-size:0.75rem;color:#6b7280}</style></head><body><div id='status' class='connecting'>🔄 در حال اتصال...</div><h2>⚡ چت زنده با نمایش خطا</h2><div id='debug-panel'><div class='log info'>[INFO] Waiting for connection...</div></div><div id='chat-box'></div><div id='input-area'><input id='msg' placeholder='پیام خود را بنویسید...' onkeypress='if(event.key===\"Enter\")send()' disabled><button onclick='send()' id='send-btn' disabled>ارسال</button><button onclick='clearChat()' class='clear-btn'>پاک کردن</button></div><div id='conn-info'>WebSocket URL: <span id='ws-url'></span></div><script>let ws;let reconnectAttempts=0;const maxReconnectAttempts=5;function log(msg,type='info'){const panel=document.getElementById('debug-panel');const div=document.createElement('div');div.className='log '+type;const time=new Date().toLocaleTimeString('fa-IR');div.innerText=`[${time}] ${msg}`;panel.appendChild(div);panel.scrollTop=panel.scrollHeight;console.log(`[${type.toUpperCase()}] ${msg}`);}function updateStatus(text,className){const status=document.getElementById('status');status.innerText=text;status.className=className;}function enableInput(enabled){document.getElementById('msg').disabled=!enabled;document.getElementById('send-btn').disabled=!enabled;}function connect(){const protocol=window.location.protocol==='https:'?'wss://':'ws://';const host=window.location.host;const wsUrl=protocol+host+'/api/ws/chat';document.getElementById('ws-url').innerText=wsUrl;log(`Attempting to connect to: ${wsUrl}`,'info');updateStatus('🔄 در حال اتصال...','connecting');try{ws=new WebSocket(wsUrl);ws.onopen=()=>{reconnectAttempts=0;updateStatus('🟢 متصل شد','connected');log('WebSocket connected successfully!','success');enableInput(true);addSystemMsg('✅ شما به چت متصل شدید');};ws.onerror=(error)=>{log(`WebSocket error: ${error.type || 'Unknown error'}`,'error');console.error('WebSocket error:',error);};ws.onclose=(event)=>{enableInput(false);updateStatus('🔴 قطع شد','');const reason=event.reason||'No reason provided';const code=event.code;log(`WebSocket closed. Code: ${code}, Reason: ${reason}`,'error');addSystemMsg(`❌ اتصال قطع شد (Code: ${code})`);if(reconnectAttempts<maxReconnectAttempts){reconnectAttempts++;const delay=Math.min(1000*Math.pow(2,reconnectAttempts),10000);log(`Reconnecting in ${delay/1000}s... (Attempt ${reconnectAttempts}/${maxReconnectAttempts})`,'warn');setTimeout(connect,delay);}else{log('Max reconnection attempts reached. Please refresh the page.','error');updateStatus('🔴 اتصال ناموفق','');}};ws.onmessage=(event)=>{log(`Received: ${event.data}`,'success');addMsg(event.data);};}catch(err){log(`Connection failed: ${err.message}`,'error');console.error('Connection error:',err);}}function addSystemMsg(text){const box=document.getElementById('chat-box');const div=document.createElement('div');div.className='msg system';div.innerText=text;box.appendChild(div);box.scrollTop=box.scrollHeight;}function addMsg(text){const box=document.getElementById('chat-box');const div=document.createElement('div');if(text.includes('وارد شد')||text.includes('خارج شد')){div.className='msg system';}else{div.className='msg user';}div.innerText=text;box.appendChild(div);box.scrollTop=box.scrollHeight;}function send(){const inp=document.getElementById('msg');if(inp.value&&ws&&ws.readyState===WebSocket.OPEN){log(`Sending: ${inp.value}`,'info');ws.send(inp.value);inp.value='';}else if(!ws||ws.readyState!==WebSocket.OPEN){log('Cannot send: WebSocket not connected','error');alert('اتصال برقرار نیست! لطفا صبر کنید.');}}function clearChat(){document.getElementById('chat-box').innerHTML='';log('Chat cleared','info');}connect();</script></body></html>"
+      }
+    },
+    {
+      "return": {
+        "value": "{{client_html}}",
+        "status": 200,
+        "headers": {
+          "Content-Type": "text/html; charset=utf-8"
+        },
+        "raw": true
+      }
+    }
+  ],
+  "ws_hooks": null,
+  "parameters": [],
+  "response_schema": null,
+  "auth_required": false,
+  "rate_limit": null,
+  "enabled": true,
+  "version": "1.0.0",
+  "created_at": "2026-01-03T09:59:31.968780200+00:00",
+  "updated_at": "2026-01-03T09:59:31.968780200+00:00",
+  "created_by": "system"
+}

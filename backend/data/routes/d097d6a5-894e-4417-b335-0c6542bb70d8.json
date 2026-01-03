@@ -1,0 +1,65 @@
+{
+  "id": "d097d6a5-894e-4417-b335-0c6542bb70d8",
+  "name": "final_ws_chat_server",
+  "description": "",
+  "path": "/api/chat/stream",
+  "method": "GET",
+  "route_type": "web_socket",
+  "logic": [
+    {
+      "comment": {
+        "text": "Logic is skipped for websockets"
+      }
+    }
+  ],
+  "ws_hooks": {
+    "on_connect": [
+      {
+        "log": {
+          "level": "info",
+          "message": "User Connected: {{connection_id}}"
+        }
+      },
+      {
+        "ws_op": {
+          "command": "broadcast",
+          "message": "🟢 یوزر جدید وارد شد: {{connection_id}}",
+          "channel": "global"
+        }
+      }
+    ],
+    "on_message": [
+      {
+        "log": {
+          "level": "debug",
+          "message": "Msg from {{connection_id}}"
+        }
+      },
+      {
+        "ws_op": {
+          "command": "broadcast",
+          "message": "{{connection_id}}: {{message}}",
+          "channel": "global"
+        }
+      }
+    ],
+    "on_disconnect": [
+      {
+        "ws_op": {
+          "command": "broadcast",
+          "message": "🔴 یوزر {{connection_id}} قطع شد.",
+          "channel": "global"
+        }
+      }
+    ]
+  },
+  "parameters": [],
+  "response_schema": null,
+  "auth_required": false,
+  "rate_limit": null,
+  "enabled": true,
+  "version": "1.0.0",
+  "created_at": "2026-01-03T11:51:23.432132500+00:00",
+  "updated_at": "2026-01-03T11:51:23.432132500+00:00",
+  "created_by": "system"
+}

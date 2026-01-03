@@ -1,0 +1,64 @@
+{
+  "id": "e8c79e5d-faf8-4884-8e21-bd16caec4d06",
+  "name": "chat_socket_v3_final",
+  "description": "",
+  "path": "/live/chat",
+  "method": "GET",
+  "route_type": "web_socket",
+  "logic": [
+    {
+      "comment": {
+        "text": "Keeping logic minimal to prevent HTTP takeover"
+      }
+    }
+  ],
+  "ws_hooks": {
+    "on_connect": [
+      {
+        "log": {
+          "level": "info",
+          "message": "🔵 CONNECTED: {{connection_id}}"
+        }
+      },
+      {
+        "ws_op": {
+          "command": "send",
+          "message": "Connected successfully! ID: {{connection_id}}",
+          "channel": null
+        }
+      }
+    ],
+    "on_message": [
+      {
+        "log": {
+          "level": "info",
+          "message": "📩 MSG: {{message}}"
+        }
+      },
+      {
+        "ws_op": {
+          "command": "broadcast",
+          "message": "{{message}}",
+          "channel": "public"
+        }
+      }
+    ],
+    "on_disconnect": [
+      {
+        "log": {
+          "level": "info",
+          "message": "🔴 DISCONNECTED"
+        }
+      }
+    ]
+  },
+  "parameters": [],
+  "response_schema": null,
+  "auth_required": false,
+  "rate_limit": null,
+  "enabled": true,
+  "version": "1.0.0",
+  "created_at": "2026-01-03T11:17:15.409915700+00:00",
+  "updated_at": "2026-01-03T11:17:15.409915700+00:00",
+  "created_by": "system"
+}

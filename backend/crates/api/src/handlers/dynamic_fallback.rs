@@ -1,5 +1,5 @@
 use axum::{
-    extract::State,
+    extract::{State, WebSocketUpgrade},
     response::{IntoResponse, Response},
     http::{StatusCode, Method, Request},
     Json,
@@ -7,16 +7,18 @@ use axum::{
 };
 use crate::state::AppState;
 use serde_json::Value;
+use proto::models::RouteType;
 
 /// Temporary constant to control dynamic fallback logging
 /// Set to false to disable logging, true to enable
-const ENABLE_DYNAMIC_FALLBACK_LOGGING: bool = false;
+const ENABLE_DYNAMIC_FALLBACK_LOGGING: bool = true;
 
 /// Fallback handler برای dynamic routes
 /// این handler همه request های ثبت‌نشده رو میگیره و چک میکنه آیا dynamic route هست
 #[axum::debug_handler]
 pub async fn dynamic_route_fallback(
     State(state): State<AppState>,
+    ws: Option<WebSocketUpgrade>,
     req: Request<Body>,
 ) -> Response {
     let path = req.uri().path().to_string();
@@ -29,18 +31,39 @@ pub async fn dynamic_route_fallback(
     // پیدا کردن route با path و method
     match find_dynamic_route(&state, &path, &method).await {
         Some(route) => {
-            // اجرای route
-            match execute_dynamic_route(&state, route, req).await {
-                Ok(response) => response,
-                Err(e) => {
-                    tracing::error!("Error executing dynamic route: {}", e);
-                    (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(serde_json::json!({
-                            "error": "Route execution failed",
-                            "message": e
-                        }))
-                    ).into_response()
+            // ✅ CHECK ROUTE TYPE FIRST
+            match route.route_type {
+                RouteType::WebSocket => {
+                    // Dispatch to WebSocket handler
+                    if let Some(ws_upgrade) = ws {
+                        tracing::info!("Upgrading to WebSocket for route: {}", route.name);
+                        return handle_websocket_route(ws_upgrade, route, state).await;
+                    } else {
+                        tracing::error!("WebSocket route called without upgrade header");
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(serde_json::json!({
+                                "error": "WebSocket upgrade required",
+                                "message": "This route requires WebSocket protocol"
+                            }))
+                        ).into_response();
+                    }
+                }
+                RouteType::Http => {
+                    // Continue with HTTP logic
+                    match execute_dynamic_route(&state, route, req).await {
+                        Ok(response) => response,
+                        Err(e) => {
+                            tracing::error!("Error executing dynamic route: {}", e);
+                            (
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                Json(serde_json::json!({
+                                    "error": "Route execution failed",
+                                    "message": e
+                                }))
+                            ).into_response()
+                        }
+                    }
                 }
             }
         }
@@ -268,4 +291,155 @@ fn extract_path_params(route_path: &str, request_path: &str) -> std::collections
     }
     
     params
+}
+
+/// Handle WebSocket route upgrade
+async fn handle_websocket_route(
+    ws: WebSocketUpgrade,
+    route: proto::models::RouteDefinition,
+    state: AppState,
+) -> Response {
+    use axum::extract::ws::Message;
+    use futures::{sink::SinkExt, stream::StreamExt};
+    use tokio::sync::mpsc;
+    use uuid::Uuid;
+    
+    ws.on_upgrade(move |socket| async move {
+        let (mut sender, mut receiver) = socket.split();
+        let connection_id = Uuid::new_v4().to_string();
+
+        // Get WebSocket manager
+        let ws_manager = state
+            .dynamic_route_service
+            .get_ws_manager()
+            .unwrap_or_default();
+
+        // Create channel for outgoing messages
+        let (tx, mut rx) = mpsc::unbounded_channel::<String>();
+
+        // Register connection
+        ws_manager.register(connection_id.clone(), tx);
+
+        // Spawn task to forward messages from channel to WebSocket
+        let ws_manager_clone = ws_manager.clone();
+        let connection_id_clone = connection_id.clone();
+        tokio::spawn(async move {
+            while let Some(msg) = rx.recv().await {
+                if sender.send(Message::Text(msg)).await.is_err() {
+                    break;
+                }
+            }
+            // Cleanup on disconnect
+            ws_manager_clone.unregister(&connection_id_clone);
+        });
+
+        // Execute on_connect hook if exists
+        if let Some(ref hooks) = route.ws_hooks {
+            if !hooks.on_connect.is_empty() {
+                let _ = execute_ws_logic(
+                    &hooks.on_connect,
+                    &state,
+                    &ws_manager,
+                    &connection_id,
+                    None,
+                )
+                .await;
+            }
+        }
+
+        // Main message loop
+        while let Some(msg_result) = receiver.next().await {
+            match msg_result {
+                Ok(Message::Text(text)) => {
+                    // Execute on_message hook
+                    if let Some(ref hooks) = route.ws_hooks {
+                        if !hooks.on_message.is_empty() {
+                            let _ = execute_ws_logic(
+                                &hooks.on_message,
+                                &state,
+                                &ws_manager,
+                                &connection_id,
+                                Some(text),
+                            )
+                            .await;
+                        }
+                    }
+                }
+                Ok(Message::Close(_)) => {
+                    break;
+                }
+                Err(_) => {
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        // Execute on_disconnect hook
+        if let Some(ref hooks) = route.ws_hooks {
+            if !hooks.on_disconnect.is_empty() {
+                let _ = execute_ws_logic(
+                    &hooks.on_disconnect,
+                    &state,
+                    &ws_manager,
+                    &connection_id,
+                    None,
+                )
+                .await;
+            }
+        }
+
+        // Unregister connection
+        ws_manager.unregister(&connection_id);
+    })
+    .into_response()
+}
+
+/// Execute WebSocket logic operations
+async fn execute_ws_logic(
+    logic: &[proto::models::LogicOperation],
+    state: &AppState,
+    ws_manager: &worpen_core::websocket::WebSocketManager,
+    connection_id: &str,
+    incoming_message: Option<String>,
+) -> Result<Value, String> {
+    use worpen_core::vm::memory::ExecutionMemory;
+    use worpen_core::vm::machine::VirtualMachine;
+    use worpen_core::compiler::lowerer::LogicCompiler;
+    
+    // Compile logic
+    let mut compiler = LogicCompiler::new();
+    let program = compiler.compile(logic);
+    let symbol_table = compiler.get_symbol_table().clone();
+
+    // Create execution memory
+    let mut memory = ExecutionMemory::new();
+
+    // Inject {{message}} variable if provided
+    if let Some(msg) = incoming_message {
+        if let Some(msg_index) = symbol_table.get_index("message") {
+            memory.set(msg_index, Value::String(msg));
+        }
+    }
+
+    // Inject {{connection_id}} variable
+    if let Some(conn_index) = symbol_table.get_index("connection_id") {
+        memory.set(conn_index, Value::String(connection_id.to_string()));
+    }
+
+    // Create VM with WebSocket support
+    let db_pool = state.dynamic_route_service.get_db_pool();
+    let redis_pool = state.dynamic_route_service.get_redis_pool();
+
+    let mut vm = VirtualMachine::with_all(
+        memory,
+        symbol_table,
+        db_pool,
+        redis_pool,
+        Some(ws_manager.clone()),
+        Some(connection_id.to_string()),
+    );
+
+    // Execute
+    vm.execute(&program).await
 }
