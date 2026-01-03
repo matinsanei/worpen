@@ -125,6 +125,10 @@ pub enum OptimizedOperation {
     // Custom Script Execution
     #[serde(rename = "execute_script")]
     ExecuteScript { language: String, code: String },
+    
+    // Custom Operations (for user-defined extensions)
+    #[serde(untagged)]
+    CustomOp(HashMap<String, Value>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

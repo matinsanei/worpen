@@ -1,0 +1,21 @@
+{
+  "name": "send_alert",
+  "params": [
+    "msg"
+  ],
+  "logic": [
+    {
+      "log": {
+        "level": "warn",
+        "message": "Emergency Alert: {{msg}}"
+      }
+    },
+    {
+      "ws_op": {
+        "command": "broadcast",
+        "message": " ALERT: {{msg}}",
+        "channel": "admin_panel"
+      }
+    }
+  ]
+}

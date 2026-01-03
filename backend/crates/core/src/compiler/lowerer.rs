@@ -228,6 +228,13 @@ impl LogicCompiler {
             LogicOperation::ExecuteScript { language, code } => {
                 OptimizedOperation::ExecuteScript { language: language.clone(), code: code.clone() }
             },
+            LogicOperation::CustomOp(operation_map) => {
+                // Custom operations: scan all values for variables
+                for value in operation_map.values() {
+                    self.register_variables_in_value(value);
+                }
+                OptimizedOperation::CustomOp(operation_map.clone())
+            },
         }
     }
 

@@ -1,0 +1,14 @@
+{
+  "name": "send_notification",
+  "params": [
+    "msg"
+  ],
+  "logic": [
+    {
+      "NotifyOp": {
+        "content": "Emergency: {{msg}}",
+        "target": "admin_panel"
+      }
+    }
+  ]
+}

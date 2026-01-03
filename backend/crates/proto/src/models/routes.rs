@@ -142,6 +142,10 @@ pub enum LogicOperation {
     // Custom Script Execution
     #[serde(rename = "execute_script")]
     ExecuteScript { language: String, code: String },
+    
+    // Custom Operations (for user-defined extensions)
+    #[serde(untagged)]
+    CustomOp(HashMap<String, serde_json::Value>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

@@ -1,0 +1,52 @@
+{
+  "id": "1bbd7d31-0b2e-4744-87a9-b458511e5511",
+  "name": "test_custom_op",
+  "description": "",
+  "path": "/api/test/custom",
+  "method": "POST",
+  "route_type": "http",
+  "logic": [
+    {
+      "set": {
+        "var": "alert_message",
+        "value": "Server is down!"
+      }
+    },
+    {
+      "set": {
+        "var": "_0_msg",
+        "value": "{{alert_message}}"
+      }
+    },
+    {
+      "NotifyOp": {
+        "content": "Emergency: {{_0_msg}}",
+        "target": "admin_panel"
+      }
+    },
+    {
+      "set": {
+        "var": "result",
+        "value": "${_0_result}"
+      }
+    },
+    {
+      "return": {
+        "value": {
+          "msg": "{{alert_message}}",
+          "status": "notified"
+        }
+      }
+    }
+  ],
+  "ws_hooks": null,
+  "parameters": [],
+  "response_schema": null,
+  "auth_required": false,
+  "rate_limit": null,
+  "enabled": true,
+  "version": "1.0.0",
+  "created_at": "2026-01-03T12:46:30.781132+00:00",
+  "updated_at": "2026-01-03T12:46:30.781132+00:00",
+  "created_by": "system"
+}

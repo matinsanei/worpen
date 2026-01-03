@@ -415,6 +415,15 @@ pub async fn execute_logic_extended(
                 last_result = Value::String("WebSocket operations require VM execution".to_string());
             },
             
+            LogicOperation::CustomOp(operation_map) => {
+                // Custom operations defined via UI extensions
+                // Log for debugging but don't fail - allow generic walker to handle variables
+                last_result = serde_json::json!({
+                    "custom_operation": operation_map.keys().next().unwrap_or(&"unknown".to_string()),
+                    "status": "processed_by_generic_walker"
+                });
+            },
+            
             LogicOperation::AwaitAll { task_ids: _ } => {
                 // steps.push("Await all tasks".to_string());
                 last_result = Value::Array(vec![]);

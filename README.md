@@ -268,6 +268,7 @@ logic:
 
 ## �📚 𝐃𝐎𝐂𝐔𝐌𝐄𝐍𝐓𝐀𝐓𝐈𝐎𝐍
 
+### Core Documentation
 - 📖 **[Introduction](documentation/01-introduction.md)**
 - 🏗️ **[Variable Scoping & VM](documentation/03-variables-basics.md)**
 - 🔁 **[Advanced Loops & Logic](documentation/05-loops.md)**
@@ -277,6 +278,20 @@ logic:
 - 🔄 **[Migration from JSON to YAML](documentation/15-migration-guide.md)**
 - ✨ **[Performance Best Practices](documentation/16-best-practices.md)**
 - 📝 **[Changelog](CHANGELOG.md)**
+
+### Extensibility & Custom Operations 🎨 NEW
+- 🧩 **[Custom Operations Guide](CUSTOM_OPERATIONS_GUIDE.md)** - Complete guide to Zero-Touch Extensibility
+- 🚀 **[Extensions Quick Start](documentation/EXTENSIONS_QUICKSTART.md)** - 3-minute setup guide
+- 📦 **[Schema Examples](documentation/SCHEMA_EXAMPLES.md)** - 20+ ready-to-use operation schemas
+  - Notifications (NotifyOp, PushNotificationOp)
+  - Email (EmailOp, BulkEmailOp)
+  - SMS (SmsOp, WhatsAppOp)
+  - Webhooks (WebhookOp, SlackOp)
+  - Payments (PaymentOp, RefundOp)
+  - Analytics (TrackEventOp, MetricsOp)
+  - Data (CacheOp, QueueOp)
+  - Security (EncryptOp, AuditLogOp)
+  - AI (AiPromptOp)
 
 ---
 
