@@ -8,8 +8,8 @@
 //! - Complex operation benchmarks
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use core::parsers::route_parser::parse_route;
-use core::expression::{Tokenizer, Parser, Evaluator};
+use worpen_core::parsers::route_parser::parse_route;
+use worpen_core::expression::{Tokenizer, Parser, Evaluator};
 use serde_json::json;
 use std::collections::HashMap;
 

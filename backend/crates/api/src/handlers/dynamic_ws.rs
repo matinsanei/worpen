@@ -74,7 +74,7 @@ async fn handle_websocket(
     let ws_manager = state
         .dynamic_route_service
         .get_ws_manager()
-        .unwrap_or_else(WebSocketManager::new);
+        .unwrap_or_default();
 
     // Create channel for outgoing messages
     let (tx, mut rx) = mpsc::unbounded_channel::<String>();

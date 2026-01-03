@@ -2,17 +2,12 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum RouteType {
+    #[default]
     Http,
     WebSocket,
-}
-
-impl Default for RouteType {
-    fn default() -> Self {
-        RouteType::Http
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

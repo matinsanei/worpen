@@ -10,6 +10,7 @@ mod state;
 mod dtos;
 mod handlers;
 mod apidoc;
+mod banner;
 
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
@@ -18,6 +19,9 @@ use apidoc::ApiDoc;
 #[tokio::main(worker_threads = 4)]
 async fn main() {
     tracing_subscriber::fmt::init();
+    
+    // Print colorful banner
+    banner::print_banner();
     
     // Ensure DATABASE_URL is set
     let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:worpen.db?mode=rwc".to_string());

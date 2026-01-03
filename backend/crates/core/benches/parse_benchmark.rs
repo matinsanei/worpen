@@ -1,6 +1,6 @@
 // Performance benchmarks for JSON vs YAML parsing
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use core::parsers::parse_route;
+use worpen_core::parsers::route_parser::parse_route;
 
 const SIMPLE_JSON: &str = r#"{
   "name": "Benchmark Route",

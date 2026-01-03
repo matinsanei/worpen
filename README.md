@@ -185,13 +185,6 @@ logic:
             value: "{{cached_profile}}"
 ```
 
----
-      args: ["{{user_id}}"]
-      output_var: user_data
-  - return:
-      value: "{{user_data}}"
-```
-
 **Features:**
 - ✅ Parameterized queries (SQL injection safe)
 - ✅ Variable interpolation from execution context

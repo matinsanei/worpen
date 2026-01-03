@@ -55,7 +55,6 @@ fn test_redis_set_and_get() {
             Ok(val) => assert_eq!(val, Value::String("test_value_123".to_string())),
             Err(e) if e.contains("Failed to get Redis connection") => {
                 println!("Redis not available: {}", e);
-                return;
             },
             Err(e) => panic!("Unexpected error: {}", e),
         }
@@ -111,7 +110,6 @@ fn test_redis_with_variables() {
             Ok(val) => assert_eq!(val, Value::String("Alice".to_string())),
             Err(e) if e.contains("Failed to get Redis connection") => {
                 println!("Redis not available: {}", e);
-                return;
             },
             Err(e) => panic!("Unexpected error: {}", e),
         }
@@ -179,7 +177,6 @@ fn test_redis_incr() {
             Ok(val) => assert_eq!(val, json!(11)),
             Err(e) if e.contains("Failed to get Redis connection") => {
                 println!("Redis not available: {}", e);
-                return;
             },
             Err(e) => panic!("Unexpected error: {}", e),
         }

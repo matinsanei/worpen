@@ -48,7 +48,7 @@ impl WebSocketManager {
     pub fn subscribe(&self, connection_id: String, channel: String) {
         self.channels
             .entry(channel)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(connection_id);
     }
 
