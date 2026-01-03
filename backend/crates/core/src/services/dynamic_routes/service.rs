@@ -742,10 +742,24 @@ impl DynamicRouteService {
                         output_var: scoped_output,
                     });
                 },
-                // For simplicity, handle other operations by scoping string fields
+                
+                // 🚀 GENERIC FALLBACK - Automatically handles ALL I/O operations
                 _ => {
-                    // For now, just pass through other operations (they would need individual handling)
-                    result.push(operation.clone());
+                    // Serialize to JSON, scope variable references, deserialize back
+                    if let Ok(mut json_value) = serde_json::to_value(operation) {
+                        self.scope_json_tree_references(&mut json_value, scope_prefix, variables);
+                        
+                        // Try to deserialize back to LogicOperation
+                        if let Ok(scoped_op) = serde_json::from_value::<LogicOperation>(json_value) {
+                            result.push(scoped_op);
+                        } else {
+                            // If deserialization fails, pass through original
+                            result.push(operation.clone());
+                        }
+                    } else {
+                        // If serialization fails, pass through original
+                        result.push(operation.clone());
+                    }
                 }
             }
         }
@@ -793,6 +807,7 @@ impl DynamicRouteService {
     fn scan_logic_for_variables(&self, logic: &[LogicOperation], variables: &mut std::collections::HashSet<String>) {
         for operation in logic {
             match operation {
+                // ✅ EXPLICIT HANDLING FOR CONTROL FLOW & SCOPE CREATION
                 LogicOperation::DefineFunction { name: _, params, body } => {
                     // Add parameters to variables
                     for param in params {
@@ -852,34 +867,42 @@ impl DynamicRouteService {
                 LogicOperation::Return { value, .. } => {
                     self.scan_value_for_variables(value, variables);
                 },
-                LogicOperation::MathOp { operation: _, args } => {
-                    for arg in args {
-                        self.scan_value_for_variables(arg, variables);
+                
+                // 🚀 GENERIC FALLBACK - Automatically handles ALL I/O operations
+                _ => {
+                    // Serialize operation to JSON
+                    if let Ok(json_value) = serde_json::to_value(operation) {
+                        self.scan_json_tree_for_variables(&json_value, variables);
                     }
-                },
-                LogicOperation::SqlOp { query: _, args, output_var } => {
-                    variables.insert(output_var.clone());
-                    for arg in args {
-                        self.scan_value_for_variables(arg, variables);
-                    }
-                },
-                LogicOperation::RedisOp { key, value, output_var, .. } => {
-                    self.scan_string_for_variables(key, variables);
-                    if let Some(v) = value {
-                        self.scan_string_for_variables(v, variables);
-                    }
-                    if let Some(out_var) = output_var {
-                        variables.insert(out_var.clone());
-                    }
-                },
-                LogicOperation::WsOp { message, channel, .. } => {
-                    self.scan_string_for_variables(message, variables);
-                    if let Some(ch) = channel {
-                        self.scan_string_for_variables(ch, variables);
-                    }
-                },
-                _ => {} // Other operations might not contain variable references
+                }
             }
+        }
+    }
+    
+    /// 🚀 NEW: Generic JSON tree walker that finds {{...}} patterns anywhere
+    fn scan_json_tree_for_variables(&self, value: &serde_json::Value, variables: &mut std::collections::HashSet<String>) {
+        match value {
+            serde_json::Value::String(s) => {
+                self.scan_string_for_variables(s, variables);
+            },
+            serde_json::Value::Array(arr) => {
+                for item in arr {
+                    self.scan_json_tree_for_variables(item, variables);
+                }
+            },
+            serde_json::Value::Object(obj) => {
+                for (key, val) in obj {
+                    // Check for special keys that define variables (like "var", "output_var")
+                    if key == "var" || key == "output_var" {
+                        if let serde_json::Value::String(var_name) = val {
+                            variables.insert(var_name.clone());
+                        }
+                    }
+                    // Recursively scan all values
+                    self.scan_json_tree_for_variables(val, variables);
+                }
+            },
+            _ => {} // Numbers, bools, null don't contain variables
         }
     }
 
@@ -957,6 +980,34 @@ impl DynamicRouteService {
         }
 
         result
+    }
+    
+    /// 🚀 NEW: Generic JSON tree scoping that modifies variable references in-place
+    fn scope_json_tree_references(&self, value: &mut serde_json::Value, scope_prefix: &str, variables: &[String]) {
+        match value {
+            serde_json::Value::String(s) => {
+                *s = self.scope_string_references(s, scope_prefix, variables);
+            },
+            serde_json::Value::Array(arr) => {
+                for item in arr {
+                    self.scope_json_tree_references(item, scope_prefix, variables);
+                }
+            },
+            serde_json::Value::Object(obj) => {
+                for (key, val) in obj {
+                    // Special handling for variable definition keys
+                    if key == "var" || key == "output_var" {
+                        if let serde_json::Value::String(var_name) = val {
+                            *var_name = format!("{}{}", scope_prefix, var_name);
+                        }
+                    } else {
+                        // Recursively scope all other values
+                        self.scope_json_tree_references(val, scope_prefix, variables);
+                    }
+                }
+            },
+            _ => {} // Numbers, bools, null don't need scoping
+        }
     }
 
     /// Execute route logic با context

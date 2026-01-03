@@ -13,7 +13,7 @@ export const WORPEN_ROUTE_SCHEMA: WorpenSchema = {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "title": "Worpen Dynamic Route Definition",
-  "required": ["name", "path", "method", "logic"],
+  "required": ["name", "path", "method"],
   "properties": {
     "name": {
       "type": "string",
@@ -35,9 +35,9 @@ export const WORPEN_ROUTE_SCHEMA: WorpenSchema = {
     },
     "route_type": {
       "type": "string",
-      "enum": ["http", "websocket"],
+      "enum": ["http", "web_socket"],
       "default": "http",
-      "description": "Route type"
+      "description": "Route type (use 'web_socket' for WebSocket routes)"
     },
     "logic": {
       "type": "array",

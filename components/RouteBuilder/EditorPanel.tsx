@@ -45,6 +45,52 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
             try {
                 const monaco = await import('monaco-editor');
                 
+                // Load custom schemas from localStorage
+                let customOperations: any = {};
+                try {
+                    const stored = localStorage.getItem('worpen_custom_schemas');
+                    if (stored) {
+                        const schemas = JSON.parse(stored);
+                        // Build dynamic oneOf for LogicOperation enum
+                        schemas.forEach((s: any) => {
+                            customOperations[s.name.toLowerCase()] = {
+                                type: 'object',
+                                properties: s.schema,
+                                additionalProperties: false
+                            };
+                        });
+                    }
+                } catch (error) {
+                    console.error('[EditorPanel] Failed to load custom schemas:', error);
+                }
+                
+                // Extend the base schema with custom operations
+                const extendedSchema = {
+                    ...WORPEN_ROUTE_SCHEMA,
+                    definitions: {
+                        ...(WORPEN_ROUTE_SCHEMA.definitions || {}),
+                        ...customOperations
+                    }
+                };
+                
+                // If there are custom operations, add them to LogicOperation enum
+                if (Object.keys(customOperations).length > 0 && extendedSchema.definitions?.LogicOperation) {
+                    const existingOneOf = extendedSchema.definitions.LogicOperation.oneOf || [];
+                    const customOneOf = Object.entries(customOperations).map(([name, schema]) => ({
+                        type: 'object',
+                        required: [name],
+                        properties: {
+                            [name]: schema
+                        },
+                        additionalProperties: false
+                    }));
+                    
+                    extendedSchema.definitions.LogicOperation = {
+                        ...extendedSchema.definitions.LogicOperation,
+                        oneOf: [...existingOneOf, ...customOneOf]
+                    };
+                }
+                
                 // Configure JSON schema for JSON mode
                 monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
                     validate: true,
@@ -52,7 +98,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                     schemas: [{
                         uri: 'http://worpen.io/schemas/route.json',
                         fileMatch: ['*'],
-                        schema: WORPEN_ROUTE_SCHEMA
+                        schema: extendedSchema
                     }],
                     enableSchemaRequest: false,
                     schemaValidation: 'error',
@@ -63,13 +109,23 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
 
                 // Configure YAML validation (Monaco doesn't have native YAML schema support,
                 // but we can show helpful diagnostics when switching between formats)
-                console.log('[EditorPanel] Monaco schema configured');
+                console.log('[EditorPanel] Monaco schema configured with custom operations:', Object.keys(customOperations));
             } catch (error) {
                 console.error('[EditorPanel] Error configuring Monaco:', error);
             }
         };
 
         configureMonaco();
+        
+        // Re-configure when custom schemas change (listen for storage events)
+        const handleStorageChange = (e: StorageEvent) => {
+            if (e.key === 'worpen_custom_schemas') {
+                configureMonaco();
+            }
+        };
+        
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
 
     const handleEditorMount = (editor: any, monaco: any) => {

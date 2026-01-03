@@ -1,7 +1,6 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TerminalFrame } from '../components/TerminalFrame';
-import { Save, Shield, Globe, Key, Plus, X, Settings, Bell, Hash, Sparkles, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { Save, Shield, Globe, Key, Plus, X, Settings, Bell, Hash, Sparkles, CheckCircle, AlertTriangle, Loader2, Puzzle } from 'lucide-react';
 import { useNotifications } from '../components/NotificationSystem';
 import { getAIConfig, saveAIConfig, testAIConnection, AIConfig, AVAILABLE_MODELS, POPULAR_ENDPOINTS } from '../services/aiConfig';
 
@@ -20,6 +19,61 @@ export const SettingsView: React.FC = () => {
   const [aiConfig, setAiConfig] = useState<AIConfig>(() => getAIConfig());
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
+  
+  // 🚀 Custom Operation Schemas State
+  const [customSchemas, setCustomSchemas] = useState<Array<{id: string; name: string; schema: any}>>([]);
+  const [newSchemaName, setNewSchemaName] = useState('');
+  const [newSchemaContent, setNewSchemaContent] = useState('{\n  "required_field": "string",\n  "optional_field": "number"\n}');
+  
+  // Load custom schemas from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('worpen_custom_schemas');
+      if (stored) {
+        setCustomSchemas(JSON.parse(stored));
+      }
+    } catch (error) {
+      console.error('Failed to load custom schemas:', error);
+    }
+  }, []);
+  
+  // Save custom schemas to localStorage
+  const saveCustomSchemas = (schemas: typeof customSchemas) => {
+    try {
+      localStorage.setItem('worpen_custom_schemas', JSON.stringify(schemas));
+      setCustomSchemas(schemas);
+      addNotification('SUCCESS', 'SCHEMAS_SAVED', 'Custom operation schemas saved!', 3000);
+    } catch (error: any) {
+      addNotification('ERROR', 'SCHEMAS_ERROR', error.message || 'Failed to save schemas');
+    }
+  };
+  
+  const addCustomSchema = () => {
+    if (!newSchemaName.trim()) {
+      addNotification('ERROR', 'SCHEMA_ERROR', 'Schema name is required');
+      return;
+    }
+    
+    try {
+      const schemaObj = JSON.parse(newSchemaContent);
+      const newSchema = {
+        id: `${Date.now()}_${newSchemaName.toLowerCase().replace(/\s+/g, '_')}`,
+        name: newSchemaName,
+        schema: schemaObj
+      };
+      
+      saveCustomSchemas([...customSchemas, newSchema]);
+      setNewSchemaName('');
+      setNewSchemaContent('{\n  "required_field": "string",\n  "optional_field": "number"\n}');
+    } catch (error: any) {
+      addNotification('ERROR', 'SCHEMA_PARSE_ERROR', 'Invalid JSON schema');
+    }
+  };
+  
+  const removeCustomSchema = (id: string) => {
+    saveCustomSchemas(customSchemas.filter(s => s.id !== id));
+    addNotification('INFO', 'SCHEMA_REMOVED', 'Custom schema removed');
+  };
 
   const addEnv = () => {
     if (newKey && newValue) {
@@ -447,6 +501,86 @@ export const SettingsView: React.FC = () => {
                 <Save size={16} />
                 Save AI Config
               </button>
+            </div>
+          </section>
+          
+          {/* 🚀 Custom Operation Schemas Section */}
+          <section className="jb-card p-6 space-y-5">
+            <div className="flex items-center gap-2 pb-3 border-b border-[#43454a]">
+              <Puzzle size={16} className="text-[#c678dd]" />
+              <h2 className="text-[13px] font-bold text-[#dfe1e5]">🧩 Extensions / Custom Operations</h2>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-[11px] text-[#6e7073]">
+                Define custom operation types that will be automatically recognized by the compiler and Monaco editor.
+                Variable scoping will work automatically for any fields containing <code className="px-1 py-0.5 bg-[#1e1f22] rounded text-[#e06c75]">{`{{...}}`}</code> patterns.
+              </p>
+
+              {/* Existing Schemas List */}
+              {customSchemas.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-[11px] font-bold text-[#6e7073] uppercase">Registered Custom Operations</h3>
+                  <div className="space-y-2">
+                    {customSchemas.map((schema) => (
+                      <div key={schema.id} className="flex items-center justify-between p-3 bg-[#1e1f22] border border-[#43454a] rounded-[var(--radius)]">
+                        <div className="flex-1">
+                          <div className="text-sm font-mono text-[#dfe1e5]">{schema.name}</div>
+                          <div className="text-[10px] text-[#6e7073] font-mono mt-1">
+                            {JSON.stringify(schema.schema).substring(0, 80)}...
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => removeCustomSchema(schema.id)}
+                          className="ml-3 p-1.5 bg-[#e06c75]/20 hover:bg-[#e06c75]/30 border border-[#e06c75]/30 text-[#e06c75] rounded-[var(--radius)] transition-all"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Add New Schema Form */}
+              <div className="space-y-3 pt-2 border-t border-[#43454a]">
+                <h3 className="text-[11px] font-bold text-[#6e7073] uppercase">Add New Operation Type</h3>
+                
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#6e7073] uppercase px-1">Operation Name</label>
+                  <input
+                    type="text"
+                    value={newSchemaName}
+                    onChange={(e) => setNewSchemaName(e.target.value)}
+                    placeholder="e.g., EmailOp, NuclearLaunchOp"
+                    className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2 rounded-[var(--radius)] text-sm font-mono focus:border-[#3574f0] outline-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-[#6e7073] uppercase px-1">JSON Schema</label>
+                  <textarea
+                    value={newSchemaContent}
+                    onChange={(e) => setNewSchemaContent(e.target.value)}
+                    rows={8}
+                    className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2 rounded-[var(--radius)] text-sm font-mono focus:border-[#3574f0] outline-none resize-none"
+                    placeholder='{ "to": "string", "subject": "string", "body": "string" }'
+                  />
+                </div>
+
+                <button
+                  onClick={addCustomSchema}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#c678dd]/20 hover:bg-[#c678dd]/30 border border-[#c678dd]/30 text-[#c678dd] text-sm font-bold rounded-[var(--radius)] transition-all active:scale-95"
+                >
+                  <Plus size={16} />
+                  Register Operation
+                </button>
+              </div>
+
+              <div className="mt-4 p-3 bg-[#61afef]/10 border border-[#61afef]/20 rounded-[var(--radius)] text-[11px] text-[#61afef]">
+                <strong>💡 How it works:</strong> Once registered, your custom operations will appear in Monaco autocomplete,
+                and the compiler will automatically scan/scope all string fields containing <code className="px-1 bg-[#1e1f22]/50">{`{{variables}}`}</code>.
+              </div>
             </div>
           </section>
         </div>
