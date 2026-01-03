@@ -139,8 +139,9 @@ curl -X POST http://127.0.0.1:3000/api/checkout
 | **Logic** | `If`, `Switch`, `Loop` | Full control flow support |
 | **Math** | `sum`, `mul`, `div`, etc. | Blazing fast binary operations |
 | **Database** | `SqlOp` ⚡ | VM-optimized parameterized SQL queries |
-| **Caching** | `RedisOp` ⚡ NEW | High-speed Redis operations with pooling |
+| **Caching** | `RedisOp` ⚡ | High-speed Redis operations with pooling |
 | **Networking**| `HttpRequest` | Built-in async HTTP client for Service Mesh |
+| **Documentation** | `Comment` 📝 NEW | Add inline documentation to your routes |
 | **Optimization**| `Inlining` | Compile-time function flattening |
 
 ### 💾 SQL Operations Example
@@ -193,7 +194,79 @@ logic:
 
 ---
 
-## 📚 𝐃𝐎𝐂𝐔𝐌𝐄𝐍𝐓𝐀𝐓𝐈𝐎𝐍
+## � 𝐂𝐎𝐌𝐌𝐄𝐍𝐓𝐒 𝐀𝐍𝐃 𝐃𝐎𝐂𝐔𝐌𝐄𝐍𝐓𝐀𝐓𝐈𝐎𝐍
+
+Worpen now supports **inline comments** in your route definitions. Comments are treated as **no-op operations** during VM execution, making them perfect for documenting complex logic flows.
+
+### Using Comments in JSON
+```json
+{
+  "name": "documented_route",
+  "path": "/api/order",
+  "method": "POST",
+  "logic": [
+    {
+      "comment": {
+        "text": "--- Initialize variables ---"
+      }
+    },
+    {
+      "set": {
+        "var": "base_price",
+        "value": 100
+      }
+    },
+    {
+      "comment": {
+        "text": "--- Calculate tax (10%) ---"
+      }
+    },
+    {
+      "math_op": {
+        "operation": "mul",
+        "args": ["{{base_price}}", 1.1]
+      }
+    },
+    {
+      "return": {
+        "value": "{{math_result}}"
+      }
+    }
+  ]
+}
+```
+
+### Using Comments in YAML
+```yaml
+name: documented_route
+path: /api/order
+method: POST
+logic:
+  - comment:
+      text: "--- Initialize variables ---"
+  - set:
+      var: base_price
+      value: 100
+  - comment:
+      text: "--- Calculate tax (10%) ---"
+  - math_op:
+      operation: mul
+      args:
+        - "{{base_price}}"
+        - 1.1
+  - return:
+      value: "{{math_result}}"
+```
+
+**Benefits:**
+- ✅ Zero runtime overhead (comments are skipped during execution)
+- ✅ Better code maintainability and team collaboration
+- ✅ Support for Persian/Arabic and all UTF-8 characters
+- ✅ Works in both JSON and YAML formats
+
+---
+
+## �📚 𝐃𝐎𝐂𝐔𝐌𝐄𝐍𝐓𝐀𝐓𝐈𝐎𝐍
 
 - 📖 **[Introduction](documentation/01-introduction.md)**
 - 🏗️ **[Variable Scoping & VM](documentation/03-variables-basics.md)**

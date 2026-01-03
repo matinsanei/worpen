@@ -1,0 +1,44 @@
+{
+  "name": "HTML Page with Comments Example",
+  "description": "Demonstrates Comment operation and raw HTML response with custom headers",
+  "path": "/examples/html-demo",
+  "method": "GET",
+  "route_type": "http",
+  "logic": [
+    {
+      "comment": "This is a comment - it won't be executed but helps document the code"
+    },
+    {
+      "set": {
+        "var": "title",
+        "value": "Welcome to Worpen"
+      }
+    },
+    {
+      "comment": "Build HTML content with dynamic title"
+    },
+    {
+      "set": {
+        "var": "html_content",
+        "value": "<!DOCTYPE html>\n<html>\n<head>\n  <title>{{title}}</title>\n  <style>\n    body { font-family: Arial, sans-serif; margin: 40px; }\n    h1 { color: #2563eb; }\n  </style>\n</head>\n<body>\n  <h1>{{title}}</h1>\n  <p>This is a raw HTML response served directly by the logic engine!</p>\n  <p>Current time: <span id=\"time\"></span></p>\n  <script>\n    document.getElementById('time').textContent = new Date().toLocaleString();\n  </script>\n</body>\n</html>"
+      }
+    },
+    {
+      "comment": "Return raw HTML with Content-Type header"
+    },
+    {
+      "return": {
+        "value": "{{html_content}}",
+        "status": 200,
+        "headers": {
+          "Content-Type": "text/html; charset=utf-8",
+          "X-Powered-By": "Worpen Logic Engine"
+        },
+        "raw": true
+      }
+    }
+  ],
+  "parameters": [],
+  "auth_required": false,
+  "enabled": true
+}

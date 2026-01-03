@@ -151,7 +151,66 @@ async fn execute_dynamic_route(
         .await
         .map_err(|e| format!("Execution error: {}", e))?;
     
-    // تبدیل نتیجه به response
+    // Check if result contains enhanced return metadata (value, status, headers, raw)
+    if let Some(obj) = result.as_object() {
+        if obj.contains_key("value") {
+            // Enhanced return with custom response fields
+            let value = obj.get("value").unwrap_or(&Value::Null);
+            let status_code = obj.get("status")
+                .and_then(|s| s.as_u64())
+                .unwrap_or(200) as u16;
+            let headers = obj.get("headers")
+                .and_then(|h| h.as_object())
+                .cloned();
+            let is_raw = obj.get("raw")
+                .and_then(|r| r.as_bool())
+                .unwrap_or(false);
+            
+            let status = StatusCode::from_u16(status_code)
+                .unwrap_or(StatusCode::OK);
+            
+            // If raw=true, send the value directly without wrapping
+            if is_raw {
+                // Extract raw string content
+                let raw_content = match value {
+                    Value::String(s) => s.clone(),
+                    _ => value.to_string(),
+                };
+                
+                // Build response with custom headers
+                let mut response = (status, raw_content).into_response();
+                if let Some(header_map) = headers {
+                    for (key, val) in header_map {
+                        if let Value::String(header_value) = val {
+                            if let Ok(header_name) = axum::http::HeaderName::from_bytes(key.as_bytes()) {
+                                if let Ok(header_val) = axum::http::HeaderValue::from_str(&header_value) {
+                                    response.headers_mut().insert(header_name, header_val);
+                                }
+                            }
+                        }
+                    }
+                }
+                return Ok(response);
+            } else {
+                // Normal JSON response with custom status and headers
+                let mut response = (status, Json(value.clone())).into_response();
+                if let Some(header_map) = headers {
+                    for (key, val) in header_map {
+                        if let Value::String(header_value) = val {
+                            if let Ok(header_name) = axum::http::HeaderName::from_bytes(key.as_bytes()) {
+                                if let Ok(header_val) = axum::http::HeaderValue::from_str(&header_value) {
+                                    response.headers_mut().insert(header_name, header_val);
+                                }
+                            }
+                        }
+                    }
+                }
+                return Ok(response);
+            }
+        }
+    }
+    
+    // Legacy path: تبدیل نتیجه به response
     let response_json = result.as_object()
         .and_then(|obj| {
             if obj.contains_key("status") || obj.contains_key("message") || obj.contains_key("data") {

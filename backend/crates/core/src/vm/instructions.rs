@@ -6,7 +6,18 @@ use std::collections::HashMap;
 pub enum OptimizedOperation {
     // Data Operations
     #[serde(rename = "return")]
-    Return { value: Value },
+    Return { 
+        value: Value,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        status: Option<u16>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        headers: Option<HashMap<String, String>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        raw: Option<bool>,
+    },
+    
+    #[serde(rename = "comment")]
+    Comment { text: String },
 
     #[serde(rename = "query_db")]
     QueryDb { query: String, params: Vec<Value> },

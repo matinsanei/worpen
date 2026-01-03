@@ -25,7 +25,7 @@ fn test_hot_routes_cache() {
             path: "/bench".to_string(),
             method: HttpMethod::GET,
             logic: vec![
-                LogicOperation::Return { value: Value::String("Success".to_string()) }
+                LogicOperation::Return { value: Value::String("Success".to_string()), status: None, headers: None, raw: None }
             ],
             parameters: vec![],
             response_schema: None,

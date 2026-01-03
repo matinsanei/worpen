@@ -106,7 +106,7 @@ fn test_vm_execution() {
     let logic = vec![
         LogicOperation::Set { var: "a".to_string(), value: Value::Number(5.into()) },
         LogicOperation::Set { var: "b".to_string(), value: Value::Number(10.into()) },
-        LogicOperation::Return { value: Value::String("{{a}}".to_string()) },
+        LogicOperation::Return { value: Value::String("{{a}}".to_string()), status: None, headers: None, raw: None },
     ];
 
     // Compile

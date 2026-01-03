@@ -1,0 +1,58 @@
+{
+  "id": "920f4f36-8fcb-4e48-a91c-3be6f67a1e58",
+  "name": "web_server_native",
+  "description": "",
+  "path": "/website",
+  "method": "GET",
+  "route_type": "http",
+  "logic": [
+    {
+      "comment": {
+        "text": "--- تنظیمات اولیه صفحه ---"
+      }
+    },
+    {
+      "set": {
+        "var": "app_title",
+        "value": "Worpen Web Server"
+      }
+    },
+    {
+      "comment": {
+        "text": "--- ساخت محتوای داینامیک ---"
+      }
+    },
+    {
+      "date_op": {
+        "operation": "now",
+        "args": []
+      }
+    },
+    {
+      "set": {
+        "var": "html_body",
+        "value": "<html><body style='background:#111;color:#fff;text-align:center;font-family:sans-serif;display:flex;flex-direction:column;justify-content:center;height:100vh'><h1>🚀 {{app_title}}</h1><p>Served natively with correct Headers!</p><p style='color:#0f0'>Time: {{date_result}}</p></body></html>"
+      }
+    },
+    {
+      "return": {
+        "value": "{{html_body}}",
+        "headers": {
+          "Content-Type": "text/html; charset=utf-8",
+          "Server": "Worpen-Engine-v1"
+        },
+        "raw": true
+      }
+    }
+  ],
+  "ws_hooks": null,
+  "parameters": [],
+  "response_schema": null,
+  "auth_required": false,
+  "rate_limit": null,
+  "enabled": true,
+  "version": "1.0.0",
+  "created_at": "2026-01-03T09:34:38.878862700+00:00",
+  "updated_at": "2026-01-03T09:34:38.878862700+00:00",
+  "created_by": "system"
+}

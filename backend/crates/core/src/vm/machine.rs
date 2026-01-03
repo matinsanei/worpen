@@ -116,9 +116,34 @@ impl VirtualMachine {
             }
 
             match op {
-                OptimizedOperation::Return { value } => {
-                    result = self.resolve_value(value)?;
+                OptimizedOperation::Return { value, status, headers, raw } => {
+                    // Resolve the return value
+                    let mut resolved = self.resolve_value(value)?;
+                    
+                    // Build enhanced return with metadata if any custom fields are set
+                    if status.is_some() || headers.is_some() || raw.is_some() {
+                        let mut return_obj = serde_json::Map::new();
+                        return_obj.insert("value".to_string(), resolved);
+                        
+                        if let Some(s) = status {
+                            return_obj.insert("status".to_string(), Value::Number((*s).into()));
+                        }
+                        if let Some(h) = headers {
+                            return_obj.insert("headers".to_string(), serde_json::to_value(h).unwrap_or(Value::Null));
+                        }
+                        if let Some(r) = raw {
+                            return_obj.insert("raw".to_string(), Value::Bool(*r));
+                        }
+                        
+                        resolved = Value::Object(return_obj);
+                    }
+                    
+                    result = resolved;
                     break;
+                },
+                OptimizedOperation::Comment { .. } => {
+                    // Comment is a no-op, skip execution
+                    continue;
                 },
                 OptimizedOperation::Set { var_index, value } => {
                     let resolved = self.resolve_value(value)?;

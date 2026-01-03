@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import Editor from "@monaco-editor/react";
 import { Braces, Save, RefreshCw, Sparkles, MessageSquare } from 'lucide-react';
 import { IDETheme } from '../../src/themes/ide';
 import { ErrorDisplay } from './ErrorDisplay';
 import { SuccessDisplay } from './SuccessDisplay';
+import { WORPEN_ROUTE_SCHEMA } from '../../src/utils/worpenSchema';
 
 interface EditorPanelProps {
     currentTheme: IDETheme;
@@ -36,6 +37,91 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
     onOpenAI,
     onOpenCopilot
 }) => {
+    const editorRef = useRef<any>(null);
+
+    // Configure Monaco JSON Schema validation
+    useEffect(() => {
+        const configureMonaco = async () => {
+            try {
+                const monaco = await import('monaco-editor');
+                
+                // Configure JSON schema for JSON mode
+                monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
+                    validate: true,
+                    allowComments: false,
+                    schemas: [{
+                        uri: 'http://worpen.io/schemas/route.json',
+                        fileMatch: ['*'],
+                        schema: WORPEN_ROUTE_SCHEMA
+                    }],
+                    enableSchemaRequest: false,
+                    schemaValidation: 'error',
+                    schemaRequest: 'error',
+                    trailingCommas: 'error',
+                    comments: 'error'
+                });
+
+                // Configure YAML validation (Monaco doesn't have native YAML schema support,
+                // but we can show helpful diagnostics when switching between formats)
+                console.log('[EditorPanel] Monaco schema configured');
+            } catch (error) {
+                console.error('[EditorPanel] Error configuring Monaco:', error);
+            }
+        };
+
+        configureMonaco();
+    }, []);
+
+    const handleEditorMount = (editor: any, monaco: any) => {
+        editorRef.current = editor;
+        
+        // Add custom validation markers for common mistakes
+        editor.onDidChangeModelContent(() => {
+            try {
+                const model = editor.getModel();
+                if (!model) return;
+
+                const content = model.getValue();
+                const markers: any[] = [];
+
+                // Check for common mistakes in YAML
+                if (content.includes('print:') || content.includes('"print"')) {
+                    const lines = content.split('\n');
+                    lines.forEach((line, index) => {
+                        if (line.includes('print')) {
+                            markers.push({
+                                severity: monaco.MarkerSeverity.Error,
+                                startLineNumber: index + 1,
+                                startColumn: line.indexOf('print') + 1,
+                                endLineNumber: index + 1,
+                                endColumn: line.indexOf('print') + 6,
+                                message: 'Unknown operation "print". Did you mean "log"?',
+                                source: 'Worpen Validator'
+                            });
+                        }
+                    });
+                }
+
+                // Check for missing required fields
+                if (content && !content.includes('logic:') && !content.includes('"logic"')) {
+                    markers.push({
+                        severity: monaco.MarkerSeverity.Error,
+                        startLineNumber: 1,
+                        startColumn: 1,
+                        endLineNumber: 1,
+                        endColumn: 1,
+                        message: 'Missing required field: "logic"',
+                        source: 'Worpen Validator'
+                    });
+                }
+
+                monaco.editor.setModelMarkers(model, 'worpen', markers);
+            } catch (error) {
+                // Silently ignore validation errors
+            }
+        });
+    };
+
     return (
         <div className="flex-1 flex flex-col overflow-hidden m-1.5 rounded-[var(--radius)] border shadow-lg"
             style={{ backgroundColor: currentTheme.editor.bg, borderColor: currentTheme.editor.border }}>
@@ -94,6 +180,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                         theme={currentTheme.editor.monacoTheme}
                         value={routeDefinition}
                         onChange={(val) => onRouteDefinitionChange(val || '')}
+                        onMount={handleEditorMount}
                         options={{
                             minimap: { enabled: true },
                             fontSize: 14,
@@ -115,7 +202,18 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                             cursorSmoothCaretAnimation: 'off',
                             disableLayerHinting: true,
                             renderWhitespace: 'selection',
-                            stopRenderingLineAfter: -1
+                            stopRenderingLineAfter: -1,
+                            // Enable validation
+                            'semanticHighlighting.enabled': true,
+                            quickSuggestions: {
+                                other: true,
+                                comments: false,
+                                strings: true
+                            },
+                            suggest: {
+                                showWords: false,
+                                showSnippets: true
+                            }
                         }}
                     />
                     <ErrorDisplay error={registrationError} onClose={onClearError} />

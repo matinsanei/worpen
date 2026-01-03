@@ -699,9 +699,9 @@ impl DynamicRouteService {
                         otherwise: scoped_otherwise,
                     });
                 },
-                LogicOperation::Return { value } => {
+                LogicOperation::Return { value, .. } => {
                     let scoped_value = self.scope_value_references(value, scope_prefix, variables);
-                    result.push(LogicOperation::Return { value: scoped_value });
+                    result.push(LogicOperation::Return { value: scoped_value, status: None, headers: None, raw: None });
                 },
                 LogicOperation::MathOp { operation, args } => {
                     let scoped_args = args.iter()
@@ -849,7 +849,7 @@ impl DynamicRouteService {
                         self.scan_logic_for_variables(task, variables);
                     }
                 },
-                LogicOperation::Return { value } => {
+                LogicOperation::Return { value, .. } => {
                     self.scan_value_for_variables(value, variables);
                 },
                 LogicOperation::MathOp { operation: _, args } => {
@@ -1216,6 +1216,9 @@ mod tests {
             },
             LogicOperation::Return {
                 value: Value::String("done".to_string()),
+                status: None,
+                headers: None,
+                raw: None,
             }
         ];
 
@@ -1376,6 +1379,9 @@ mod tests {
             },
             LogicOperation::Return {
                 value: Value::String("${counter}".to_string()),
+                status: None,
+                headers: None,
+                raw: None,
             }
         ];
 
@@ -1430,6 +1436,9 @@ mod tests {
             },
             LogicOperation::Return {
                 value: Value::String("${calculation}".to_string()),
+                status: None,
+                headers: None,
+                raw: None,
             }
         ];
 
@@ -1448,7 +1457,7 @@ mod tests {
         }
 
         match &result[5] {
-            LogicOperation::Return { value } => {
+            LogicOperation::Return { value, .. } => {
                 assert_eq!(value, &Value::String("${calculation}".to_string()));
             }
             _ => panic!("Expected Return operation"),

@@ -21,9 +21,18 @@ impl LogicCompiler {
 
     fn compile_operation(&mut self, op: &LogicOperation) -> OptimizedOperation {
         match op {
-            LogicOperation::Return { value } => {
+            LogicOperation::Return { value, status, headers, raw } => {
                 self.register_variables_in_value(value);
-                OptimizedOperation::Return { value: value.clone() }
+                OptimizedOperation::Return { 
+                    value: value.clone(),
+                    status: *status,
+                    headers: headers.clone(),
+                    raw: *raw,
+                }
+            },
+            LogicOperation::Comment { text } => {
+                // Comment is a no-op in the optimized code
+                OptimizedOperation::Comment { text: text.clone() }
             },
             LogicOperation::Set { var, value } => {
                 self.register_variables_in_value(value);

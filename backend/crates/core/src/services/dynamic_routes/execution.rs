@@ -31,9 +31,34 @@ pub async fn execute_logic_extended(
         
         match operation {
             // ===== BASIC OPERATIONS =====
-            LogicOperation::Return { value } => {
-                // steps.push(format!("Returning value: {}", value));
-                return Ok(resolve_variables(value, context));
+            LogicOperation::Return { value, status, headers, raw } => {
+                // Resolve the return value
+                let mut resolved = resolve_variables(value, context);
+                
+                // Build enhanced return with metadata if any custom fields are set
+                if status.is_some() || headers.is_some() || raw.is_some() {
+                    let mut return_obj = serde_json::Map::new();
+                    return_obj.insert("value".to_string(), resolved);
+                    
+                    if let Some(s) = status {
+                        return_obj.insert("status".to_string(), Value::Number((*s).into()));
+                    }
+                    if let Some(h) = headers {
+                        return_obj.insert("headers".to_string(), serde_json::to_value(h).unwrap_or(Value::Null));
+                    }
+                    if let Some(r) = raw {
+                        return_obj.insert("raw".to_string(), Value::Bool(*r));
+                    }
+                    
+                    resolved = Value::Object(return_obj);
+                }
+                
+                return Ok(resolved);
+            },
+            
+            LogicOperation::Comment { .. } => {
+                // Comment is a no-op, skip execution
+                continue;
             },
             
             LogicOperation::Set { var, value } => {

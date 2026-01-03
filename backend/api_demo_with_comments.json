@@ -1,0 +1,74 @@
+{
+  "name": "JSON API with Comments",
+  "description": "Demonstrates Comment operation in a JSON API",
+  "path": "/examples/api-demo",
+  "method": "POST",
+  "route_type": "http",
+  "logic": [
+    {
+      "comment": "===== VALIDATION SECTION ====="
+    },
+    {
+      "comment": "Check if username is provided"
+    },
+    {
+      "set": {
+        "var": "username",
+        "value": "{{body.username}}"
+      }
+    },
+    {
+      "if": {
+        "condition": "username == ''",
+        "then": [
+          {
+            "comment": "Return error if username is empty"
+          },
+          {
+            "return": {
+              "value": {
+                "error": "Username is required"
+              },
+              "status": 400,
+              "headers": {
+                "Content-Type": "application/json"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "comment": "===== PROCESSING SECTION ====="
+    },
+    {
+      "comment": "Generate a welcome message"
+    },
+    {
+      "set": {
+        "var": "message",
+        "value": "Hello, {{username}}! Welcome to Worpen."
+      }
+    },
+    {
+      "comment": "Return success response with custom status"
+    },
+    {
+      "return": {
+        "value": {
+          "success": true,
+          "message": "{{message}}",
+          "timestamp": "{{date_now()}}"
+        },
+        "status": 201,
+        "headers": {
+          "Content-Type": "application/json",
+          "X-API-Version": "1.0"
+        }
+      }
+    }
+  ],
+  "parameters": [],
+  "auth_required": false,
+  "enabled": true
+}

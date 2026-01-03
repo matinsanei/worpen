@@ -56,7 +56,7 @@ fn test_vm_sql() {
                 ],
                 output_var: "query_result".to_string(),
             },
-            LogicOperation::Return { value: Value::String("{{query_result}}".to_string()) },
+            LogicOperation::Return { value: Value::String("{{query_result}}".to_string()), status: None, headers: None, raw: None },
         ];
         
         // Compile and execute
@@ -102,7 +102,7 @@ fn test_vm_sql() {
                 args: vec![],
                 output_var: "all_users".to_string(),
             },
-            LogicOperation::Return { value: Value::String("{{all_users}}".to_string()) },
+            LogicOperation::Return { value: Value::String("{{all_users}}".to_string()), status: None, headers: None, raw: None },
         ];
         
         // Compile and execute

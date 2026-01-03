@@ -39,7 +39,7 @@ fn test_redis_set_and_get() {
                 ttl_seconds: None,
                 output_var: Some("result".to_string()),
             },
-            LogicOperation::Return { value: Value::String("{{result}}".to_string()) },
+            LogicOperation::Return { value: Value::String("{{result}}".to_string()), status: None, headers: None, raw: None },
         ];
         
         // Compile and execute
@@ -95,7 +95,7 @@ fn test_redis_with_variables() {
                 ttl_seconds: None,
                 output_var: Some("result".to_string()),
             },
-            LogicOperation::Return { value: Value::String("{{result}}".to_string()) },
+            LogicOperation::Return { value: Value::String("{{result}}".to_string()), status: None, headers: None, raw: None },
         ];
         
         let mut compiler = LogicCompiler::new();
@@ -162,7 +162,7 @@ fn test_redis_incr() {
                 ttl_seconds: None,
                 output_var: Some("counter".to_string()),
             },
-            LogicOperation::Return { value: Value::String("{{counter}}".to_string()) },
+            LogicOperation::Return { value: Value::String("{{counter}}".to_string()), status: None, headers: None, raw: None },
         ];
         
         let mut compiler = LogicCompiler::new();
