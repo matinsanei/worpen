@@ -1,18 +1,19 @@
-name: Rust CI Pipeline
+name: Worpen CI + Release
 
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  
+
   test:
-    name: Test Suite
+    name: Rust Tests
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -28,7 +29,6 @@ jobs:
       - name: Run Tests
         run: cargo test --verbose
 
-  # این همون "clippy" هست
   clippy:
     name: Linter Check
     runs-on: ubuntu-latest
@@ -44,24 +44,23 @@ jobs:
         with:
           workspaces: backend
       - name: Lint Code
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --all-targets -- -D warnings
 
-  build:
-    name: Build Verify
+  frontend:
+    name: Frontend Build
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./backend
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          workspaces: backend
-      - name: Check Build
-        run: cargo check --release
+          node-version: 22
+          cache: npm
+      - name: Install deps
+        run: npm ci
+      - name: Build UI
+        run: npm run build
 
-  # Python tests for test scripts
   python-tests:
     name: Python Test Scripts
     runs-on: ubuntu-latest
@@ -72,9 +71,75 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install dependencies
-        run: |
-          pip install requests
+        run: pip install requests
       - name: Validate test scripts
         run: |
-          python -m py_compile test_ultra_complex.py
-          python -m py_compile test_all_yaml.py
+          python -m py_compile tests/test_ultra_complex.py
+          python -m py_compile tests/test_all_yaml.py
+
+  release:
+    name: Release (${{ matrix.os }})
+    needs: [test, clippy, frontend]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            bin: worpen
+            pkg: worpen-linux-x64.tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin: worpen.exe
+            pkg: worpen-windows-x64.tar.gz
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+      - name: Build UI
+        run: npm ci && npm run build
+      - name: Build release binary
+        working-directory: ./backend
+        run: cargo build --release --target ${{ matrix.target }} --bin worpen
+      - name: Smoke test (CLI instant + doctor)
+        run: |
+          BIN="backend/target/${{ matrix.target }}/release/${{ matrix.bin }}"
+          "$BIN" --help
+          "$BIN" doctor
+      - name: Package (binary + dist + quickstart)
+        run: |
+          mkdir -p pkg/worpen
+          cp "backend/target/${{ matrix.target }}/release/${{ matrix.bin }}" pkg/worpen/
+          cp -r dist pkg/worpen/dist
+          printf '%s\n' \
+            "Worpen — single binary (API + UI + CLI + MCP)" \
+            "" \
+            "Run:   ./worpen serve --port 3000" \
+            "Open:  http://127.0.0.1:3000" \
+            "Docs:  http://127.0.0.1:3000/swagger-ui" \
+            "MCP:   POST http://127.0.0.1:3000/mcp  (or: worpen mcp serve-stdio)" \
+            "" \
+            "The ./dist folder must sit next to the binary (served as the UI)." \
+            > pkg/worpen/RUN.txt
+          tar -czf "${{ matrix.pkg }}" -C pkg worpen
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os == 'windows-latest' && 'worpen-windows-x64' || 'worpen-linux-x64' }}
+          path: ${{ matrix.pkg }}
+          retention-days: 30

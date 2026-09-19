@@ -556,9 +556,9 @@ Help the user debug, optimize, or generate new logic. Be friendly and profession
       {/* Resizer */}
       <div
         onMouseDown={handleMouseDown}
-        className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-[#3574f0]/50 transition-colors z-50 group"
+        className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-[#e85d26]/50 transition-colors z-50 group"
       >
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#3d3f43] group-hover:bg-[#3574f0] transition-colors"></div>
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#3d3f43] group-hover:bg-[#e85d26] transition-colors"></div>
       </div>
       
       {/* Content */}
@@ -567,7 +567,7 @@ Help the user debug, optimize, or generate new logic. Be friendly and profession
         <div className="flex items-center justify-between">
           {/* Left: Logo and Title */}
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-[#3574f0] flex items-center justify-center shadow-lg">
+            <div className="w-7 h-7 rounded-lg bg-[#e85d26] flex items-center justify-center shadow-lg">
               <MessageSquare size={16} className="text-white" strokeWidth={2.5} />
             </div>
             <div>
@@ -586,7 +586,7 @@ Help the user debug, optimize, or generate new logic. Be friendly and profession
                 className="flex items-center gap-1.5 px-2 py-1.5 bg-[#2d2f33] hover:bg-[#3d3f43] border border-[#3d3f43] rounded-lg transition-all"
                 title="Select AI Model"
               >
-                <Cpu size={13} className="text-[#3574f0]" />
+                <Cpu size={13} className="text-[#e85d26]" />
                 <ChevronDown size={11} className={`text-[#8b8d91] transition-transform ${showModelSelector ? 'rotate-180' : ''}`} />
               </button>
 
@@ -603,7 +603,7 @@ Help the user debug, optimize, or generate new logic. Be friendly and profession
                       <p className="text-xs text-[#8b8d91] mb-2">No models found</p>
                       <button
                         onClick={fetchModels}
-                        className="text-xs text-[#3574f0] hover:text-[#4a8cf7] transition-colors"
+                        className="text-xs text-[#e85d26] hover:text-[#4a8cf7] transition-colors"
                       >
                         Retry
                       </button>
@@ -617,12 +617,12 @@ Help the user debug, optimize, or generate new logic. Be friendly and profession
                           setShowModelSelector(false);
                         }}
                         className={`w-full px-3 py-2 text-left hover:bg-[#2d2f33] transition-all border-b border-[#3d3f43]/30 last:border-b-0 ${
-                          selectedModel === model.id ? 'bg-[#3574f0]/10' : ''
+                          selectedModel === model.id ? 'bg-[#e85d26]/10' : ''
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <div>
-                            <div className={`text-xs font-bold ${selectedModel === model.id ? 'text-[#3574f0]' : 'text-white'}`}>
+                            <div className={`text-xs font-bold ${selectedModel === model.id ? 'text-[#e85d26]' : 'text-white'}`}>
                               {model.name || model.id}
                             </div>
                             {model.owned_by && (
@@ -630,7 +630,7 @@ Help the user debug, optimize, or generate new logic. Be friendly and profession
                             )}
                           </div>
                           {selectedModel === model.id && (
-                            <CheckCircle size={12} className="text-[#3574f0]" />
+                            <CheckCircle size={12} className="text-[#e85d26]" />
                           )}
                         </div>
                       </button>
@@ -645,7 +645,7 @@ Help the user debug, optimize, or generate new logic. Be friendly and profession
               onClick={() => setShowHistory(!showHistory)}
               className={`p-1.5 rounded-lg transition-all ${
                 showHistory 
-                  ? 'bg-[#3574f0]/20 text-[#3574f0]' 
+                  ? 'bg-[#e85d26]/20 text-[#e85d26]' 
                   : 'text-[#8b8d91] hover:bg-[#2d2f33] hover:text-white'
               }`}
               title="Chat history"
@@ -680,7 +680,7 @@ Help the user debug, optimize, or generate new logic. Be friendly and profession
         <div className="absolute top-0 left-0 right-0 bottom-0 bg-gradient-to-b from-[#1e1f22] to-[#252629] z-40 flex flex-col backdrop-blur-xl">
           <div className="flex items-center justify-between p-4 border-b border-[#3d3f43]/50">
             <div className="flex items-center gap-2">
-              <Clock size={18} className="text-[#3574f0]" />
+              <Clock size={18} className="text-[#e85d26]" />
               <h4 className="text-sm font-bold text-white">Chat History</h4>
             </div>
             <div className="flex gap-2">
@@ -713,15 +713,15 @@ Help the user debug, optimize, or generate new logic. Be friendly and profession
               chatHistories.map((history) => (
                 <div
                   key={history.timestamp}
-                  className="bg-gradient-to-br from-[#2d2f33] to-[#252629] border border-[#3d3f43] rounded-xl p-4 hover:border-[#3574f0]/50 hover:shadow-lg transition-all group"
+                  className="bg-gradient-to-br from-[#2d2f33] to-[#252629] border border-[#3d3f43] rounded-xl p-4 hover:border-[#e85d26]/50 hover:shadow-lg transition-all group"
                 >
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-white px-2 py-1 bg-gradient-to-r from-[#3574f0]/20 to-[#c678dd]/20 rounded-lg">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-white px-2 py-1 bg-gradient-to-r from-[#e85d26]/20 to-[#c678dd]/20 rounded-lg">
                           {history.contextType === 'route' ? (
                             <>
-                              <Route size={12} className="text-[#3574f0]" />
+                              <Route size={12} className="text-[#e85d26]" />
                               <span>Route Builder</span>
                             </>
                           ) : (
@@ -748,7 +748,7 @@ Help the user debug, optimize, or generate new logic. Be friendly and profession
                   </div>
                   <button
                     onClick={() => loadHistory(history)}
-                    className="w-full px-3 py-2 bg-[#3574f0] hover:bg-[#2d5fc7] text-white text-xs font-bold rounded-lg transition-all"
+                    className="w-full px-3 py-2 bg-[#e85d26] hover:bg-[#c74e1f] text-white text-xs font-bold rounded-lg transition-all"
                   >
                     Load Conversation
                   </button>
@@ -764,9 +764,9 @@ Help the user debug, optimize, or generate new logic. Be friendly and profession
         {messages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center text-center px-4">
             <div className="relative mb-6">
-              <div className="absolute inset-0 bg-gradient-to-br from-[#3574f0] to-[#c678dd] rounded-3xl blur-2xl opacity-20"></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-[#e85d26] to-[#c678dd] rounded-3xl blur-2xl opacity-20"></div>
               <div className="relative p-6 bg-[#2d2f33]/50 rounded-3xl">
-                <Sparkles size={64} className="text-[#3574f0]" />
+                <Sparkles size={64} className="text-[#e85d26]" />
               </div>
             </div>
             <h4 className="text-base font-bold text-white mb-2">How can I help you?</h4>
@@ -776,23 +776,23 @@ Help the user debug, optimize, or generate new logic. Be friendly and profession
             <div className="w-full max-w-sm space-y-2">
               <button
                 onClick={() => setInput('Add tax calculation logic')}
-                className="w-full px-4 py-3 bg-gradient-to-r from-[#2d2f33] to-[#252629] hover:from-[#3574f0]/20 hover:to-[#c678dd]/20 text-white text-sm rounded-xl transition-all hover:scale-105 text-left border border-[#3d3f43] hover:border-[#3574f0]/50 shadow-lg"
+                className="w-full px-4 py-3 bg-gradient-to-r from-[#2d2f33] to-[#252629] hover:from-[#e85d26]/20 hover:to-[#c678dd]/20 text-white text-sm rounded-xl transition-all hover:scale-105 text-left border border-[#3d3f43] hover:border-[#e85d26]/50 shadow-lg"
               >
-                <Zap size={14} className="inline mr-2 text-[#3574f0]" />
+                <Zap size={14} className="inline mr-2 text-[#e85d26]" />
                 Add tax calculation logic
               </button>
               <button
                 onClick={() => setInput('Check if user is admin')}
-                className="w-full px-4 py-3 bg-gradient-to-r from-[#2d2f33] to-[#252629] hover:from-[#3574f0]/20 hover:to-[#c678dd]/20 text-white text-sm rounded-xl transition-all hover:scale-105 text-left border border-[#3d3f43] hover:border-[#3574f0]/50 shadow-lg"
+                className="w-full px-4 py-3 bg-gradient-to-r from-[#2d2f33] to-[#252629] hover:from-[#e85d26]/20 hover:to-[#c678dd]/20 text-white text-sm rounded-xl transition-all hover:scale-105 text-left border border-[#3d3f43] hover:border-[#e85d26]/50 shadow-lg"
               >
-                <Zap size={14} className="inline mr-2 text-[#3574f0]" />
+                <Zap size={14} className="inline mr-2 text-[#e85d26]" />
                 Check if user is admin
               </button>
               <button
                 onClick={() => setInput('Optimize this code')}
-                className="w-full px-4 py-3 bg-gradient-to-r from-[#2d2f33] to-[#252629] hover:from-[#3574f0]/20 hover:to-[#c678dd]/20 text-white text-sm rounded-xl transition-all hover:scale-105 text-left border border-[#3d3f43] hover:border-[#3574f0]/50 shadow-lg"
+                className="w-full px-4 py-3 bg-gradient-to-r from-[#2d2f33] to-[#252629] hover:from-[#e85d26]/20 hover:to-[#c678dd]/20 text-white text-sm rounded-xl transition-all hover:scale-105 text-left border border-[#3d3f43] hover:border-[#e85d26]/50 shadow-lg"
               >
-                <Zap size={14} className="inline mr-2 text-[#3574f0]" />
+                <Zap size={14} className="inline mr-2 text-[#e85d26]" />
                 Optimize this code
               </button>
             </div>
@@ -807,22 +807,22 @@ Help the user debug, optimize, or generate new logic. Be friendly and profession
             <div
               className={`max-w-[85%] rounded-2xl p-4 shadow-lg ${
                 message.role === 'user'
-                  ? 'bg-gradient-to-r from-[#3574f0] to-[#4a8cf7] text-white'
+                  ? 'bg-gradient-to-r from-[#e85d26] to-[#4a8cf7] text-white'
                   : 'bg-gradient-to-br from-[#2d2f33] to-[#252629] border border-[#3d3f43] text-white'
               }`}
             >
               {message.role === 'assistant' && (
                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#3d3f43]">
                   <div className="flex items-center gap-2">
-                    <div className="p-1 bg-gradient-to-br from-[#3574f0]/20 to-[#c678dd]/20 rounded-lg">
-                      <Sparkles size={12} className="text-[#3574f0]" />
+                    <div className="p-1 bg-gradient-to-br from-[#e85d26]/20 to-[#c678dd]/20 rounded-lg">
+                      <Sparkles size={12} className="text-[#e85d26]" />
                     </div>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#3574f0]">AI Assistant</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#e85d26]">AI Assistant</span>
                   </div>
                   {message.model && (
-                    <div className="flex items-center gap-1.5 px-2 py-1 bg-[#3574f0]/10 rounded-lg">
-                      <Cpu size={10} className="text-[#3574f0]" />
-                      <span className="text-[9px] text-[#3574f0] font-bold">
+                    <div className="flex items-center gap-1.5 px-2 py-1 bg-[#e85d26]/10 rounded-lg">
+                      <Cpu size={10} className="text-[#e85d26]" />
+                      <span className="text-[9px] text-[#e85d26] font-bold">
                         {getModelDisplayName(message.model)}
                       </span>
                     </div>
@@ -841,7 +841,7 @@ Help the user debug, optimize, or generate new logic. Be friendly and profession
                   <div className="flex gap-2">
                     <button
                       onClick={saveEditedMessage}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-[#3574f0] hover:bg-[#2d5fc7] text-white text-xs font-bold rounded-lg transition-all"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-[#e85d26] hover:bg-[#c74e1f] text-white text-xs font-bold rounded-lg transition-all"
                     >
                       <CheckCircle size={12} />
                       Save
@@ -915,7 +915,7 @@ Help the user debug, optimize, or generate new logic. Be friendly and profession
                     <div key={index} className="bg-[#1e1f22] border border-[#3d3f43] rounded-xl overflow-hidden shadow-lg">
                       <div className="flex items-center justify-between px-4 py-2 bg-[#252629] border-b border-[#3d3f43]">
                         <div className="flex items-center gap-2">
-                          <Code size={14} className="text-[#3574f0]" />
+                          <Code size={14} className="text-[#e85d26]" />
                           <span className="text-[11px] font-mono text-[#8b8d91] uppercase font-bold tracking-wider">{block.language}</span>
                         </div>
                         <button
@@ -942,8 +942,8 @@ Help the user debug, optimize, or generate new logic. Be friendly and profession
             <div className="max-w-[85%] rounded-2xl p-4 bg-gradient-to-br from-[#2d2f33] to-[#252629] border border-[#3d3f43] shadow-lg">
               <div className="flex items-center gap-3">
                 <div className="relative">
-                  <Loader2 size={20} className="animate-spin text-[#3574f0]" />
-                  <div className="absolute inset-0 bg-[#3574f0] rounded-full blur-md opacity-30 animate-pulse"></div>
+                  <Loader2 size={20} className="animate-spin text-[#e85d26]" />
+                  <div className="absolute inset-0 bg-[#e85d26] rounded-full blur-md opacity-30 animate-pulse"></div>
                 </div>
                 <div>
                   <div className="text-sm text-white font-medium">AI is thinking...</div>
@@ -986,13 +986,13 @@ Help the user debug, optimize, or generate new logic. Be friendly and profession
             placeholder="Ask anything..."
             rows={1}
             maxLength={2000}
-            className="flex-1 px-3 py-2 bg-gradient-to-r from-[#2d2f33] to-[#252629] border border-[#3d3f43] rounded-lg text-white text-sm placeholder-[#8b8d91] focus:outline-none focus:border-[#3574f0] focus:ring-1 focus:ring-[#3574f0]/30 transition-all resize-none custom-scrollbar shadow-inner max-h-[120px] overflow-y-auto leading-5"
+            className="flex-1 px-3 py-2 bg-gradient-to-r from-[#2d2f33] to-[#252629] border border-[#3d3f43] rounded-lg text-white text-sm placeholder-[#8b8d91] focus:outline-none focus:border-[#e85d26] focus:ring-1 focus:ring-[#e85d26]/30 transition-all resize-none custom-scrollbar shadow-inner max-h-[120px] overflow-y-auto leading-5"
             style={{ minHeight: '40px', height: '40px', transition: 'height 0.2s ease' }}
           />
           <button
             onClick={sendMessage}
             disabled={!input.trim() || loading}
-            className="flex-shrink-0 p-2 bg-[#3574f0] hover:bg-[#2d5fc7] disabled:bg-[#3d3f43] disabled:opacity-50 text-white rounded-lg transition-all self-end"
+            className="flex-shrink-0 p-2 bg-[#e85d26] hover:bg-[#c74e1f] disabled:bg-[#3d3f43] disabled:opacity-50 text-white rounded-lg transition-all self-end"
           >
             {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           </button>

@@ -42,8 +42,8 @@ export const RightSidebar: React.FC<{ isOpen: boolean; onClose: () => void }> = 
          {/* Tool Window Header */}
          <div className="h-9 flex items-center justify-between px-3 border-b border-[#43454a] bg-[#2b2d30] select-none">
             <div className="flex items-center gap-2 text-[#dfe1e5]">
-               <div className="p-1 rounded bg-[#3574f015] border border-[#3574f030]">
-                  <Activity size={14} className="text-[#3574f0]" />
+               <div className="p-1 rounded bg-[#e85d2615] border border-[#e85d2630]">
+                  <Activity size={14} className="text-[#e85d26]" />
                </div>
                <span className="text-[11px] font-bold uppercase tracking-wider">Command Center</span>
             </div>
@@ -64,8 +64,8 @@ export const RightSidebar: React.FC<{ isOpen: boolean; onClose: () => void }> = 
             <div className="space-y-3">
                <SectionHeader icon={Cpu} title="RESOURCES" />
                <div className="bg-[#2b2d30] border border-[#43454a] p-3 rounded-[var(--radius)] space-y-4 shadow-sm">
-                  <ResourceBar label="CPU Load" value="42%" color="#3574f0" width="42%" />
-                  <ResourceBar label="Memory" value="12.4GB" color="#3574f0" width="65%" />
+                  <ResourceBar label="CPU Load" value="42%" color="#e85d26" width="42%" />
+                  <ResourceBar label="Memory" value="12.4GB" color="#e85d26" width="65%" />
                   <ResourceBar label="Disk I/O" value="2%" color="#59a869" width="2%" />
                </div>
             </div>
@@ -103,7 +103,7 @@ export const RightSidebar: React.FC<{ isOpen: boolean; onClose: () => void }> = 
                         <span className={log.includes('Warning') ? 'text-[#e06c75]' : ''}>{log}</span>
                      </div>
                   ))}
-                  <div className="animate-pulse text-[#3574f0]">_</div>
+                  <div className="animate-pulse text-[#e85d26]">_</div>
                </div>
             </div>
 

@@ -38,6 +38,7 @@ fn test_hot_routes_cache() {
             created_at: "".to_string(),
             updated_at: "".to_string(),
             created_by: "system".to_string(),
+            sandbox: None,
         };
 
         // Register route

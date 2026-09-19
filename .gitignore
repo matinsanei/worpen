@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Worpen runtime (never commit)
+.env
+*.db
+*.db-journal
+*.rar
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -27,3 +33,6 @@ dist-ssr
 target/
 **/*.rs.bk
 Cargo.lock
+
+__pycache__/
+*.pyc

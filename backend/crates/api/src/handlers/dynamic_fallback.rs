@@ -31,22 +31,26 @@ pub async fn dynamic_route_fallback(
     // پیدا کردن route با path و method
     match find_dynamic_route(&state, &path, &method).await {
         Some(route) => {
+            // Enforce per-route auth BEFORE anything else (incl. WS upgrade)
+            if let Err((status, body)) = crate::auth::require_route_auth(req.headers(), route.auth_required) {
+                return (status, body).into_response();
+            }
             // ✅ CHECK ROUTE TYPE FIRST
             match route.route_type {
                 RouteType::WebSocket => {
                     // Dispatch to WebSocket handler
                     if let Some(ws_upgrade) = ws {
                         tracing::info!("Upgrading to WebSocket for route: {}", route.name);
-                        return handle_websocket_route(ws_upgrade, route, state).await;
+                        handle_websocket_route(ws_upgrade, route, state).await
                     } else {
                         tracing::error!("WebSocket route called without upgrade header");
-                        return (
+                        (
                             StatusCode::BAD_REQUEST,
                             Json(serde_json::json!({
                                 "error": "WebSocket upgrade required",
                                 "message": "This route requires WebSocket protocol"
                             }))
-                        ).into_response();
+                        ).into_response()
                     }
                 }
                 RouteType::Http => {
@@ -55,10 +59,18 @@ pub async fn dynamic_route_fallback(
                         Ok(response) => response,
                         Err(e) => {
                             tracing::error!("Error executing dynamic route: {}", e);
+                            // Rate-limit violations map to 429, everything else to 500
+                            let status = if e.contains("rate limit") {
+                                StatusCode::TOO_MANY_REQUESTS
+                            } else if e.contains("auth") || e.contains("unauthorized") || e.contains("token") {
+                                StatusCode::UNAUTHORIZED
+                            } else {
+                                StatusCode::INTERNAL_SERVER_ERROR
+                            };
                             (
-                                StatusCode::INTERNAL_SERVER_ERROR,
+                                status,
                                 Json(serde_json::json!({
-                                    "error": "Route execution failed",
+                                    "error": if status == StatusCode::TOO_MANY_REQUESTS { "Rate Limited" } else { "Route execution failed" },
                                     "message": e
                                 }))
                             ).into_response()
@@ -163,6 +175,7 @@ async fn execute_dynamic_route(
         functions: std::collections::HashMap::new(),
         loop_control: proto::models::LoopControl::default(),
         error_context: None,
+        sandbox: route.sandbox.clone(),
     };
     
     // Inject request object into variables for template resolution

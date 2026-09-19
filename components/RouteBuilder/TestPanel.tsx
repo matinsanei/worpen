@@ -46,7 +46,7 @@ export const TestPanel: React.FC<TestPanelProps> = ({
                 <div className="flex-1 p-4 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
                     <div className="flex items-center justify-between border-b border-[#43454a] pb-3">
                         <div className="flex items-center gap-2">
-                            <Terminal size={18} className="text-[#3574f0]" />
+                            <Terminal size={18} className="text-[#e85d26]" />
                             <h3 className="text-[12px] font-bold text-[#dfe1e5] uppercase tracking-wider">Test Environment</h3>
                         </div>
                         <button

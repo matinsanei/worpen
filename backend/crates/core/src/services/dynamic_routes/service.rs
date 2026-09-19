@@ -1,10 +1,11 @@
 use std::sync::Arc;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::cmp::Reverse;
 use proto::models::{
     RouteDefinition, LogicOperation, RouteTestRequest, RouteTestResponse,
     DynamicRouteExecutionContext, LoopControl, FunctionDef, FunctionDefinition, SwitchCase,
 };
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use regex;
 use super::execution::execute_logic_extended;
@@ -13,6 +14,25 @@ use crate::compiler::lowerer::LogicCompiler;
 use crate::vm::machine::VirtualMachine;
 use crate::vm::memory::ExecutionMemory;
 use crate::websocket::WebSocketManager;
+
+/// One execution record for the audit trail (in-memory ring + audit.log).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuditEntry {
+    pub ts: String,
+    pub route_id: String,
+    pub route_name: String,
+    pub path: String,
+    pub success: bool,
+    pub error: Option<String>,
+    pub execution_time_ms: u64,
+    /// "api" (execute_route incl. MCP) | "fallback" (public path) | "test"
+    pub via: String,
+}
+
+/// Max entries kept in the in-memory audit ring.
+pub const AUDIT_RING_CAP: usize = 1000;
+/// Fixed window for per-route rate limiting.
+pub const RATE_WINDOW_SECS: u64 = 60;
 
 pub struct DynamicRouteService {
     // In production, this would be a repository
@@ -28,6 +48,10 @@ pub struct DynamicRouteService {
     db_pool: Option<Arc<sqlx::Pool<sqlx::Sqlite>>>,
     // Redis pool for caching operations
     redis_pool: Option<Arc<deadpool_redis::Pool>>,
+    // Fixed-window rate counters: route_id -> (window_start, count)
+    rate_windows: Arc<dashmap::DashMap<String, (std::time::Instant, u32)>>,
+    // Bounded audit ring
+    audit: Arc<std::sync::RwLock<VecDeque<AuditEntry>>>,
 }
 
 impl Default for DynamicRouteService {
@@ -65,6 +89,8 @@ impl DynamicRouteService {
             ws_manager: Arc::new(WebSocketManager::new()),
             db_pool: None,
             redis_pool: None,
+            rate_windows: Arc::new(dashmap::DashMap::new()),
+            audit: Arc::new(std::sync::RwLock::new(VecDeque::new())),
         };
         // Load persisted data
         let _ = service.load_persisted_data();
@@ -96,8 +122,99 @@ impl DynamicRouteService {
         self.redis_pool = Some(Arc::new(pool));
     }
 
+    /// Snapshot of route metadata for audit / rate-limit decisions.
+    fn route_meta(&self, route_id: &str) -> (String, String, Option<u32>) {
+        let routes = self.routes.read().unwrap();
+        match routes.get(route_id) {
+            Some(r) => (r.name.clone(), r.path.clone(), r.rate_limit),
+            None => (route_id.to_string(), String::new(), None),
+        }
+    }
+
+    /// Fixed-window rate check. `rate_limit` = max requests per 60s. None = unlimited.
+    /// A limit of 0 blocks the route entirely.
+    fn check_rate_limit(&self, route_id: &str, limit: Option<u32>) -> Result<(), String> {
+        let Some(limit) = limit else { return Ok(()) };
+        if limit == 0 {
+            return Err("rate limit exceeded: route is blocked (rate_limit=0)".to_string());
+        }
+        use dashmap::mapref::entry::Entry;
+        match self.rate_windows.entry(route_id.to_string()) {
+            Entry::Occupied(mut o) => {
+                let (start, count) = o.get_mut();
+                if start.elapsed() >= std::time::Duration::from_secs(RATE_WINDOW_SECS) {
+                    *start = std::time::Instant::now();
+                    *count = 1;
+                    Ok(())
+                } else if *count >= limit {
+                    Err(format!("rate limit exceeded: {} req/{}s", limit, RATE_WINDOW_SECS))
+                } else {
+                    *count += 1;
+                    Ok(())
+                }
+            }
+            Entry::Vacant(v) => {
+                v.insert((std::time::Instant::now(), 1));
+                Ok(())
+            }
+        }
+    }
+
+    /// Append an audit entry to the bounded in-memory ring and to `{data_dir}/audit.log`.
+    /// Public so pipeline runs and other engine parts share one audit trail.
+    #[allow(clippy::too_many_arguments)]
+    pub fn record_audit(
+        &self,
+        route_id: &str,
+        route_name: String,
+        path: String,
+        success: bool,
+        error: Option<String>,
+        execution_time_ms: u64,
+        via: &str,
+    ) {
+        let entry = AuditEntry {
+            ts: chrono::Utc::now().to_rfc3339(),
+            route_id: route_id.to_string(),
+            route_name,
+            path,
+            success,
+            error,
+            execution_time_ms,
+            via: via.to_string(),
+        };
+        {
+            let mut ring = self.audit.write().unwrap();
+            if ring.len() >= AUDIT_RING_CAP {
+                ring.pop_front();
+            }
+            ring.push_back(entry.clone());
+        }
+        let line = serde_json::to_string(&entry).unwrap_or_default();
+        let log_path = format!("{}/audit.log", self.data_dir);
+        tokio::spawn(async move {
+            use tokio::io::AsyncWriteExt;
+            match tokio::fs::OpenOptions::new().create(true).append(true).open(&log_path).await {
+                Ok(mut f) => {
+                    let _ = f.write_all(format!("{}\n", line).as_bytes()).await;
+                }
+                Err(e) => eprintln!("[WARN] audit log append failed: {}", e),
+            }
+        });
+    }
+
+    /// Recent audit entries, newest first.
+    pub async fn recent_audit(&self, limit: usize) -> Vec<AuditEntry> {
+        let ring = self.audit.read().unwrap();
+        ring.iter().rev().take(limit.max(1)).cloned().collect()
+    }
+
     /// Register a new dynamic route
     pub async fn register_route(&self, mut route: RouteDefinition) -> Result<String, String> {
+        // Apply safe sandbox default when client omits it (backward compatible)
+        if route.sandbox.is_none() {
+            route.sandbox = Some(proto::models::SandboxPolicy::default());
+        }
         // Validate route
         self.validate_route(&route)?;
         
@@ -278,6 +395,7 @@ impl DynamicRouteService {
         
         steps.push(format!("Route found: {} ({})", route.name, route.path));
         
+        let timeout_ms = route.sandbox.clone().map(|s| s.max_timeout_ms).unwrap_or(10_000);
         // Create execution context
         let context = DynamicRouteExecutionContext {
             route_id: request.route_id.clone(),
@@ -290,14 +408,21 @@ impl DynamicRouteService {
             functions: HashMap::new(),
             loop_control: LoopControl::default(),
             error_context: None,
+            sandbox: route.sandbox.clone(),
         };
         
         steps.push("Execution context created".to_string());
         
-        // Execute logic
-        match self.execute_logic(&route.logic, context, &mut steps).await {
+        // Execute logic under sandbox timeout
+        let logic = route.logic.clone();
+        let exec_fut = self.execute_logic(&logic, context, &mut steps);
+        let exec_result = tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), exec_fut).await
+            .map_err(|_| format!("sandbox: execution exceeded max_timeout_ms {}ms", timeout_ms))?;
+        let (rname, rpath) = (route.name.clone(), route.path.clone());
+        match exec_result {
             Ok(result) => {
                 let execution_time = start_time.elapsed().as_millis() as u64;
+                self.record_audit(&request.route_id, rname, rpath, true, None, execution_time, "test");
                 Ok(RouteTestResponse {
                     success: true,
                     result: Some(result),
@@ -308,6 +433,7 @@ impl DynamicRouteService {
             },
             Err(e) => {
                 let execution_time = start_time.elapsed().as_millis() as u64;
+                self.record_audit(&request.route_id, rname, rpath, false, Some(e.clone()), execution_time, "test");
                 Ok(RouteTestResponse {
                     success: false,
                     result: None,
@@ -327,6 +453,20 @@ impl DynamicRouteService {
         path_params: HashMap<String, String>,
         query_params: HashMap<String, String>,
     ) -> Result<Value, String> {
+        let exec_start = std::time::Instant::now();
+        // Load route meta (for sandbox policy / rate-limit / audit) alongside cached plan
+        let (route_sandbox, meta_name, meta_path, meta_limit) = {
+            let routes = self.routes.read().unwrap();
+            match routes.get(route_id) {
+                Some(r) => (r.sandbox.clone(), r.name.clone(), r.path.clone(), r.rate_limit),
+                None => (None, route_id.to_string(), String::new(), None),
+            }
+        };
+        // Enforce per-route rate limit BEFORE touching the hot path
+        if let Err(e) = self.check_rate_limit(route_id, meta_limit) {
+            self.record_audit(route_id, meta_name, meta_path, false, Some(e.clone()), exec_start.elapsed().as_millis() as u64, "api");
+            return Err(e);
+        }
         // Fast path: Check hot cache first (should always be populated now)
         let cached_plan = {
             let cache = self.hot_routes_cache.read().unwrap();
@@ -363,32 +503,66 @@ impl DynamicRouteService {
         }
         
         // Execute using VM if bytecode is available, otherwise fallback to interpreter
-        let result = if let (Some(bytecode), Some(symbol_table)) = (&plan.bytecode, &plan.symbol_table) {
-            // VM execution path
-            let memory = ExecutionMemory::new();
-            let mut vm = VirtualMachine::new(memory, (**symbol_table).clone());
-            
-            // Bridge request data to VM memory
-            self.inject_request_data_into_vm(&mut vm, &payload, &path_params, &query_params, symbol_table)?;
-            
-            // Execute bytecode
-            vm.execute(bytecode).await?
-        } else {
-            // Fallback to interpreter (not measured for telemetry as it's legacy path)
-            let mut context = DynamicRouteExecutionContext {
-                route_id: route_id.to_string(),
-                variables: HashMap::new(),
-                request_payload: payload,
-                path_params,
-                query_params,
-                functions: HashMap::new(),
-                loop_control: LoopControl::default(),
-                error_context: None,
-            };
-            let mut steps = Vec::new();
-            execute_logic_extended(&plan.logic, &mut context, &mut steps).await?
+        let timeout_ms = route_sandbox.clone().map(|s| s.max_timeout_ms).unwrap_or(10_000);
+        // Interpreter fallback helper (used when VM hits an unimplemented op)
+        let run_interpreter = |payload: Option<Value>, path_params: HashMap<String, String>, query_params: HashMap<String, String>| {
+            let logic = (*plan.logic).clone();
+            let sandbox = route_sandbox.clone();
+            let route_id = route_id.to_string();
+            async move {
+                let mut context = DynamicRouteExecutionContext {
+                    route_id,
+                    variables: HashMap::new(),
+                    request_payload: payload,
+                    path_params,
+                    query_params,
+                    functions: HashMap::new(),
+                    loop_control: LoopControl::default(),
+                    error_context: None,
+                    sandbox,
+                };
+                let mut steps = Vec::new();
+                let exec_fut = execute_logic_extended(&logic, &mut context, &mut steps);
+                tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), exec_fut).await
+                    .map_err(|_| format!("sandbox: execution exceeded max_timeout_ms {}ms", timeout_ms))?
+            }
         };
-        Ok(result)
+        let result: Result<Value, String> = async {
+            if let (Some(bytecode), Some(symbol_table)) = (&plan.bytecode, &plan.symbol_table) {
+                // VM execution path (with pools + sandbox so SqlOp/RedisOp/Http work on hot path)
+                let db = self.get_db_pool();
+                let redis = self.get_redis_pool();
+                let mut vm = VirtualMachine::with_all(
+                    ExecutionMemory::new(),
+                    (**symbol_table).clone(),
+                    db,
+                    redis,
+                    None,
+                    None,
+                );
+                vm.set_sandbox(route_sandbox.clone());
+
+                // Bridge request data to VM memory
+                self.inject_request_data_into_vm(&mut vm, &payload, &path_params, &query_params, symbol_table)?;
+
+                // Execute bytecode under timeout; on VM-side gaps fall back to interpreter
+                let exec_fut = vm.execute(bytecode);
+                let vm_res = tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), exec_fut).await
+                    .map_err(|_| format!("sandbox: execution exceeded max_timeout_ms {}ms", timeout_ms))?;
+                match vm_res {
+                    Ok(v) => Ok(v),
+                    Err(_) => run_interpreter(payload, path_params, query_params).await,
+                }
+            } else {
+                run_interpreter(payload, path_params, query_params).await
+            }
+        }.await;
+        let elapsed = exec_start.elapsed().as_millis() as u64;
+        match &result {
+            Ok(_) => self.record_audit(route_id, meta_name, meta_path, true, None, elapsed, "api"),
+            Err(e) => self.record_audit(route_id, meta_name, meta_path, false, Some(e.clone()), elapsed, "api"),
+        }
+        result
     }
 
     /// Legacy execute logic (now uses extended version)
@@ -420,6 +594,19 @@ impl DynamicRouteService {
         
         if route.logic.is_empty() {
             return Err("Route logic cannot be empty".to_string());
+        }
+
+        // Sandbox sanity checks (fail-closed on nonsense values)
+        if let Some(policy) = &route.sandbox {
+            if policy.max_timeout_ms == 0 || policy.max_timeout_ms > 300_000 {
+                return Err("sandbox.max_timeout_ms must be 1..300000".to_string());
+            }
+            if policy.max_sleep_ms > policy.max_timeout_ms {
+                return Err("sandbox.max_sleep_ms cannot exceed max_timeout_ms".to_string());
+            }
+            if policy.max_loop_iterations == 0 || policy.max_loop_iterations > 100_000 {
+                return Err("sandbox.max_loop_iterations must be 1..100000".to_string());
+            }
         }
         
         Ok(())
@@ -473,6 +660,30 @@ impl DynamicRouteService {
     pub async fn get_global_function(&self, name: &str) -> Option<FunctionDef> {
         let functions = self.global_functions.read().unwrap();
         functions.get(name).cloned()
+    }
+
+    /// Delete a global function. Returns true when it existed.
+    /// Already-inlined routes keep working (inlining happens at registration);
+    /// future registrations referencing it will fail closed.
+    pub async fn delete_global_function(&self, name: &str) -> Result<bool, String> {
+        let removed = {
+            let mut functions = self.global_functions.write().unwrap();
+            functions.remove(name).is_some()
+        };
+        if !removed {
+            return Ok(false);
+        }
+        let data_dir = self.data_dir.clone();
+        let name_owned = name.to_string();
+        tokio::spawn(async move {
+            let p = std::path::Path::new(&data_dir)
+                .join("functions")
+                .join(format!("{}.json", name_owned));
+            if let Err(e) = tokio::fs::remove_file(&p).await {
+                eprintln!("[WARN] Failed to delete function file {}: {}", p.display(), e);
+            }
+        });
+        Ok(true)
     }
 
     /// Inline global function calls in logic operations for zero-cost abstraction
@@ -1016,6 +1227,13 @@ impl DynamicRouteService {
         logic: &[LogicOperation],
         context: &mut DynamicRouteExecutionContext,
     ) -> Result<Value, String> {
+        let exec_start = std::time::Instant::now();
+        let (meta_name, meta_path, meta_limit) = self.route_meta(&context.route_id);
+        // Enforce per-route rate limit on the public-path entry point too
+        if let Err(e) = self.check_rate_limit(&context.route_id, meta_limit) {
+            self.record_audit(&context.route_id, meta_name, meta_path, false, Some(e.clone()), exec_start.elapsed().as_millis() as u64, "fallback");
+            return Err(e);
+        }
         // Inject global functions into context for execution
         let global_functions = self.global_functions.read().unwrap().clone();
         for (name, func_def) in global_functions.iter() {
@@ -1025,9 +1243,17 @@ impl DynamicRouteService {
             });
         }
         
+        let timeout_ms = context.sandbox.clone().map(|s| s.max_timeout_ms).unwrap_or(10_000);
         let mut steps = Vec::new();
-        let result = execute_logic_extended(logic, context, &mut steps).await?;
-        Ok(result)
+        let exec_fut = execute_logic_extended(logic, context, &mut steps);
+        let result: Result<Value, String> = tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), exec_fut).await
+            .map_err(|_| format!("sandbox: execution exceeded max_timeout_ms {}ms", timeout_ms))?;
+        let elapsed = exec_start.elapsed().as_millis() as u64;
+        match &result {
+            Ok(_) => self.record_audit(&context.route_id, meta_name, meta_path, true, None, elapsed, "fallback"),
+            Err(e) => self.record_audit(&context.route_id, meta_name, meta_path, false, Some(e.clone()), elapsed, "fallback"),
+        }
+        result
     }
 
     /// Load persisted routes and functions from disk

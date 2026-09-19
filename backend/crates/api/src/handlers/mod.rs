@@ -95,7 +95,3 @@ pub async fn health_check() -> &'static str {
     "OK"
 }
 
-pub async fn root() -> &'static str {
-    "Hello, World!"
-}
-

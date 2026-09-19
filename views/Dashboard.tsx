@@ -34,7 +34,7 @@ const STATIC_CHART_DATA = [
 
 const KPICard = ({ title, value, icon: Icon, trend, color = "blue" }: any) => {
    const colorMap: Record<string, string> = {
-      blue: 'text-[#3574f0] bg-[#3574f015]',
+      orange: 'text-[#e85d26] bg-[#e85d2615]',
       green: 'text-[#59a869] bg-[#59a86915]',
       yellow: 'text-[#f2c55c] bg-[#f2c55c15]',
       purple: 'text-[#a682e6] bg-[#a682e615]',
@@ -44,7 +44,7 @@ const KPICard = ({ title, value, icon: Icon, trend, color = "blue" }: any) => {
    return (
       <div className="jb-card p-5 group relative overflow-hidden">
          <div className="flex justify-between items-start mb-4">
-            <div className={`p-2.5 rounded-[var(--radius)] ${colorMap[color] || colorMap.blue} transition-colors`}>
+            <div className={`p-2.5 rounded-[var(--radius)] ${colorMap[color] || colorMap.orange} transition-colors`}>
                <Icon size={20} />
             </div>
             {trend && (
@@ -80,7 +80,7 @@ const ServiceHealthMatrix = () => {
                      <svc.icon size={14} />
                   </div>
                   <div>
-                     <div className="text-[12px] font-bold text-[#dfe1e5] group-hover:text-[#3574f0] transition-colors">{svc.name}</div>
+                     <div className="text-[12px] font-bold text-[#dfe1e5] group-hover:text-[#e85d26] transition-colors">{svc.name}</div>
                      <div className="text-[10px] text-[#6e7073] font-bold flex items-center gap-2 uppercase">
                         <span className={svc.status === 'OPERATIONAL' ? 'text-[#59a869]' : 'text-[#f2c55c]'}>{svc.status}</span>
                         <span className="opacity-30">|</span>
@@ -137,7 +137,7 @@ export const Dashboard: React.FC = () => {
                      GRID: {loading ? 'CONNECTING...' : 'OPERATIONAL'}
                   </span>
                   <span className="flex items-center gap-2">
-                     <span className="w-2 h-2 bg-[#3574f0] rounded-full shadow-[0_0_8px_rgba(53,116,240,0.4)]"></span>
+                     <span className="w-2 h-2 bg-[#e85d26] rounded-full shadow-[0_0_8px_rgba(232,93,38,0.4)]"></span>
                      SYNC: VERIFIED
                   </span>
                   <span>LATENCY: 12ms</span>
@@ -148,7 +148,7 @@ export const Dashboard: React.FC = () => {
                <button className="px-4 py-2 bg-[#2b2d30] hover:bg-[#393b40] border border-[#43454a] text-[11px] font-bold text-[#dfe1e5] rounded-[var(--radius)] transition-all uppercase tracking-tight">
                   GENERATE REPORT
                </button>
-               <button className="px-4 py-2 bg-[#3574f015] hover:bg-[#3574f025] border border-[#3574f030] text-[11px] font-bold text-[#3574f0] rounded-[var(--radius)] transition-all uppercase tracking-tight">
+               <button className="px-4 py-2 bg-[#e85d2615] hover:bg-[#e85d2625] border border-[#e85d2630] text-[11px] font-bold text-[#e85d26] rounded-[var(--radius)] transition-all uppercase tracking-tight">
                   SYSTEM DIAGNOSTICS
                </button>
             </div>
@@ -161,7 +161,7 @@ export const Dashboard: React.FC = () => {
                value={stats?.active_nodes || '...'}
                icon={Server}
                trend="+2 New"
-               color="blue"
+               color="orange"
             />
             <KPICard
                title="Throughput"
@@ -190,7 +190,7 @@ export const Dashboard: React.FC = () => {
             {/* Col 1: Service Mesh */}
             <div className="jb-card flex flex-col h-[300px] xl:h-full">
                <div className="flex items-center gap-2 px-4 py-3 border-b border-[#43454a]">
-                  <Layers size={14} className="text-[#3574f0]" />
+                  <Layers size={14} className="text-[#e85d26]" />
                   <span className="text-[11px] font-bold text-[#dfe1e5] uppercase tracking-wider">Service Mesh Topology</span>
                </div>
                <div className="p-4 flex-1 overflow-hidden">
@@ -231,9 +231,9 @@ export const Dashboard: React.FC = () => {
                   </div>
                   <div className="p-5 space-y-4">
                      <div className="space-y-2">
-                        <div className="flex justify-between text-[10px] font-bold text-[#6e7073] uppercase tracking-wider"><span>NVMe_POOL_A</span> <span className="text-[#3574f0]">78%</span></div>
+                        <div className="flex justify-between text-[10px] font-bold text-[#6e7073] uppercase tracking-wider"><span>NVMe_POOL_A</span> <span className="text-[#e85d26]">78%</span></div>
                         <div className="h-2 w-full bg-[#1e1f22] rounded-full overflow-hidden border border-[#43454a]">
-                           <div className="h-full bg-[#3574f0] shadow-[0_0_12px_rgba(53,116,240,0.4)] w-[78%] transition-all duration-1000"></div>
+                           <div className="h-full bg-[#e85d26] shadow-[0_0_12px_rgba(232,93,38,0.4)] w-[78%] transition-all duration-1000"></div>
                         </div>
                      </div>
                      <div className="space-y-2">
@@ -254,13 +254,13 @@ export const Dashboard: React.FC = () => {
                </div>
                <div className="flex-1 overflow-y-auto custom-scrollbar">
                   {MOCK_LOGS.map((log) => (
-                     <div key={log.id} className="flex gap-3 p-3 border-b border-[#43454a] hover:bg-[#3574f005] transition-colors text-[12px] group">
-                        <div className="mt-0.5 text-[#6e7073] group-hover:text-[#3574f0] transition-colors">
+                     <div key={log.id} className="flex gap-3 p-3 border-b border-[#43454a] hover:bg-[#e85d2605] transition-colors text-[12px] group">
+                        <div className="mt-0.5 text-[#6e7073] group-hover:text-[#e85d26] transition-colors">
                            <Clock size={12} />
                         </div>
                         <div className="flex-1 min-w-0">
                            <div className="flex justify-between mb-0.5">
-                              <span className="font-bold text-[#dfe1e5] group-hover:text-[#3574f0]">{log.source}</span>
+                              <span className="font-bold text-[#dfe1e5] group-hover:text-[#e85d26]">{log.source}</span>
                               <span className="text-[10px] text-[#6e7073] font-bold uppercase">{log.timestamp}</span>
                            </div>
                            <p className="text-[#6e7073] group-hover:text-[#dfe1e5] transition-colors truncate">{log.message}</p>
@@ -282,7 +282,7 @@ export const Dashboard: React.FC = () => {
                   </div>
                   <div className="flex gap-4 text-[10px] font-bold uppercase tracking-tighter">
                      <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#59a869]"></div><span className="text-[#6e7073]">Real Data</span></div>
-                     <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full border border-[#3574f0]"></div><span className="text-[#6e7073]">Prediction</span></div>
+                     <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full border border-[#e85d26]"></div><span className="text-[#6e7073]">Prediction</span></div>
                   </div>
                </div>
                <div className="flex-1 p-4" style={{ contain: 'layout paint' }}>
@@ -294,8 +294,8 @@ export const Dashboard: React.FC = () => {
                               <stop offset="95%" stopColor="#59a869" stopOpacity={0} />
                            </linearGradient>
                            <linearGradient id="colorPred" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#3574f0" stopOpacity={0.1} />
-                              <stop offset="95%" stopColor="#3574f0" stopOpacity={0} />
+                              <stop offset="5%" stopColor="#e85d26" stopOpacity={0.1} />
+                              <stop offset="95%" stopColor="#e85d26" stopOpacity={0} />
                            </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="#43454a30" vertical={false} />
@@ -325,12 +325,12 @@ export const Dashboard: React.FC = () => {
                            }}
                            itemStyle={{ fontSize: '12px', fontWeight: 700, padding: 0 }}
                            labelStyle={{ color: '#dfe1e5', marginBottom: '4px', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase' }}
-                           cursor={{ stroke: '#3574f0', strokeWidth: 1 }}
+                           cursor={{ stroke: '#e85d26', strokeWidth: 1 }}
                         />
                         <Area
                            type="monotone"
                            dataKey="predicted"
-                           stroke="#3574f0"
+                           stroke="#e85d26"
                            strokeDasharray="4 4"
                            strokeWidth={2}
                            fillOpacity={1}

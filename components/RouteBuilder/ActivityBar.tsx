@@ -51,7 +51,7 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
                 >
                     <item.icon size={20} strokeWidth={activeActivityId === item.id ? 2.5 : 2} />
                     {activeActivityId === item.id && sidebarVisible && (
-                        <div className="absolute left-[-4px] top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full shadow-[0_0_8px_rgba(53,116,240,0.3)]" style={{ backgroundColor: currentTheme.activityBar.indicator }} />
+                        <div className="absolute left-[-4px] top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full shadow-[0_0_8px_rgba(232,93,38,0.3)]" style={{ backgroundColor: currentTheme.activityBar.indicator }} />
                     )}
                 </button>
             ))}

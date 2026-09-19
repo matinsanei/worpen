@@ -7,6 +7,7 @@ use axum::{
     body::Bytes,
 };
 use crate::state::AppState;
+use crate::auth::require_token;
 use proto::models::RouteDefinition;
 use serde_json::Value;
 use worpen_core::parsers::{parse_route, detect_format, InputFormat};
@@ -32,6 +33,7 @@ pub async fn register_route_raw(
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    require_token(&headers)?;
     // Convert body to string
     let content = String::from_utf8(body.to_vec())
         .map_err(|e| (
@@ -86,6 +88,7 @@ pub async fn register_route_raw(
         created_at: String::new(), // Will be set by service
         updated_at: String::new(), // Will be set by service
         created_by: "system".to_string(), // Default creator
+        sandbox: req.sandbox.clone(),
     };
 
     match state.dynamic_route_service.register_route(route).await {

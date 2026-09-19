@@ -1,33 +1,30 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { PageTransition } from './components/PageTransition';
 import { ViewState } from './types';
-import { Dashboard } from './views/Dashboard';
-import { Fleet } from './views/Fleet';
-import { DockerView } from './views/DockerView';
-import { AutomationView } from './views/AutomationView';
-import { SettingsView } from './views/SettingsView';
-import { DependencyView } from './views/DependencyView';
-import { CicdView } from './views/CicdView';
-import { DynamicRoutesView } from './views/DynamicRoutesView';
-import { IncidentsView } from './views/IncidentsView';
-import { FunctionsView } from './views/FunctionsView';
-import { StorageView } from './views/StorageView';
+// Heavy views are code-split: Monaco editor (~4MB) and charts only load
+// when their route opens, keeping the first paint small.
+const Dashboard = lazy(() => import('./views/Dashboard').then(m => ({ default: m.Dashboard })));
+const CicdView = lazy(() => import('./views/CicdView').then(m => ({ default: m.CicdView })));
+const DynamicRoutesView = lazy(() => import('./views/DynamicRoutesView').then(m => ({ default: m.DynamicRoutesView })));
+const IncidentsView = lazy(() => import('./views/IncidentsView').then(m => ({ default: m.IncidentsView })));
+const FunctionsView = lazy(() => import('./views/FunctionsView').then(m => ({ default: m.FunctionsView })));
+const SettingsView = lazy(() => import('./views/SettingsView').then(m => ({ default: m.SettingsView })));
 import { LeftSidebar } from './components/LeftSidebar';
 import { NotificationPanel } from './components/NotificationPanel';
 import {
   LayoutGrid, Server, AlertTriangle, Settings, Power,
   Box, Bot, Layers, GitBranch, Hexagon, Command,
   Bell, Search, Menu, X, ChevronRight, User,
-  PanelRight, Wifi, Cpu, Activity
+  PanelRight, Wifi, Cpu, Activity, Lock, LockOpen
 } from 'lucide-react';
-import { TerminalFrame } from './components/TerminalFrame';
-import { MOCK_INCIDENTS } from './constants';
 import { NotificationProvider, useNotifications } from './components/NotificationSystem';
 import { RightSidebar } from './components/RightSidebar';
 import { CommandPalette } from './components/CommandPalette';
+import { SplashScreen } from './components/SplashScreen';
+import { getToken } from './api';
 
 
 const AppContent: React.FC = () => {
@@ -42,6 +39,8 @@ const AppContent: React.FC = () => {
     return saved !== null ? JSON.parse(saved) : false;
   });
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const { addNotification } = useNotifications();
+  const [hasToken, setHasToken] = useState(() => !!getToken());
 
   useEffect(() => {
     localStorage.setItem('worpen_sidebar_open', JSON.stringify(sidebarOpen));
@@ -56,18 +55,9 @@ const AppContent: React.FC = () => {
     '/': 'DASHBOARD',
     '/routes': 'DYNAMIC_ROUTES',
     '/functions': 'FUNCTIONS',
-    '/storage': 'STORAGE',
     '/traces': 'CICD',
     '/errors': 'INCIDENTS',
     '/settings': 'SETTINGS',
-    // Legacy routes (kept for compatibility)
-    '/fleet': 'FLEET',
-    '/containers': 'DOCKER',
-    '/auto-healing': 'AUTOMATION',
-    '/artifacts': 'DEPENDENCY',
-    '/pipeline': 'CICD',
-    '/route-builder': 'DYNAMIC_ROUTES',
-    '/incidents': 'INCIDENTS',
   };
 
   const currentView = pathToView[location.pathname] || 'DASHBOARD';
@@ -77,15 +67,9 @@ const AppContent: React.FC = () => {
       'DASHBOARD': '/',
       'DYNAMIC_ROUTES': '/routes',
       'FUNCTIONS': '/functions',
-      'STORAGE': '/storage',
       'CICD': '/traces',
       'INCIDENTS': '/errors',
       'SETTINGS': '/settings',
-      // Legacy views
-      'FLEET': '/fleet',
-      'DOCKER': '/containers',
-      'AUTOMATION': '/auto-healing',
-      'DEPENDENCY': '/artifacts',
     };
     navigate(viewToPath[view]);
   };
@@ -102,12 +86,28 @@ const AppContent: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Global auth events: 401 -> notify + jump to Settings; token edits -> refresh badge
+  useEffect(() => {
+    const onUnauthorized = () => {
+      addNotification('ERROR', 'UNAUTHORIZED', 'Server rejected the request (401). Set your API token in Settings.');
+      navigate('/settings');
+    };
+    const onAuthChanged = () => setHasToken(!!getToken());
+    window.addEventListener('worpen:unauthorized', onUnauthorized);
+    window.addEventListener('worpen:auth-changed', onAuthChanged);
+    return () => {
+      window.removeEventListener('worpen:unauthorized', onUnauthorized);
+      window.removeEventListener('worpen:auth-changed', onAuthChanged);
+    };
+  }, [addNotification, navigate]);
+
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
   const toggleRightSidebar = () => setRightSidebarOpen(!rightSidebarOpen);
 
   return (
-    <div className="flex h-screen w-full bg-[var(--bg-deep)] text-[var(--text-main)] selection:bg-[#3574f030] overflow-hidden">
+    <div className="flex h-screen w-full bg-[var(--bg-deep)] text-[var(--text-main)] selection:bg-[#e85d2630] overflow-hidden">
 
+      <SplashScreen />
       <CommandPalette isOpen={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} />
 
       {/* LEFT SIDEBAR */}
@@ -134,7 +134,7 @@ const AppContent: React.FC = () => {
             <div className="hidden md:flex items-center gap-2 text-[12px] font-medium text-[#6e7073]">
               <span>worpen</span>
               <span className="text-[#43454a]">/</span>
-              <span className="text-[#3574f0] font-semibold">{currentView}</span>
+              <span className="text-[#e85d26] font-semibold">{currentView}</span>
             </div>
           </div>
 
@@ -156,8 +156,16 @@ const AppContent: React.FC = () => {
               <NotificationPanel />
 
               <button
+                onClick={() => handleViewChange('SETTINGS')}
+                className={`transition-colors p-1.5 rounded-[var(--radius)] ${hasToken ? 'text-[#e85d26] bg-[#e85d2620]' : 'text-[#6e7073] hover:text-[#dfe1e5] hover:bg-[#393b40]'}`}
+                title={hasToken ? 'API token configured' : 'No API token — click to configure in Settings'}
+              >
+                {hasToken ? <Lock size={16} /> : <LockOpen size={16} />}
+              </button>
+
+              <button
                 onClick={toggleRightSidebar}
-                className={`transition-colors p-1.5 rounded-[var(--radius)] ${rightSidebarOpen ? 'text-[#3574f0] bg-[#3574f020]' : 'text-[#6e7073] hover:text-[#dfe1e5] hover:bg-[#393b40]'}`}
+                className={`transition-colors p-1.5 rounded-[var(--radius)] ${rightSidebarOpen ? 'text-[#e85d26] bg-[#e85d2620]' : 'text-[#6e7073] hover:text-[#dfe1e5] hover:bg-[#393b40]'}`}
                 title="Command Center"
               >
                 <PanelRight size={18} />
@@ -171,28 +179,23 @@ const AppContent: React.FC = () => {
         </header>
 
         {/* VIEWPORT */}
-        <main className={`flex-1 ${['/', '/traces', '/artifacts'].includes(location.pathname) ? 'overflow-y-auto' : 'overflow-hidden'} custom-scrollbar relative bg-[#1e1f22] m-1.5 rounded-[var(--radius)] border border-[#43454a] shadow-inner overflow-x-hidden`}>
+        <main className={`flex-1 ${['/', '/traces'].includes(location.pathname) ? 'overflow-y-auto' : 'overflow-hidden'} custom-scrollbar relative bg-[#1e1f22] m-1.5 rounded-[var(--radius)] border border-[#43454a] shadow-inner overflow-x-hidden`}>
           <AnimatePresence mode="wait">
             <PageTransition key={location.pathname} className="h-full">
+              <Suspense fallback={
+                <div className="h-full flex items-center justify-center text-[#6e7073] text-[13px] font-mono">
+                  <span className="animate-pulse">loading view…</span>
+                </div>
+              }>
               <Routes location={location}>
-                {/* Primary IDE Routes */}
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/routes" element={<DynamicRoutesView />} />
                 <Route path="/functions" element={<FunctionsView />} />
-                <Route path="/storage" element={<StorageView />} />
                 <Route path="/traces" element={<CicdView />} />
                 <Route path="/errors" element={<IncidentsView />} />
                 <Route path="/settings" element={<SettingsView />} />
-                
-                {/* Legacy Routes (for backward compatibility) */}
-                <Route path="/fleet" element={<Fleet />} />
-                <Route path="/containers" element={<DockerView />} />
-                <Route path="/auto-healing" element={<AutomationView />} />
-                <Route path="/artifacts" element={<DependencyView />} />
-                <Route path="/pipeline" element={<CicdView />} />
-                <Route path="/route-builder" element={<DynamicRoutesView />} />
-                <Route path="/incidents" element={<IncidentsView />} />
               </Routes>
+              </Suspense>
             </PageTransition>
           </AnimatePresence>
         </main>

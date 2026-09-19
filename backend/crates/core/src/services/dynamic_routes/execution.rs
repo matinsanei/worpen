@@ -1,8 +1,35 @@
-use proto::models::{LogicOperation, DynamicRouteExecutionContext, FunctionDefinition, ErrorContext};
+use proto::models::{LogicOperation, DynamicRouteExecutionContext, FunctionDefinition, ErrorContext, SandboxPolicy};
 use serde_json::Value;
 use futures::future::join_all;
 use super::utils::{resolve_variables, resolve_string, evaluate_condition};
 use super::{math, string, date, json, io};
+
+fn active_policy(context: &DynamicRouteExecutionContext) -> Option<SandboxPolicy> {
+    context.sandbox.clone()
+}
+
+fn extract_host(url: &str) -> String {
+    let after_scheme = url.split("://").nth(1).unwrap_or(url);
+    let host_port = after_scheme.split('/').next().unwrap_or("");
+    // strip userinfo and port
+    let host = host_port.split('@').next_back().unwrap_or(host_port);
+    host.split(':').next().unwrap_or(host).to_string()
+}
+
+fn enforce_http(url: &str, context: &DynamicRouteExecutionContext) -> Result<String, String> {
+    let resolved = resolve_string(url, context);
+    if let Some(policy) = active_policy(context) {
+        if !policy.allow_net {
+            return Err("sandbox: network access denied for this route (allow_net=false)".to_string());
+        }
+        let host = extract_host(&resolved);
+        if !policy.is_host_allowed(&host) {
+            return Err(format!("sandbox: host '{}' not in allowed_hosts {:?}", host, policy.allowed_hosts));
+        }
+        // Enforce per-request timeout default from policy if op has none — handled by caller
+    }
+    Ok(resolved)
+}
 
 /// Execute advanced logic operations with full feature support
 /// 
@@ -64,6 +91,12 @@ pub async fn execute_logic_extended(
             LogicOperation::Set { var, value } => {
                 let resolved = resolve_variables(value, context);
                 context.variables.insert(var.clone(), resolved.clone());
+                // Sandbox memory guard
+                if let Some(policy) = active_policy(context) {
+                    if context.variables.len() > policy.max_variables {
+                        return Err(format!("sandbox: variable count exceeds max_variables {}", policy.max_variables));
+                    }
+                }
                 // steps.push(format!("Set variable '{}' = {}", var, resolved));
                 last_result = resolved;
             },
@@ -82,7 +115,13 @@ pub async fn execute_logic_extended(
             
             // ===== HTTP REQUESTS (ASYNC) =====
             LogicOperation::HttpRequest { url, method, body, headers, timeout_ms } => {
-                last_result = io::handle_http_request(url, method, body, headers, timeout_ms, context, steps).await?;
+                let _resolved = enforce_http(url, context)?;
+                // Apply sandbox default timeout when op doesn't set one
+                let effective_timeout = match timeout_ms {
+                    Some(t) => Some(*t),
+                    None => active_policy(context).map(|p| p.max_timeout_ms),
+                };
+                last_result = io::handle_http_request(url, method, body, headers, &effective_timeout, context, steps).await?;
             },
             
             // ===== CONTROL FLOW - IF =====
@@ -132,7 +171,8 @@ pub async fn execute_logic_extended(
             // ===== CONTROL FLOW - WHILE =====
             LogicOperation::While { condition, body, max_iterations } => {
                 // steps.push(format!("While loop: {}", condition));
-                let max_iter = max_iterations.unwrap_or(1000);
+                let cap = active_policy(context).map(|p| p.max_loop_iterations).unwrap_or(1000);
+                let max_iter = max_iterations.unwrap_or(cap).min(cap.max(1));
                 let mut iterations = 0;
                 
                 while evaluate_condition(condition, context) && iterations < max_iter {
@@ -173,6 +213,10 @@ pub async fn execute_logic_extended(
                 };
                 
                 if let Value::Array(arr) = items {
+                    // Sandbox DoS guard: cap collection size
+                    if arr.len() > 10_000 {
+                        return Err("sandbox: loop collection exceeds 10_000 items".to_string());
+                    }
                     // Optimization: Pre-allocate space for variables? No, HashMap doesn't work that way easily.
                     // Important: Save previous values of loop variable to restore later (scope isolation)
                     let prev_var = context.variables.get(var).cloned();
@@ -366,6 +410,11 @@ pub async fn execute_logic_extended(
             },
             
             LogicOperation::Sleep { duration_ms } => {
+                if let Some(policy) = active_policy(context) {
+                    if *duration_ms > policy.max_sleep_ms {
+                        return Err(format!("sandbox: sleep {}ms exceeds max_sleep_ms {}ms", duration_ms, policy.max_sleep_ms));
+                    }
+                }
                 io::handle_sleep(*duration_ms, steps).await;
             },
             
@@ -386,6 +435,11 @@ pub async fn execute_logic_extended(
             },
             
             LogicOperation::ExecuteScript { language, code: _ } => {
+                if let Some(policy) = active_policy(context) {
+                    if !policy.allow_scripts {
+                        return Err(format!("sandbox: execute_script '{}' denied (allow_scripts=false)", language));
+                    }
+                }
                 // steps.push(format!("Execute {} script", language));
                 last_result = serde_json::json!({
                     "result": "Script executed",
@@ -394,6 +448,11 @@ pub async fn execute_logic_extended(
             },
             
             LogicOperation::SqlOp { query: _, args: _, output_var } => {
+                if let Some(policy) = active_policy(context) {
+                    if !policy.allow_sql {
+                        return Err("sandbox: sql_op denied for this route (allow_sql=false)".to_string());
+                    }
+                }
                 // Note: SqlOp is handled by the VM execution path
                 // This fallback is for legacy interpreter path
                 context.variables.insert(output_var.clone(), Value::Array(vec![]));
@@ -401,6 +460,11 @@ pub async fn execute_logic_extended(
             },
             
             LogicOperation::RedisOp { command: _, key: _, value: _, ttl_seconds: _, output_var } => {
+                if let Some(policy) = active_policy(context) {
+                    if !policy.allow_redis {
+                        return Err("sandbox: redis_op denied for this route (allow_redis=false)".to_string());
+                    }
+                }
                 // Note: RedisOp is handled by the VM execution path
                 // This fallback is for legacy interpreter path
                 if let Some(var) = output_var {

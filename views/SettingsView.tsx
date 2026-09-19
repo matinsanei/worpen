@@ -1,27 +1,47 @@
 import React, { useState, useEffect } from 'react';
-import { TerminalFrame } from '../components/TerminalFrame';
-import { Save, Shield, Globe, Key, Plus, X, Settings, Bell, Hash, Sparkles, CheckCircle, AlertTriangle, Loader2, Puzzle } from 'lucide-react';
+import { Save, Globe, Key, Plus, X, Settings, Hash, Sparkles, CheckCircle, AlertTriangle, Loader2, Puzzle, Eye, EyeOff, Lock, LockOpen } from 'lucide-react';
 import { useNotifications } from '../components/NotificationSystem';
 import { getAIConfig, saveAIConfig, testAIConnection, AIConfig, AVAILABLE_MODELS, POPULAR_ENDPOINTS } from '../services/aiConfig';
+import { getToken, setToken, getApiBaseUrl, authFetch } from '../api';
+
+interface EnvVariable {
+  key: string;
+  value: string;
+}
+
+interface CustomSchema {
+  id: string;
+  name: string;
+  schema: Record<string, unknown>;
+}
+
+interface ConnectionStatus {
+  type: 'success' | 'error' | null;
+  message: string;
+}
 
 export const SettingsView: React.FC = () => {
   const { addNotification } = useNotifications();
-  const [envVars, setEnvVars] = useState([
-    { key: 'RUST_LOG', value: 'info' },
-    { key: 'HIVE_REGION', value: 'eu-west-1' },
-    { key: 'HEARTBEAT_INTERVAL', value: '5000' }
-  ]);
+  const [envVars, setEnvVars] = useState<EnvVariable[]>(() => {
+    try {
+      const stored = localStorage.getItem('worpen_env_vars');
+      if (stored) return JSON.parse(stored);
+    } catch { /* ignore */ }
+    return [
+      { key: 'RUST_LOG', value: 'info' },
+    ];
+  });
 
-  const [newKey, setNewKey] = useState('');
-  const [newValue, setNewValue] = useState('');
+  const [newKey, setNewKey] = useState<string>('');
+  const [newValue, setNewValue] = useState<string>('');
   
   // AI Configuration State
   const [aiConfig, setAiConfig] = useState<AIConfig>(() => getAIConfig());
-  const [testingConnection, setTestingConnection] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
+  const [testingConnection, setTestingConnection] = useState<boolean>(false);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>({ type: null, message: '' });
   
   // 🚀 Custom Operation Schemas State
-  const [customSchemas, setCustomSchemas] = useState<Array<{id: string; name: string; schema: any}>>([]);
+  const [customSchemas, setCustomSchemas] = useState<CustomSchema[]>([]);
   const [newSchemaName, setNewSchemaName] = useState('');
   const [newSchemaContent, setNewSchemaContent] = useState('{\n  "required_field": "string",\n  "optional_field": "number"\n}');
   
@@ -75,25 +95,67 @@ export const SettingsView: React.FC = () => {
     addNotification('INFO', 'SCHEMA_REMOVED', 'Custom schema removed');
   };
 
+  const persistEnvVars = (vars: typeof envVars) => {
+    setEnvVars(vars);
+    try { localStorage.setItem('worpen_env_vars', JSON.stringify(vars)); } catch { /* ignore */ }
+  };
+
   const addEnv = () => {
     if (newKey && newValue) {
-      setEnvVars([...envVars, { key: newKey, value: newValue }]);
+      persistEnvVars([...envVars, { key: newKey, value: newValue }]);
       setNewKey('');
       setNewValue('');
-      addNotification('SUCCESS', 'ENV_VAR_ADDED', `Variable ${newKey} injected into pool.`);
+      addNotification('SUCCESS', 'ENV_VAR_ADDED', `Variable ${newKey} saved locally.`);
     }
   };
 
   const removeEnv = (index: number) => {
-    setEnvVars(envVars.filter((_, i) => i !== index));
+    persistEnvVars(envVars.filter((_, i) => i !== index));
     addNotification('INFO', 'ENV_VAR_REMOVED', 'Environment variable removed.');
   };
 
-  const [apiUrl, setApiUrl] = useState(localStorage.getItem('WORPEN_API_URL') || 'http://127.0.0.1:3000');
+  const [apiUrl, setApiUrl] = useState(() => {
+    try {
+      const stored = localStorage.getItem('WORPEN_API_URL');
+      if (stored) return stored;
+    } catch { /* ignore */ }
+    // Empty = same origin (single binary serves UI+API together)
+    return '';
+  });
+
+  // Worpen API token (WORPEN_API_TOKEN on the server). Empty = open server.
+  const [apiToken, setApiToken] = useState<string>(() => getToken() || '');
+  const [showToken, setShowToken] = useState(false);
+  const [testingToken, setTestingToken] = useState(false);
 
   const handleCommit = () => {
-    localStorage.setItem('WORPEN_API_URL', apiUrl);
-    addNotification('SUCCESS', 'SYSTEM_COMMIT', 'Configuration successfully propagated to fleet.', 3000);
+    try {
+      if (apiUrl.trim()) localStorage.setItem('WORPEN_API_URL', apiUrl.trim());
+      else localStorage.removeItem('WORPEN_API_URL');
+    } catch { /* ignore */ }
+    setToken(apiToken || null);
+    addNotification('SUCCESS', 'SYSTEM_COMMIT', 'Configuration saved locally.', 3000);
+  };
+
+  const handleTestToken = async () => {
+    setTestingToken(true);
+    try {
+      // POST /test with empty body: 200/400 = token accepted (or auth disabled), 401 = rejected
+      const res = await authFetch(`${getApiBaseUrl()}/api/v1/dynamic-routes/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (res.status === 401) {
+        addNotification('ERROR', 'TOKEN_REJECTED', 'Server rejected this token (401).');
+      } else {
+        addNotification('SUCCESS', 'TOKEN_OK', 'Token accepted by the server.', 3000);
+      }
+    } catch {
+      addNotification('ERROR', 'OFFLINE', 'Backend unreachable');
+    } finally {
+      setTestingToken(false);
+    }
   };
 
   const handleSaveAIConfig = () => {
@@ -138,8 +200,8 @@ export const SettingsView: React.FC = () => {
       <div className="flex justify-between items-center px-6 py-4 border-b border-[#43454a] bg-[#2b2d30] shadow-sm">
         <div>
           <h1 className="text-xl font-bold flex items-center gap-3">
-            <div className="p-2 rounded-[var(--radius)] bg-[#3574f015] border border-[#3574f020]">
-              <Settings className="text-[#3574f0]" size={20} />
+            <div className="p-2 rounded-[var(--radius)] bg-[#e85d2615] border border-[#e85d2620]">
+              <Settings className="text-[#e85d26]" size={20} />
             </div>
             Settings
           </h1>
@@ -147,7 +209,7 @@ export const SettingsView: React.FC = () => {
         </div>
         <button
           onClick={handleCommit}
-          className="px-5 py-2 bg-[#3574f0] text-white text-[12px] font-bold rounded-[var(--radius)] hover:bg-[#3574f0e0] flex items-center gap-2 shadow-lg transition-all active:scale-95"
+          className="px-5 py-2 bg-[#e85d26] text-white text-[12px] font-bold rounded-[var(--radius)] hover:bg-[#e85d26e0] flex items-center gap-2 shadow-lg transition-all active:scale-95"
         >
           <Save size={16} /> SAVE SETTINGS
         </button>
@@ -160,7 +222,7 @@ export const SettingsView: React.FC = () => {
           <div className="space-y-6">
             <section className="jb-card p-5 space-y-5">
               <div className="flex items-center gap-2 pb-3 border-b border-[#43454a]">
-                <Globe size={16} className="text-[#3574f0]" />
+                <Globe size={16} className="text-[#e85d26]" />
                 <h2 className="text-[13px] font-bold text-[#dfe1e5]">System Uplink</h2>
               </div>
 
@@ -172,12 +234,12 @@ export const SettingsView: React.FC = () => {
                       type="text"
                       value={apiUrl}
                       onChange={(e) => setApiUrl(e.target.value)}
-                      placeholder="http://127.0.0.1:3000"
-                      className="flex-1 bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2 rounded-[var(--radius)] text-sm font-mono focus:border-[#3574f0] outline-none transition-colors shadow-inner"
+                      placeholder="empty = same origin (recommended)"
+                      className="flex-1 bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2 rounded-[var(--radius)] text-sm font-mono focus:border-[#e85d26] outline-none transition-colors shadow-inner"
                     />
                     <button
                       onClick={() => {
-                        fetch(`${apiUrl}/health`).then(() => addNotification('SUCCESS', 'PONG', 'Backend is online')).catch(() => addNotification('ERROR', 'OFFLINE', 'Backend unreachable'));
+                        fetch(`${getApiBaseUrl()}/health`).then(() => addNotification('SUCCESS', 'PONG', 'Backend is online')).catch(() => addNotification('ERROR', 'OFFLINE', 'Backend unreachable'));
                       }}
                       className="px-4 bg-[#2b2d30] border border-[#43454a] text-[#dfe1e5] text-[11px] font-bold rounded-[var(--radius)] hover:bg-[#393b40] hover:border-[#6a6e75] transition-all"
                     >
@@ -187,69 +249,39 @@ export const SettingsView: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-[#6e7073] uppercase px-1">Master API Key</label>
-                  <div className="relative group">
-                    <input
-                      type="password"
-                      defaultValue="sk_live_99823482394823984"
-                      className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2 rounded-[var(--radius)] text-sm font-mono focus:border-[#3574f0] outline-none transition-colors"
-                    />
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6e7073]">
-                      <Key size={14} />
+                  <label className="text-[11px] font-bold text-[#6e7073] uppercase px-1 flex items-center gap-1.5">
+                    Worpen API Token
+                    {getToken() ? <Lock size={11} className="text-[#e85d26]" /> : <LockOpen size={11} className="text-[#6e7073]" />}
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative group flex-1">
+                      <input
+                        type={showToken ? 'text' : 'password'}
+                        value={apiToken}
+                        onChange={(e) => setApiToken(e.target.value)}
+                        placeholder="leave empty if server has no WORPEN_API_TOKEN"
+                        className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2 pr-10 rounded-[var(--radius)] text-sm font-mono focus:border-[#e85d26] outline-none transition-colors"
+                      />
+                      <button
+                        onClick={() => setShowToken(!showToken)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6e7073] hover:text-[#dfe1e5] transition-colors"
+                        title={showToken ? 'Hide' : 'Show'}
+                      >
+                        {showToken ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
                     </div>
+                    <button
+                      onClick={handleTestToken}
+                      disabled={testingToken}
+                      className="px-4 bg-[#2b2d30] border border-[#43454a] text-[#dfe1e5] text-[11px] font-bold rounded-[var(--radius)] hover:bg-[#393b40] hover:border-[#6a6e75] transition-all disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      {testingToken ? <Loader2 size={12} className="animate-spin" /> : <Key size={12} />}
+                      TEST
+                    </button>
                   </div>
-                </div>
-
-                <div className="space-y-2 pt-2">
-                  <label className="text-[11px] font-bold text-[#6e7073] uppercase px-1">Security Certificate</label>
-                  <div className="border-2 border-[#43454a] border-dashed bg-[#1e1f22]/50 p-6 rounded-[var(--radius)] text-center cursor-pointer hover:border-[#3574f040] hover:bg-[#3574f005] transition-all group">
-                    <Shield size={24} className="mx-auto text-[#6e7073] group-hover:text-[#3574f060] transition-colors mb-2" />
-                    <div className="text-[12px] font-medium text-[#6e7073] group-hover:text-[#dfe1e5]">Drop mTLS Certificate here</div>
-                    <div className="text-[10px] text-[#6e7073] mt-1 opacity-60">PFX, PEM, or CRT files supported</div>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section className="jb-card p-5 space-y-5">
-              <div className="flex items-center gap-2 pb-3 border-b border-[#43454a]">
-                <Bell size={16} className="text-[#59a869]" />
-                <h2 className="text-[13px] font-bold text-[#dfe1e5]">Notifications</h2>
-              </div>
-
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-[#6e7073] uppercase">Slack Webhook</span>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" className="sr-only peer" defaultChecked />
-                      <div className="w-8 h-4 bg-[#43454a] rounded-full peer peer-checked:bg-[#59a869] transition-colors relative">
-                        <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-transform peer-checked:translate-x-4"></div>
-                      </div>
-                    </label>
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="https://hooks.slack.com/services/..."
-                    className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2 rounded-[var(--radius)] text-sm font-mono focus:border-[#3574f0] outline-none"
-                  />
-                </div>
-
-                <div className="space-y-2 opacity-50">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-[#6e7073] uppercase">Discord Webhook</span>
-                    <label className="relative inline-flex items-center cursor-not-allowed">
-                      <div className="w-8 h-4 bg-gray-700/50 rounded-full relative">
-                        <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-gray-600 rounded-full"></div>
-                      </div>
-                    </label>
-                  </div>
-                  <input
-                    type="text"
-                    disabled
-                    placeholder="Discord integration coming soon..."
-                    className="w-full bg-[#1e1f22]/50 border border-[#43454a] text-[#6e7073] px-3 py-2 rounded-[var(--radius)] text-sm font-mono cursor-not-allowed"
-                  />
+                  <p className="text-[10px] text-[#6e7073] px-1">
+                    Matches the server's <span className="font-mono text-[#dfe1e5]">WORPEN_API_TOKEN</span>. Stored only in this browser.
+                  </p>
                 </div>
               </div>
             </section>
@@ -264,7 +296,7 @@ export const SettingsView: React.FC = () => {
               </div>
 
               <div className="bg-[#a682e610] text-[#a682e6] text-[11px] px-3 py-2 border-l-4 border-[#a682e6] rounded-[2px] font-medium leading-relaxed">
-                Variables defined here are globally injected into all connected agents during the next heartbeat cycle.
+                Reference notes stored in this browser only — copy them into your server environment when deploying.
               </div>
 
               <div className="flex-1 overflow-hidden border border-[#43454a] rounded-[var(--radius)] bg-[#1e1f22]">
@@ -278,7 +310,7 @@ export const SettingsView: React.FC = () => {
                   </thead>
                   <tbody>
                     {envVars.map((env, idx) => (
-                      <tr key={idx} className="border-b border-[#43454a] font-mono hover:bg-[#3574f005] transition-colors group">
+                      <tr key={idx} className="border-b border-[#43454a] font-mono hover:bg-[#e85d2605] transition-colors group">
                         <td className="p-3 text-[#dfe1e5] font-semibold border-r border-[#43454a]">{env.key}</td>
                         <td className="p-3 text-[#6e7073] group-hover:text-[#dfe1e5] transition-colors border-r border-[#43454a]">{env.value}</td>
                         <td className="p-3 text-center">
@@ -303,7 +335,7 @@ export const SettingsView: React.FC = () => {
                   <input
                     value={newKey}
                     onChange={(e) => setNewKey(e.target.value.toUpperCase().replace(/\s/g, '_'))}
-                    className="w-full bg-[#1e1f22] border border-[#43454a] p-2 rounded-[var(--radius)] text-xs outline-none focus:border-[#3574f0] text-[#dfe1e5] font-mono"
+                    className="w-full bg-[#1e1f22] border border-[#43454a] p-2 rounded-[var(--radius)] text-xs outline-none focus:border-[#e85d26] text-[#dfe1e5] font-mono"
                     placeholder="E.G. API_TOKEN"
                   />
                 </div>
@@ -312,14 +344,14 @@ export const SettingsView: React.FC = () => {
                   <input
                     value={newValue}
                     onChange={(e) => setNewValue(e.target.value)}
-                    className="w-full bg-[#1e1f22] border border-[#43454a] p-2 rounded-[var(--radius)] text-xs outline-none focus:border-[#3574f0] text-[#dfe1e5] font-mono"
+                    className="w-full bg-[#1e1f22] border border-[#43454a] p-2 rounded-[var(--radius)] text-xs outline-none focus:border-[#e85d26] text-[#dfe1e5] font-mono"
                     placeholder="Value..."
                     onKeyDown={(e) => e.key === 'Enter' && addEnv()}
                   />
                 </div>
                 <button
                   onClick={addEnv}
-                  className="bg-[#2b2d30] hover:bg-[#3574f0] text-[#dfe1e5] border border-[#43454a] rounded-[var(--radius)] h-8 w-8 mt-auto flex items-center justify-center shadow-md active:scale-90 transition-all"
+                  className="bg-[#2b2d30] hover:bg-[#e85d26] text-[#dfe1e5] border border-[#43454a] rounded-[var(--radius)] h-8 w-8 mt-auto flex items-center justify-center shadow-md active:scale-90 transition-all"
                 >
                   <Plus size={16} />
                 </button>
@@ -333,7 +365,7 @@ export const SettingsView: React.FC = () => {
           <section className="jb-card p-6 space-y-5">
             <div className="flex items-center justify-between pb-4 border-b border-[#43454a]">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#3574f0] to-[#c678dd] flex items-center justify-center shadow-lg">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#e85d26] to-[#f2c55c] flex items-center justify-center shadow-lg">
                   <Sparkles size={20} className="text-white" />
                 </div>
                 <div>
@@ -359,13 +391,13 @@ export const SettingsView: React.FC = () => {
               </label>
             </div>
 
-            <div className="bg-[#3574f010] text-[#3574f0] text-xs px-4 py-3 border-l-4 border-[#3574f0] rounded-[2px] font-medium leading-relaxed">
+            <div className="bg-[#e85d2610] text-[#e85d26] text-xs px-4 py-3 border-l-4 border-[#e85d26] rounded-[2px] font-medium leading-relaxed">
               <strong>GitHub Models (Free):</strong> Get your free API key from{' '}
               <a 
                 href="https://github.com/marketplace/models" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="underline hover:text-[#4a8fff] transition-colors"
+                className="underline hover:text-[#f07a45] transition-colors"
               >
                 github.com/marketplace/models
               </a>
@@ -381,7 +413,7 @@ export const SettingsView: React.FC = () => {
                 <select
                   value={aiConfig.endpoint}
                   onChange={(e) => setAiConfig({ ...aiConfig, endpoint: e.target.value })}
-                  className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2.5 rounded-[var(--radius)] text-sm focus:border-[#3574f0] outline-none transition-colors"
+                  className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2.5 rounded-[var(--radius)] text-sm focus:border-[#e85d26] outline-none transition-colors"
                 >
                   {POPULAR_ENDPOINTS.map((ep) => (
                     <option key={ep.url} value={ep.url}>
@@ -394,7 +426,7 @@ export const SettingsView: React.FC = () => {
                   value={aiConfig.endpoint}
                   onChange={(e) => setAiConfig({ ...aiConfig, endpoint: e.target.value })}
                   placeholder="https://models.inference.ai.azure.com"
-                  className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2 rounded-[var(--radius)] text-sm font-mono focus:border-[#3574f0] outline-none transition-colors mt-2"
+                  className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2 rounded-[var(--radius)] text-sm font-mono focus:border-[#e85d26] outline-none transition-colors mt-2"
                 />
               </div>
 
@@ -406,7 +438,7 @@ export const SettingsView: React.FC = () => {
                 <select
                   value={aiConfig.model}
                   onChange={(e) => setAiConfig({ ...aiConfig, model: e.target.value })}
-                  className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2.5 rounded-[var(--radius)] text-sm focus:border-[#3574f0] outline-none transition-colors"
+                  className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2.5 rounded-[var(--radius)] text-sm focus:border-[#e85d26] outline-none transition-colors"
                 >
                   {AVAILABLE_MODELS.map((model) => (
                     <option key={model.id} value={model.id}>
@@ -419,7 +451,7 @@ export const SettingsView: React.FC = () => {
                   value={aiConfig.model}
                   onChange={(e) => setAiConfig({ ...aiConfig, model: e.target.value })}
                   placeholder="gpt-4o"
-                  className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2 rounded-[var(--radius)] text-sm font-mono focus:border-[#3574f0] outline-none transition-colors mt-2"
+                  className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2 rounded-[var(--radius)] text-sm font-mono focus:border-[#e85d26] outline-none transition-colors mt-2"
                 />
               </div>
             </div>
@@ -435,7 +467,7 @@ export const SettingsView: React.FC = () => {
                   value={aiConfig.apiKey}
                   onChange={(e) => setAiConfig({ ...aiConfig, apiKey: e.target.value })}
                   placeholder="Enter your API key..."
-                  className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2.5 pr-10 rounded-[var(--radius)] text-sm font-mono focus:border-[#3574f0] outline-none transition-colors"
+                  className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2.5 pr-10 rounded-[var(--radius)] text-sm font-mono focus:border-[#e85d26] outline-none transition-colors"
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6e7073]">
                   <Key size={16} />
@@ -496,7 +528,7 @@ export const SettingsView: React.FC = () => {
               </button>
               <button
                 onClick={handleSaveAIConfig}
-                className="flex items-center gap-2 px-5 py-2.5 bg-[#3574f0] hover:bg-[#2d5fc7] text-white text-sm font-bold rounded-[var(--radius)] transition-all active:scale-95 shadow-lg"
+                className="flex items-center gap-2 px-5 py-2.5 bg-[#e85d26] hover:bg-[#c74e1f] text-white text-sm font-bold rounded-[var(--radius)] transition-all active:scale-95 shadow-lg"
               >
                 <Save size={16} />
                 Save AI Config
@@ -505,7 +537,7 @@ export const SettingsView: React.FC = () => {
           </section>
           
           {/* 🚀 Custom Operation Schemas Section */}
-          <section className="jb-card p-6 space-y-5">
+          <section className="jb-card p-6 space-y-5 mt-6">
             <div className="flex items-center gap-2 pb-3 border-b border-[#43454a]">
               <Puzzle size={16} className="text-[#c678dd]" />
               <h2 className="text-[13px] font-bold text-[#dfe1e5]">🧩 Extensions / Custom Operations</h2>
@@ -553,7 +585,7 @@ export const SettingsView: React.FC = () => {
                     value={newSchemaName}
                     onChange={(e) => setNewSchemaName(e.target.value)}
                     placeholder="e.g., EmailOp, NuclearLaunchOp"
-                    className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2 rounded-[var(--radius)] text-sm font-mono focus:border-[#3574f0] outline-none"
+                    className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2 rounded-[var(--radius)] text-sm font-mono focus:border-[#e85d26] outline-none"
                   />
                 </div>
 
@@ -563,7 +595,7 @@ export const SettingsView: React.FC = () => {
                     value={newSchemaContent}
                     onChange={(e) => setNewSchemaContent(e.target.value)}
                     rows={8}
-                    className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2 rounded-[var(--radius)] text-sm font-mono focus:border-[#3574f0] outline-none resize-none"
+                    className="w-full bg-[#1e1f22] border border-[#43454a] text-[#dfe1e5] px-3 py-2 rounded-[var(--radius)] text-sm font-mono focus:border-[#e85d26] outline-none resize-none"
                     placeholder='{ "to": "string", "subject": "string", "body": "string" }'
                   />
                 </div>
@@ -577,7 +609,7 @@ export const SettingsView: React.FC = () => {
                 </button>
               </div>
 
-              <div className="mt-4 p-3 bg-[#61afef]/10 border border-[#61afef]/20 rounded-[var(--radius)] text-[11px] text-[#61afef]">
+              <div className="mt-4 p-3 bg-[#f07a45]/10 border border-[#f07a45]/20 rounded-[var(--radius)] text-[11px] text-[#f07a45]">
                 <strong>💡 How it works:</strong> Once registered, your custom operations will appear in Monaco autocomplete,
                 and the compiler will automatically scan/scope all string fields containing <code className="px-1 bg-[#1e1f22]/50">{`{{variables}}`}</code>.
               </div>

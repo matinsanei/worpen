@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { loader } from "@monaco-editor/react";
-import { getApiBaseUrl } from '../api';
+import { getApiBaseUrl, authFetch, authHeaders } from '../api';
 import { ALL_THEMES, IDETheme, worpenDark } from '../src/themes/ide';
 import { ROUTE_TEMPLATES, AVAILABLE_FONTS } from '../components/RouteBuilder/constants';
 import { ActivityBar } from '../components/RouteBuilder/ActivityBar';
@@ -269,7 +269,7 @@ ${trimmedCode.split('\n').map(line => '    ' + line).join('\n')}`;
     // API Functions
     const fetchRoutes = async () => {
         try {
-            const response = await fetch(`${getApiBaseUrl()}/api/v1/dynamic-routes`);
+            const response = await authFetch(`${getApiBaseUrl()}/api/v1/dynamic-routes`);
             const data = await response.json();
             setRoutes(data);
             return data;
@@ -288,9 +288,9 @@ ${trimmedCode.split('\n').map(line => '    ' + line).join('\n')}`;
             const isYAML = !routeDefinition.trim().startsWith('{') && !routeDefinition.trim().startsWith('[');
             const contentType = isYAML ? 'application/x-yaml' : 'application/json';
 
-            const response = await fetch(`${getApiBaseUrl()}/api/v1/dynamic-routes/register`, {
+            const response = await authFetch(`${getApiBaseUrl()}/api/v1/dynamic-routes/register`, {
                 method: 'POST',
-                headers: { 'Content-Type': contentType },
+                headers: { 'Content-Type': contentType, ...authHeaders() },
                 body: routeDefinition,
             });
 
@@ -331,8 +331,9 @@ ${trimmedCode.split('\n').map(line => '    ' + line).join('\n')}`;
         if (!confirm('Delete this route?')) return;
 
         try {
-            const response = await fetch(`${getApiBaseUrl()}/api/v1/dynamic-routes/${routeId}`, {
+            const response = await authFetch(`${getApiBaseUrl()}/api/v1/dynamic-routes/${routeId}`, {
                 method: 'DELETE',
+                headers: { ...authHeaders() },
             });
 
             if (response.ok) {
@@ -361,9 +362,9 @@ ${trimmedCode.split('\n').map(line => '    ' + line).join('\n')}`;
 
         setLoading(true);
         try {
-            const response = await fetch(`${getApiBaseUrl()}/api/v1/dynamic-routes/test`, {
+            const response = await authFetch(`${getApiBaseUrl()}/api/v1/dynamic-routes/test`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...authHeaders() },
                 body: JSON.stringify({
                     route_id: selectedRoute.id,
                     test_payload: JSON.parse(testPayload || '{}'),
@@ -411,7 +412,7 @@ ${trimmedCode.split('\n').map(line => '    ' + line).join('\n')}`;
     };
 
     return (
-        <div className="flex flex-col h-full w-full bg-[#1e1f22] text-[#dfe1e5] font-sans selection:bg-[#3574f030] overflow-hidden" 
+        <div className="flex flex-col h-full w-full bg-[#1e1f22] text-[#dfe1e5] font-sans selection:bg-[#e85d2630] overflow-hidden" 
             style={{ backgroundColor: currentTheme.editor.bg }}>
             
             <div ref={containerRef} id="routes-container" className="flex flex-1 overflow-hidden">

@@ -282,3 +282,30 @@ cargo build
 1. [Issues در GitHub](https://github.com/matinsanei/worpen/issues)
 2. [Discussions](https://github.com/matinsanei/worpen/discussions)
 3. ایمیل: support@worpen.dev (اگر موجود باشد)
+
+
+
+3. چیزی که اگر اضافه کنی پروژه‌ات جهش می‌کند
+
+سه feature حیاتی:
+1️⃣ Execution Trace
+
+مثل:
+
+                                                                    text
+step 1 set
+step 2 math
+step 3 if
+step 4 return
+
+برای debug.
+2️⃣ Deterministic replay
+
+خیلی مهم برای AIOps.
+3️⃣ Rule versioning
+
+مثل:
+
+                                                                    text
+route v1
+route v2

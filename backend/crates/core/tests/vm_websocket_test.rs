@@ -266,6 +266,7 @@ async fn test_websocket_route_with_hooks() {
         created_at: chrono::Utc::now().to_rfc3339(),
         updated_at: chrono::Utc::now().to_rfc3339(),
         created_by: "test".to_string(),
+        sandbox: None,
     };
     
     assert_eq!(route.route_type, RouteType::WebSocket);

@@ -207,7 +207,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = ({
                     {onOpenAI && (
                         <button
                             onClick={onOpenAI}
-                            className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-[#3574f0] to-[#c678dd] hover:from-[#2d5fc7] hover:to-[#a85ec4] text-white text-[11px] font-bold rounded-[var(--radius)] transition-all shadow-md active:scale-95"
+                            className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-[#e85d26] to-[#f2c55c] hover:from-[#c74e1f] hover:to-[#d9a03c] text-white text-[11px] font-bold rounded-[var(--radius)] transition-all shadow-md active:scale-95"
                         >
                             <Sparkles size={12} />
                             AI

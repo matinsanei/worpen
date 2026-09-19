@@ -2,7 +2,7 @@ use crate::vm::memory::ExecutionMemory;
 use crate::compiler::symbol_table::SymbolTable;
 use crate::vm::instructions::OptimizedOperation;
 use crate::websocket::WebSocketManager;
-use proto::models::LoopControl;
+use proto::models::{LoopControl, SandboxPolicy};
 use serde_json::Value;
 use regex::Regex;
 use sqlx::{Row, Column};
@@ -15,6 +15,7 @@ pub struct VirtualMachine {
     redis_pool: Option<deadpool_redis::Pool>,
     ws_manager: Option<WebSocketManager>,
     ws_connection_id: Option<String>,
+    sandbox: Option<SandboxPolicy>,
 }
 
 impl VirtualMachine {
@@ -26,7 +27,17 @@ impl VirtualMachine {
             redis_pool: None,
             ws_manager: None,
             ws_connection_id: None,
+            sandbox: None,
         }
+    }
+
+    pub fn with_sandbox(mut self, policy: SandboxPolicy) -> Self {
+        self.sandbox = Some(policy);
+        self
+    }
+
+    pub fn set_sandbox(&mut self, policy: Option<SandboxPolicy>) {
+        self.sandbox = policy;
     }
     
     pub fn with_db_pool(memory: ExecutionMemory, symbol_table: SymbolTable, db_pool: sqlx::Pool<sqlx::Sqlite>) -> Self {
@@ -37,6 +48,7 @@ impl VirtualMachine {
             redis_pool: None,
             ws_manager: None,
             ws_connection_id: None,
+            sandbox: None,
         }
     }
     
@@ -48,6 +60,7 @@ impl VirtualMachine {
             redis_pool: Some(redis_pool),
             ws_manager: None,
             ws_connection_id: None,
+            sandbox: None,
         }
     }
     
@@ -64,6 +77,7 @@ impl VirtualMachine {
             redis_pool: Some(redis_pool),
             ws_manager: None,
             ws_connection_id: None,
+            sandbox: None,
         }
     }
     
@@ -80,6 +94,7 @@ impl VirtualMachine {
             redis_pool: None,
             ws_manager: Some(ws_manager),
             ws_connection_id: Some(connection_id),
+            sandbox: None,
         }
     }
     
@@ -98,7 +113,23 @@ impl VirtualMachine {
             redis_pool,
             ws_manager,
             ws_connection_id: connection_id,
+            sandbox: None,
         }
+    }
+
+    fn check_net(&self, url: &str) -> Result<String, String> {
+        if let Some(policy) = &self.sandbox {
+            if !policy.allow_net {
+                return Err("sandbox: network access denied (allow_net=false)".to_string());
+            }
+            let after_scheme = url.split("://").nth(1).unwrap_or(url);
+            let host_port = after_scheme.split('/').next().unwrap_or("");
+            let host = host_port.split('@').next_back().unwrap_or(host_port).split(':').next().unwrap_or(host_port);
+            if !policy.is_host_allowed(host) {
+                return Err(format!("sandbox: host '{}' not in allowed_hosts {:?}", host, policy.allowed_hosts));
+            }
+        }
+        Ok(url.to_string())
     }
 
     pub async fn execute(&mut self, program: &[OptimizedOperation]) -> Result<Value, String> {
@@ -148,6 +179,12 @@ impl VirtualMachine {
                 OptimizedOperation::Set { var_index, value } => {
                     let resolved = self.resolve_value(value)?;
                     self.memory.set(*var_index, resolved);
+                    // Sandbox memory guard (sparse-vec length approximation)
+                    if let Some(policy) = &self.sandbox {
+                        if self.memory.len() > policy.max_variables {
+                            return Err(format!("sandbox: variable count exceeds max_variables {}", policy.max_variables));
+                        }
+                    }
                 },
                 OptimizedOperation::Get { var_index } => {
                     result = self.memory.get(*var_index).cloned().unwrap_or(Value::Null);
@@ -158,6 +195,12 @@ impl VirtualMachine {
                         .collect();
                     let resolved_args = resolved_args?;
                     result = self.execute_math_op(operation, &resolved_args)?;
+                    // Mirror interpreter: {{math_result}} must be readable afterwards
+                    let idx = match self.symbol_table.get_index("math_result") {
+                        Some(i) => i,
+                        None => self.symbol_table.register("math_result".to_string()),
+                    };
+                    self.memory.set(idx, result.clone());
                 },
                 OptimizedOperation::If { condition, then, otherwise } => {
                     let resolved_condition = self.resolve_string(condition)?;
@@ -169,6 +212,11 @@ impl VirtualMachine {
                     }
                 },
                 OptimizedOperation::SqlOp { query, arg_indices, output_var_index } => {
+                    if let Some(policy) = &self.sandbox {
+                        if !policy.allow_sql {
+                            return Err("sandbox: sql_op denied (allow_sql=false)".to_string());
+                        }
+                    }
                     // Resolve all args from memory
                     let resolved_args: Vec<sqlx::Either<String, i64>> = arg_indices.iter()
                         .map(|idx| {
@@ -247,6 +295,11 @@ impl VirtualMachine {
                     }
                 },
                 OptimizedOperation::RedisOp { command, key, value, ttl_seconds, output_var_index } => {
+                    if let Some(policy) = &self.sandbox {
+                        if !policy.allow_redis {
+                            return Err("sandbox: redis_op denied (allow_redis=false)".to_string());
+                        }
+                    }
                     if let Some(redis_pool) = &self.redis_pool {
                         // Resolve key template
                         let resolved_key = self.resolve_string(key)?;
@@ -357,6 +410,132 @@ impl VirtualMachine {
                     }
                 },
                 // Add more operations as needed
+                OptimizedOperation::HttpRequest { url, method, body, headers, timeout_ms } => {
+                    let resolved_url = self.resolve_string(url)?;
+                    self.check_net(&resolved_url)?;
+                    let timeout = timeout_ms.unwrap_or(self.sandbox.as_ref().map(|p| p.max_timeout_ms).unwrap_or(10_000));
+                    let client = reqwest::Client::builder()
+                        .timeout(std::time::Duration::from_millis(timeout))
+                        .build()
+                        .map_err(|e| format!("HTTP client error: {}", e))?;
+                    let mut rb = match method.as_str() {
+                        "GET" => client.get(&resolved_url),
+                        "POST" => client.post(&resolved_url),
+                        "PUT" => client.put(&resolved_url),
+                        "DELETE" => client.delete(&resolved_url),
+                        "PATCH" => client.patch(&resolved_url),
+                        "HEAD" => client.head(&resolved_url),
+                        _ => return Err(format!("Unsupported HTTP method: {}", method)),
+                    };
+                    if let Some(hdrs) = headers {
+                        for (k, v) in hdrs {
+                            let rv = self.resolve_string(v)?;
+                            rb = rb.header(k, rv);
+                        }
+                    }
+                    if let Some(b) = body {
+                        let resolved_body = self.resolve_value(b)?;
+                        let s = match resolved_body {
+                            Value::String(st) => st,
+                            _ => serde_json::to_string(&resolved_body).unwrap_or_default(),
+                        };
+                        rb = rb.body(s);
+                    }
+                    let resp = rb.send().await.map_err(|e| format!("HTTP request failed: {}", e))?;
+                    let status = resp.status().as_u16();
+                    let text = resp.text().await.map_err(|e| format!("read body failed: {}", e))?;
+                    let body_json: Value = serde_json::from_str(&text).unwrap_or(Value::String(text));
+                    result = serde_json::json!({"status": status, "body": body_json, "url": resolved_url, "method": method});
+                },
+                OptimizedOperation::Sleep { duration_ms } => {
+                    if let Some(policy) = &self.sandbox {
+                        if *duration_ms > policy.max_sleep_ms {
+                            return Err(format!("sandbox: sleep {}ms exceeds max_sleep_ms {}ms", duration_ms, policy.max_sleep_ms));
+                        }
+                    }
+                    tokio::time::sleep(tokio::time::Duration::from_millis(*duration_ms)).await;
+                    result = Value::Null;
+                },
+                OptimizedOperation::ExecuteScript { language, .. } => {
+                    if self.sandbox.as_ref().map(|p| !p.allow_scripts).unwrap_or(true) {
+                        return Err(format!("sandbox: execute_script '{}' denied (allow_scripts=false)", language));
+                    }
+                    result = serde_json::json!({"result": "Script executed", "language": language});
+                },
+                OptimizedOperation::Log { level, message } => {
+                    if let Ok(msg) = self.resolve_string(message) {
+                        println!("[{}] {}", level.to_uppercase(), msg);
+                    }
+                    result = Value::Null;
+                },
+                OptimizedOperation::While { condition, body, max_iterations } => {
+                    let cap = self.sandbox.as_ref().map(|p| p.max_loop_iterations).unwrap_or(1000);
+                    let max_iter = max_iterations.unwrap_or(cap).min(cap.max(1));
+                    let mut iters = 0u32;
+                    while iters < max_iter {
+                        let resolved = self.resolve_string(condition).unwrap_or_default();
+                        if !self.evaluate_condition(&resolved).unwrap_or(false) { break; }
+                        iters += 1;
+                        result = Box::pin(self.execute(body)).await?;
+                        if loop_control.should_break { loop_control.should_break = false; break; }
+                        if loop_control.should_continue { loop_control.should_continue = false; continue; }
+                    }
+                },
+                OptimizedOperation::Loop { collection, var_index, body } => {
+                    let resolved = self.resolve_string(collection).unwrap_or_default();
+                    // Try memory lookup first, else parse literal
+                    let items: Value = self.memory.get(*var_index).cloned()
+                        .or_else(|| serde_json::from_str(&resolved).ok())
+                        .unwrap_or(Value::Null);
+                    // collection may be a var template; attempt symbol resolution
+                    let arr: Vec<Value> = if let Value::Array(a) = items { a }
+                        else if let Ok(Value::Array(a)) = serde_json::from_str::<Value>(&resolved) { a }
+                        else { vec![] };
+                    if arr.len() > 10_000 {
+                        return Err("sandbox: loop collection exceeds 10_000 items".to_string());
+                    }
+                    for item in arr {
+                        self.memory.set(*var_index, item);
+                        result = Box::pin(self.execute(body)).await?;
+                        if loop_control.should_break { loop_control.should_break = false; break; }
+                        if loop_control.should_continue { loop_control.should_continue = false; continue; }
+                    }
+                },
+                OptimizedOperation::Switch { value, cases, default } => {
+                    let resolved = self.resolve_string(value).unwrap_or_default();
+                    let mut matched = false;
+                    for case in cases {
+                        let case_str = match &case.value {
+                            Value::String(s) => s.clone(),
+                            _ => case.value.to_string().trim_matches('"').to_string(),
+                        };
+                        if resolved == case_str {
+                            result = Box::pin(self.execute(&case.operations)).await?;
+                            matched = true;
+                            break;
+                        }
+                    }
+                    if !matched {
+                        if let Some(def) = default {
+                            result = Box::pin(self.execute(def)).await?;
+                        }
+                    }
+                },
+                OptimizedOperation::Try { body, catch, finally } => {
+                    match Box::pin(self.execute(body)).await {
+                        Ok(v) => result = v,
+                        Err(_) => { result = Box::pin(self.execute(catch)).await?; }
+                    }
+                    if let Some(fin) = finally {
+                        let _ = Box::pin(self.execute(fin)).await;
+                    }
+                },
+                OptimizedOperation::Throw { message, .. } => {
+                    let msg = self.resolve_string(message).unwrap_or_else(|_| message.clone());
+                    return Err(msg);
+                },
+                OptimizedOperation::Break => { loop_control.should_break = true; },
+                OptimizedOperation::Continue => { loop_control.should_continue = false; loop_control.should_break = false; },
                 _ => {
                     // For now, skip unimplemented operations
                 }
@@ -364,6 +543,15 @@ impl VirtualMachine {
         }
 
         Ok(result)
+    }
+
+    /// Convert a memory value to its template string form.
+    /// Strings interpolate RAW (no JSON quotes) — matches the interpreter.
+    fn value_to_plain_string(val: &Value) -> String {
+        match val {
+            Value::String(s) => s.clone(),
+            other => other.to_string(),
+        }
     }
 
     fn resolve_value(&self, value: &Value) -> Result<Value, String> {
@@ -377,7 +565,7 @@ impl VirtualMachine {
                         let var_name = var_match.as_str();
                         if let Some(index) = self.symbol_table.get_index(var_name) {
                             if let Some(val) = self.memory.get(index) {
-                                let val_str = val.to_string();
+                                let val_str = Self::value_to_plain_string(val);
                                 result = result.replace(full_match.as_str(), &val_str);
                             } else {
                                 return Err(format!("Variable '{}' not set", var_name));
@@ -422,7 +610,7 @@ impl VirtualMachine {
                 let var_name = var_match.as_str();
                 if let Some(index) = self.symbol_table.get_index(var_name) {
                     if let Some(val) = self.memory.get(index) {
-                        let val_str = val.to_string();
+                        let val_str = Self::value_to_plain_string(val);
                         result = result.replace(full_match.as_str(), &val_str);
                     } else {
                         return Err(format!("Variable '{}' not set", var_name));
@@ -457,19 +645,43 @@ impl VirtualMachine {
     }
 
     fn execute_math_op(&self, operation: &str, args: &[Value]) -> Result<Value, String> {
+        // Parity with interpreter math.rs — resolve {{vars}} then coerce numbers
+        let numbers: Vec<f64> = args.iter().filter_map(|v| match v {
+            Value::Number(n) => n.as_f64(),
+            Value::String(s) => s.parse().ok(),
+            _ => None,
+        }).collect();
+        let num = |f: f64| Value::Number(serde_json::Number::from_f64(f).unwrap_or(0.into()));
         match operation {
-            "add" => {
-                if args.len() == 2 {
-                    match (&args[0], &args[1]) {
-                        (Value::Number(a), Value::Number(b)) => {
-                            let sum = a.as_f64().unwrap_or(0.0) + b.as_f64().unwrap_or(0.0);
-                            Ok(Value::Number(serde_json::Number::from_f64(sum).unwrap_or(serde_json::Number::from(0))))
-                        },
-                        _ => Err("Add operation requires two numbers".to_string()),
-                    }
-                } else {
-                    Err("Add operation requires exactly two arguments".to_string())
-                }
+            "add" | "sum" => Ok(num(numbers.iter().sum())),
+            "avg" => {
+                if numbers.is_empty() { return Err("avg requires at least one number".to_string()); }
+                Ok(num(numbers.iter().sum::<f64>() / numbers.len() as f64))
+            },
+            "min" => Ok(num(numbers.iter().cloned().fold(f64::INFINITY, f64::min))),
+            "max" => Ok(num(numbers.iter().cloned().fold(f64::NEG_INFINITY, f64::max))),
+            "round" => Ok(num(numbers.first().unwrap_or(&0.0).round())),
+            "floor" => Ok(num(numbers.first().unwrap_or(&0.0).floor())),
+            "ceil" => Ok(num(numbers.first().unwrap_or(&0.0).ceil())),
+            "abs" => Ok(num(numbers.first().unwrap_or(&0.0).abs())),
+            "pow" => {
+                let b = *numbers.first().unwrap_or(&0.0);
+                let e = *numbers.get(1).unwrap_or(&1.0);
+                Ok(num(b.powf(e)))
+            },
+            "sqrt" => Ok(num(numbers.first().unwrap_or(&0.0).sqrt())),
+            "subtract" | "sub" => {
+                if numbers.len() >= 2 { Ok(num(numbers[0] - numbers[1])) }
+                else { Err("subtract requires two arguments".to_string()) }
+            },
+            "multiply" | "mul" => Ok(num(numbers.iter().product())),
+            "divide" | "div" => {
+                if numbers.len() >= 2 && numbers[1] != 0.0 { Ok(num(numbers[0] / numbers[1])) }
+                else { Err("divide requires two numbers with non-zero divisor".to_string()) }
+            },
+            "mod" | "rem" => {
+                if numbers.len() >= 2 && numbers[1] != 0.0 { Ok(num(numbers[0] % numbers[1])) }
+                else { Err("mod requires two numbers with non-zero divisor".to_string()) }
             },
             _ => Err(format!("Unsupported math operation: {}", operation)),
         }

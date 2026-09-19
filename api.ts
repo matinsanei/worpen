@@ -2,15 +2,54 @@
 
 // API Configuration
 export const getApiBaseUrl = () => {
-  let url = 'http://127.0.0.1:3000';
   if (typeof window !== 'undefined') {
-    url = localStorage.getItem('WORPEN_API_URL') || import.meta.env.VITE_API_URL || 'http://127.0.0.1:3000';
-  } else {
-    url = import.meta.env.VITE_API_URL || 'http://127.0.0.1:3000';
+    const stored = localStorage.getItem('WORPEN_API_URL');
+    if (stored) return stored.replace(/\/$/, "");
+    const envUrl = (import.meta as any).env?.VITE_API_URL;
+    if (envUrl) return String(envUrl).replace(/\/$/, "");
+    // Single-binary default: the page is served by Worpen itself,
+    // so the API lives on the same origin (any host/port, zero config).
+    if (window.location.origin.startsWith('http')) return window.location.origin;
   }
-  const finalized = url.replace(/\/$/, "");
-  // console.log("WORPEN API URL:", finalized); // Debugging
-  return finalized;
+  return 'http://127.0.0.1:3000';
+};
+
+// ---- Auth (WORPEN_API_TOKEN) ----
+// When the backend sets WORPEN_API_TOKEN, mutating calls + auth-required
+// routes need `Authorization: Bearer <token>`. Stored only in localStorage.
+export const getToken = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  const t = localStorage.getItem('WORPEN_TOKEN');
+  return t && t.trim() ? t.trim() : null;
+};
+
+export const setToken = (token: string | null) => {
+  if (typeof window === 'undefined') return;
+  if (token && token.trim()) localStorage.setItem('WORPEN_TOKEN', token.trim());
+  else localStorage.removeItem('WORPEN_TOKEN');
+  window.dispatchEvent(new CustomEvent('worpen:auth-changed'));
+};
+
+export const authHeaders = (): Record<string, string> => {
+  const t = getToken();
+  return t ? { 'Authorization': `Bearer ${t}` } : {};
+};
+
+/** fetch() wrapper with auth headers + global 401 event. Use for views with raw fetch calls. */
+export const authFetch = (url: string, options?: RequestInit): Promise<Response> => {
+  const merged: RequestInit = {
+    ...options,
+    headers: {
+      ...authHeaders(),
+      ...options?.headers,
+    },
+  };
+  return fetch(url, merged).then((res) => {
+    if (res.status === 401 && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('worpen:unauthorized', { detail: { endpoint: url } }));
+    }
+    return res;
+  });
 };
 
 // API Helper
@@ -24,9 +63,18 @@ async function apiRequest<T>(
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...authHeaders(),
       ...options?.headers,
     },
   });
+
+  if (response.status === 401) {
+    // Notify the app (header badge + redirect to Settings)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('worpen:unauthorized', { detail: { endpoint } }));
+    }
+    throw new Error(`Unauthorized (401): set your API token in Settings`);
+  }
 
   if (!response.ok) {
     throw new Error(`API Error: ${response.statusText}`);
@@ -130,14 +178,54 @@ export const automationApi = {
     }),
 };
 
-// Pipelines API
+// Pipelines API (real multi-stage engine)
+export type StageRunStatus = 'SUCCESS' | 'FAILED' | 'SKIPPED';
+
+export interface PipelineStageView {
+  name: string;
+  allow_failure: boolean;
+  last_status?: StageRunStatus | null;
+  last_duration_ms?: number | null;
+}
+
+export interface PipelineRunResult {
+  run_id: string;
+  pipeline_id: string;
+  pipeline_name: string;
+  success: boolean;
+  stages: Array<{
+    name: string;
+    status: StageRunStatus;
+    result?: any;
+    error?: string | null;
+    execution_time_ms: number;
+  }>;
+  total_time_ms: number;
+  finished_at: string;
+}
+
+export interface PipelineListItem {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  enabled: boolean;
+  stage_count: number;
+  stages: PipelineStageView[];
+  last_run?: PipelineRunResult | null;
+}
+
 export const pipelinesApi = {
-  list: () => apiRequest('/api/v1/pipelines'),
-  trigger: (pipelineId: string) =>
-    apiRequest('/api/v1/pipelines/trigger', {
+  list: () => apiRequest<PipelineListItem[]>('/api/v1/pipelines'),
+  trigger: (pipelineId: string, payload: any = {}) =>
+    apiRequest<PipelineRunResult>('/api/v1/pipelines/trigger', {
       method: 'POST',
-      body: JSON.stringify({ pipelineId }),
+      body: JSON.stringify({ pipelineId, payload }),
     }),
+  runs: (pipeline_id?: string, limit: number = 20) =>
+    apiRequest<{ count: number; runs: PipelineRunResult[] }>(
+      `/api/v1/pipelines/runs?limit=${limit}${pipeline_id ? `&pipeline_id=${pipeline_id}` : ''}`
+    ),
 };
 
 // Logs API
@@ -167,6 +255,23 @@ export const terminalApi = {
 // Health Check
 export const healthApi = {
   check: () => fetch(`${getApiBaseUrl()}/health`).then(r => r.text()),
+};
+
+// Execution audit trail (real backend data)
+export interface AuditEntry {
+  ts: string;
+  route_id: string;
+  route_name: string;
+  path: string;
+  success: boolean;
+  error?: string | null;
+  execution_time_ms: number;
+  via: string;
+}
+
+export const auditApi = {
+  recent: (limit: number = 50) =>
+    apiRequest<{ count: number; entries: AuditEntry[] }>(`/api/v1/dynamic-routes/audit?limit=${limit}`),
 };
 
 // Global Functions API

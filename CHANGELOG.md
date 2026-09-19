@@ -16,7 +16,7 @@
   - `backend/crates/core/src/websocket/mod.rs` - Module exports
   - `backend/crates/api/src/handlers/dynamic_ws.rs` - WebSocket route handler
   - `backend/crates/core/tests/vm_websocket_test.rs` - 5 comprehensive tests
-  - `WEBSOCKET_GUIDE.md` - Complete WebSocket documentation
+  - `documentation/WEBSOCKET_GUIDE.md` - Complete WebSocket documentation
 
 - **Modified Files:**
   - `backend/crates/proto/src/models/routes.rs` - Added RouteType enum and WebSocketHooks
@@ -37,7 +37,7 @@
   - Fixed all doctests to use new crate name
 
 ### 📚 Documentation
-- Added comprehensive [WEBSOCKET_GUIDE.md](WEBSOCKET_GUIDE.md) with:
+- Added comprehensive [WEBSOCKET_GUIDE.md](documentation/WEBSOCKET_GUIDE.md) with:
   - Event hook examples (on_connect, on_message, on_disconnect)
   - WsOp command reference (send, broadcast)
   - Complete examples (echo server, chat room, game server)
@@ -50,7 +50,7 @@
   - Updated performance metrics (38k+ req/s)
   - Added Phase 6 completion status
   
-- Updated [DYNAMIC_ROUTES_GUIDE.md](DYNAMIC_ROUTES_GUIDE.md):
+- Updated [DYNAMIC_ROUTES_GUIDE.md](documentation/DYNAMIC_ROUTES_GUIDE.md):
   - Marked WebSocket support as completed
   - Added link to WebSocket guide
 

@@ -180,7 +180,7 @@ export const FunctionsView: React.FC = () => {
     return (
       <div className="h-full flex items-center justify-center bg-[#1e1f22]">
         <div className="flex flex-col items-center gap-3 text-[#6e7073]">
-          <Loader2 size={32} className="animate-spin text-[#3574f0]" />
+          <Loader2 size={32} className="animate-spin text-[#e85d26]" />
           <p className="text-sm">Loading function registry...</p>
         </div>
       </div>
@@ -195,7 +195,7 @@ export const FunctionsView: React.FC = () => {
           <p className="text-sm">{error}</p>
           <button
             onClick={loadFunctions}
-            className="px-4 py-2 bg-[#3574f0] text-white rounded-[var(--radius)] hover:bg-[#2d5fc7] transition-colors text-sm"
+            className="px-4 py-2 bg-[#e85d26] text-white rounded-[var(--radius)] hover:bg-[#c74e1f] transition-colors text-sm"
           >
             Retry
           </button>
@@ -211,8 +211,8 @@ export const FunctionsView: React.FC = () => {
         {/* Sidebar Header */}
         <div className="p-3 border-b border-[#43454a] bg-[#2b2d30]">
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 rounded-[var(--radius)] bg-[#3574f0]/10 border border-[#3574f0]/30 flex items-center justify-center">
-              <FunctionSquare size={16} className="text-[#3574f0]" />
+            <div className="w-8 h-8 rounded-[var(--radius)] bg-[#e85d26]/10 border border-[#e85d26]/30 flex items-center justify-center">
+              <FunctionSquare size={16} className="text-[#e85d26]" />
             </div>
             <div className="flex-1">
               <h2 className="text-sm font-bold text-[#dfe1e5]">Functions Lib</h2>
@@ -230,7 +230,7 @@ export const FunctionsView: React.FC = () => {
           {/* New Function Button */}
           <button
             onClick={handleNewFunction}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-[#3574f0] hover:bg-[#2d5fc7] text-white text-sm font-medium rounded-[var(--radius)] transition-all active:scale-95"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-[#e85d26] hover:bg-[#c74e1f] text-white text-sm font-medium rounded-[var(--radius)] transition-all active:scale-95"
           >
             <Plus size={16} />
             New Function
@@ -244,7 +244,7 @@ export const FunctionsView: React.FC = () => {
               placeholder="Search functions..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-[#1e1f22] border border-[#43454a] rounded-[var(--radius)] text-[#dfe1e5] text-xs placeholder-[#6e7073] focus:outline-none focus:border-[#3574f0] transition-colors"
+              className="w-full pl-9 pr-3 py-2 bg-[#1e1f22] border border-[#43454a] rounded-[var(--radius)] text-[#dfe1e5] text-xs placeholder-[#6e7073] focus:outline-none focus:border-[#e85d26] transition-colors"
             />
           </div>
         </div>
@@ -266,12 +266,12 @@ export const FunctionsView: React.FC = () => {
                   onClick={() => handleSelectFunction(func)}
                   className={`w-full text-left p-3 rounded-[var(--radius)] transition-all group ${
                     activeFunction?.name === func.name && !isCreatingNew
-                      ? 'bg-[#3574f0]/10 border border-[#3574f0]/30'
+                      ? 'bg-[#e85d26]/10 border border-[#e85d26]/30'
                       : 'hover:bg-[#393b40] border border-transparent'
                   }`}
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <Code2 size={14} className="text-[#3574f0] flex-shrink-0" />
+                    <Code2 size={14} className="text-[#e85d26] flex-shrink-0" />
                     <span className="text-sm font-medium text-[#dfe1e5] font-mono truncate">
                       {func.name}
                     </span>
@@ -313,7 +313,7 @@ export const FunctionsView: React.FC = () => {
               </p>
               <button
                 onClick={handleNewFunction}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-[#3574f0] hover:bg-[#2d5fc7] text-white font-medium rounded-[var(--radius)] transition-all active:scale-95"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-[#e85d26] hover:bg-[#c74e1f] text-white font-medium rounded-[var(--radius)] transition-all active:scale-95"
               >
                 <Plus size={18} />
                 Create New Function
@@ -325,7 +325,7 @@ export const FunctionsView: React.FC = () => {
             {/* Editor Header */}
             <div className="h-12 flex items-center justify-between px-4 border-b border-[#43454a] bg-[#2b2d30]">
               <div className="flex items-center gap-3">
-                <Code2 size={18} className="text-[#3574f0]" />
+                <Code2 size={18} className="text-[#e85d26]" />
                 <h3 className="text-sm font-bold text-[#dfe1e5]">
                   {isCreatingNew ? 'New Function' : activeFunction?.name}
                 </h3>
@@ -350,7 +350,7 @@ export const FunctionsView: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setShowAIModal(true)}
-                  className="flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-[#3574f0] to-[#c678dd] hover:from-[#2d5fc7] hover:to-[#a85ec4] text-white text-xs font-bold rounded-[var(--radius)] transition-all active:scale-95 shadow-lg"
+                  className="flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-[#e85d26] to-[#f2c55c] hover:from-[#c74e1f] hover:to-[#d9a03c] text-white text-xs font-bold rounded-[var(--radius)] transition-all active:scale-95 shadow-lg"
                 >
                   <Sparkles size={12} />
                   Generate with AI
@@ -403,7 +403,7 @@ export const FunctionsView: React.FC = () => {
                     value={editedName}
                     onChange={(e) => setEditedName(e.target.value)}
                     placeholder="e.g., calculate_tax, format_date"
-                    className="w-full px-4 py-2.5 bg-[#2b2d30] border border-[#43454a] rounded-[var(--radius)] text-[#dfe1e5] placeholder-[#6e7073] focus:outline-none focus:border-[#3574f0] transition-colors font-mono text-sm"
+                    className="w-full px-4 py-2.5 bg-[#2b2d30] border border-[#43454a] rounded-[var(--radius)] text-[#dfe1e5] placeholder-[#6e7073] focus:outline-none focus:border-[#e85d26] transition-colors font-mono text-sm"
                   />
                 </div>
 
@@ -417,7 +417,7 @@ export const FunctionsView: React.FC = () => {
                     value={editedParams}
                     onChange={(e) => setEditedParams(e.target.value)}
                     placeholder="e.g., price, tax_rate, quantity"
-                    className="w-full px-4 py-2.5 bg-[#2b2d30] border border-[#43454a] rounded-[var(--radius)] text-[#dfe1e5] placeholder-[#6e7073] focus:outline-none focus:border-[#3574f0] transition-colors font-mono text-sm"
+                    className="w-full px-4 py-2.5 bg-[#2b2d30] border border-[#43454a] rounded-[var(--radius)] text-[#dfe1e5] placeholder-[#6e7073] focus:outline-none focus:border-[#e85d26] transition-colors font-mono text-sm"
                   />
                   <p className="text-[10px] text-[#6e7073] mt-1">
                     Leave empty for functions with no parameters

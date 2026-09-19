@@ -6,10 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:binary": "npm run build && cargo build --manifest-path backend/Cargo.toml --bin worpen",
+    "build:release": "npm run build && cargo build --release --manifest-path backend/Cargo.toml --bin worpen"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
+    "express": "^5.2.1",
     "framer-motion": "^12.23.26",
     "lucide-react": "^0.561.0",
     "react": "^19.2.3",

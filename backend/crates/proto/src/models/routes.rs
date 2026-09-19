@@ -163,6 +163,95 @@ pub struct WebSocketHooks {
     pub on_disconnect: Vec<LogicOperation>,
 }
 
+/// Capability-based sandbox policy per route (Phase 1).
+/// `None` on a route = legacy permissive mode (backward compatible).
+/// New routes created via CLI get `SandboxPolicy::restrictive_default()`.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct SandboxPolicy {
+    /// Allow outbound HTTP requests at all
+    #[serde(default = "default_true")]
+    pub allow_net: bool,
+    /// Allowed URL hosts (substring/suffix match). Empty = allow all (if allow_net).
+    /// Example: ["api.stripe.com", "127.0.0.1"]
+    #[serde(default)]
+    pub allowed_hosts: Vec<String>,
+    /// Allow SQL operations
+    #[serde(default = "default_true")]
+    pub allow_sql: bool,
+    /// Allow Redis operations
+    #[serde(default = "default_true")]
+    pub allow_redis: bool,
+    /// Allow arbitrary script execution (`execute_script`)
+    #[serde(default)]
+    pub allow_scripts: bool,
+    /// Max total execution time per request (ms)
+    #[serde(default = "default_timeout")]
+    pub max_timeout_ms: u64,
+    /// Max sleep per `sleep` op (ms) — DoS guard
+    #[serde(default = "default_max_sleep")]
+    pub max_sleep_ms: u64,
+    /// Default cap for `while` loops without explicit max_iterations
+    #[serde(default = "default_max_iters")]
+    pub max_loop_iterations: u32,
+    /// Max distinct variables per execution (memory DoS guard)
+    #[serde(default = "default_max_vars")]
+    pub max_variables: usize,
+}
+
+fn default_true() -> bool { true }
+fn default_timeout() -> u64 { 10_000 }
+fn default_max_sleep() -> u64 { 5_000 }
+fn default_max_iters() -> u32 { 1000 }
+fn default_max_vars() -> usize { 5000 }
+
+impl Default for SandboxPolicy {
+    fn default() -> Self {
+        Self {
+            allow_net: true,
+            allowed_hosts: vec![],
+            allow_sql: true,
+            allow_redis: true,
+            allow_scripts: false,
+            max_timeout_ms: 10_000,
+            max_sleep_ms: 5_000,
+            max_loop_iterations: 1000,
+            max_variables: 5000,
+        }
+    }
+}
+
+impl SandboxPolicy {
+    /// Strict default for AI-generated / untrusted routes.
+    pub fn restrictive_default() -> Self {
+        Self {
+            allow_net: false,
+            allowed_hosts: vec![],
+            allow_sql: false,
+            allow_redis: false,
+            allow_scripts: false,
+            max_timeout_ms: 10_000,
+            max_sleep_ms: 1_000,
+            max_loop_iterations: 500,
+            max_variables: 500,
+        }
+    }
+
+    /// Host allowlist check. Supports exact, suffix (".example.com") and substring.
+    pub fn is_host_allowed(&self, host: &str) -> bool {
+        if !self.allow_net {
+            return false;
+        }
+        if self.allowed_hosts.is_empty() {
+            return true; // legacy permissive
+        }
+        let h = host.to_lowercase();
+        self.allowed_hosts.iter().any(|a| {
+            let a = a.to_lowercase();
+            h == a || h.ends_with(&format!(".{}", a)) || h.contains(&a)
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct RouteDefinition {
     pub id: String,
@@ -176,6 +265,7 @@ pub struct RouteDefinition {
     pub ws_hooks: Option<WebSocketHooks>,
     pub parameters: Vec<RouteParameter>,
     pub response_schema: Option<serde_json::Value>,
+    #[serde(default)]
     pub auth_required: bool,
     pub rate_limit: Option<u32>,
     pub enabled: bool,
@@ -183,6 +273,9 @@ pub struct RouteDefinition {
     pub created_at: String,
     pub updated_at: String,
     pub created_by: String,
+    /// Sandbox policy. None = legacy permissive (backward compatible).
+    #[serde(default)]
+    pub sandbox: Option<SandboxPolicy>,
 }
 
 /// Request body for registering a new route (id, timestamps, created_by are auto-generated)
@@ -207,6 +300,9 @@ pub struct RegisterRouteRequest {
     pub enabled: bool,
     #[serde(default = "default_version")]
     pub version: String,
+    /// Optional sandbox policy. If omitted, server applies safe default.
+    #[serde(default)]
+    pub sandbox: Option<SandboxPolicy>,
 }
 
 fn default_enabled() -> bool {
@@ -253,6 +349,9 @@ pub struct DynamicRouteExecutionContext {
     pub functions: HashMap<String, FunctionDefinition>,
     pub loop_control: LoopControl,
     pub error_context: Option<ErrorContext>,
+    /// Active sandbox policy for this execution (None = legacy permissive).
+    #[serde(default)]
+    pub sandbox: Option<SandboxPolicy>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

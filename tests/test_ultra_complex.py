@@ -1,5 +1,9 @@
 import requests
 import json
+import os
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+os.chdir(HERE)
 
 # Load YAML
 with open('ultra_complex_test.yaml', 'r') as f:

@@ -113,13 +113,17 @@ name = "api"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "clap",
  "colored",
  "dashmap",
+ "dotenvy",
  "futures",
  "infra",
  "proto",
+ "reqwest",
  "serde",
  "serde_json",
+ "serde_yaml",
  "sqlx",
  "tokio",
  "tower-http 0.5.2",
@@ -1144,6 +1148,12 @@ dependencies = [
  "http-body",
  "pin-project-lite",
 ]
+
+[[package]]
+name = "http-range-header"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9171a2ea8a68358193d15dd5d70c1c10a2afc3e7e4c5bc92bc9f025cebd7359c"
 
 [[package]]
 name = "httparse"
@@ -3044,10 +3054,18 @@ checksum = "1e9cd434a998747dd2c4276bc96ee2e0c7a2eadf3cae88e52be55a05fa9053f5"
 dependencies = [
  "bitflags",
  "bytes",
+ "futures-util",
  "http",
  "http-body",
  "http-body-util",
+ "http-range-header",
+ "httpdate",
+ "mime",
+ "mime_guess",
+ "percent-encoding",
  "pin-project-lite",
+ "tokio",
+ "tokio-util",
  "tower-layer",
  "tower-service",
  "tracing",

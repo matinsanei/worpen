@@ -19,7 +19,7 @@
 [![Tests](https://img.shields.io/badge/TESTS-255_PASSING-blue?style=for-the-badge&logo=github-actions)](backend/tests)
 [![License](https://img.shields.io/badge/LICENSE-MIT-blue?style=for-the-badge&logo=open-source-initiative)](LICENSE)
 [![YAML](https://img.shields.io/badge/YAML-SUPPORTED-blue?style=for-the-badge&logo=yaml)](documentation/13-yaml-syntax.md)
-[![WebSocket](https://img.shields.io/badge/WEBSOCKET-SUPPORTED-green?style=for-the-badge&logo=socket.io)](WEBSOCKET_GUIDE.md)
+[![WebSocket](https://img.shields.io/badge/WEBSOCKET-SUPPORTED-green?style=for-the-badge&logo=socket.io)](documentation/WEBSOCKET_GUIDE.md)
 
 <p align="center">
   <b>Logic-as-Data</b> • <b>Bytecode VM</b> • <b>Zero-Cost Inlining</b> • <b>Hot-Swap</b> • <b>WebSocket</b>
@@ -27,7 +27,7 @@
 
 > *"Forget about middleware. Define your business logic as data, and let the Worpen VM execute it at metal speed."*
 
-[Quick Start](#-quick-start) • [Benchmarks](#-performance--benchmarks) • [Architecture](#-architecture-the-internal-magic) • [Roadmap](ROADMAP.md)
+[Quick Start](#-quick-start) • [Benchmarks](#-performance--benchmarks) • [Architecture](#-architecture-the-internal-magic) • [Roadmap](documentation/ROADMAP.md)
 
 </div>
 
@@ -83,16 +83,45 @@ Worpen functions as a **Runtime Compiler**, not just a simple JSON parser.
 
 ---
 
-## 🚀 𝐐𝐔𝐈𝐂𝐊 𝐒𝐓𝐀𝐑𝐓
+## 🚀 𝐐𝐔𝐈𝐂𝐊 𝐒𝐓𝐀𝐑𝐓 (single binary)
 
-### 1. Run the Server
+Worpen ships as **one file**: the same `worpen` binary serves the API, the UI, the CLI and MCP.
+
 ```bash
-git clone https://github.com/matinsanei/worpen.git
-cd worpen/backend
-cargo run --release
+# 1. Build everything (UI + optimized binary)
+npm run build:release
+
+# 2. Run — first time? take the interactive tour:
+./backend/target/release/worpen setup
+./backend/target/release/worpen serve --port 3000
+
+# Open http://127.0.0.1:3000  (UI + API on one port, zero config)
 ```
 
-### 2. Define a Global Function (Reusable Logic)
+No setup? Just run — sane defaults apply (`127.0.0.1:3000`, data auto-detected,
+open auth until you set `WORPEN_API_TOKEN`).
+
+### CLI (works fully headless, `--no-ui` friendly)
+```bash
+worpen route list | add --file api.yaml [--locked] | exec --id <id> | audit
+worpen func list | add --file fn.json | delete --name <name>
+worpen pipeline list | define --file pipe.yaml | run --name <name> | runs
+worpen mcp serve-stdio | tools | call --tool <name>
+worpen doctor
+```
+
+### MCP (AI actions)
+Every route is an MCP tool, every pipeline a namespaced one (`pipeline:<name>`):
+```bash
+curl -X POST http://127.0.0.1:3000/mcp \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call",
+       "params":{"name":"checkout_api","arguments":{"payload":{}}}}}'
+# STDIO for Claude Desktop / agents:
+worpen mcp serve-stdio
+```
+
+### 3. Define a Global Function (Reusable Logic)
 ```bash
 curl -X POST http://127.0.0.1:3000/api/v1/global-functions \
   -H "Content-Type: application/json" \
@@ -273,14 +302,14 @@ logic:
 - 🏗️ **[Variable Scoping & VM](documentation/03-variables-basics.md)**
 - 🔁 **[Advanced Loops & Logic](documentation/05-loops.md)**
 - 📞 **[Zero-Cost Functions](documentation/06-functions.md)**
-- 🔌 **[WebSocket Support](WEBSOCKET_GUIDE.md)** ⭐ NEW
-  - 📋 **[Quick Reference](WEBSOCKET_QUICKREF.md)**
+- 🔌 **[WebSocket Support](documentation/WEBSOCKET_GUIDE.md)** ⭐ NEW
+  - 📋 **[Quick Reference](documentation/WEBSOCKET_QUICKREF.md)**
 - 🔄 **[Migration from JSON to YAML](documentation/15-migration-guide.md)**
 - ✨ **[Performance Best Practices](documentation/16-best-practices.md)**
 - 📝 **[Changelog](CHANGELOG.md)**
 
 ### Extensibility & Custom Operations 🎨 NEW
-- 🧩 **[Custom Operations Guide](CUSTOM_OPERATIONS_GUIDE.md)** - Complete guide to Zero-Touch Extensibility
+- 🧩 **[Custom Operations Guide](documentation/CUSTOM_OPERATIONS_GUIDE.md)** - Complete guide to Zero-Touch Extensibility
 - 🚀 **[Extensions Quick Start](documentation/EXTENSIONS_QUICKSTART.md)** - 3-minute setup guide
 - 📦 **[Schema Examples](documentation/SCHEMA_EXAMPLES.md)** - 20+ ready-to-use operation schemas
   - Notifications (NotifyOp, PushNotificationOp)

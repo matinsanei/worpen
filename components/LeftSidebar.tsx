@@ -2,8 +2,8 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-    Activity, Database, AlertCircle, Settings,
-    Network, Code2, List, Hexagon
+    Activity, AlertCircle, Settings,
+    Network, Code2, Hexagon, GitBranch
 } from 'lucide-react';
 import { ViewState } from '../types';
 
@@ -19,15 +19,9 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ isOpen, currentView, o
         'DASHBOARD': '/',
         'DYNAMIC_ROUTES': '/routes',
         'FUNCTIONS': '/functions',
-        'STORAGE': '/storage',
         'CICD': '/traces',
         'INCIDENTS': '/errors',
         'SETTINGS': '/settings',
-        // Legacy paths (hidden from UI but kept for compatibility)
-        'FLEET': '/fleet',
-        'DOCKER': '/containers',
-        'AUTOMATION': '/auto-healing',
-        'DEPENDENCY': '/artifacts',
     };
 
     const NavItem = ({ view, icon: Icon, label, alert }: { view: ViewState, icon: any, label: string, alert?: boolean }) => {
@@ -41,18 +35,18 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ isOpen, currentView, o
                 className={`
           w-full flex items-center my-0.5 rounded-[var(--radius)] transition-all duration-200 group relative py-1.5
           ${isOpen ? 'px-2' : 'justify-center'}
-          ${active ? 'bg-[#3574f020] text-[#3574f0]' : 'text-[#dfe1e5] hover:bg-[#393b40]'}
+          ${active ? 'bg-[#e85d2620] text-[#e85d26]' : 'text-[#dfe1e5] hover:bg-[#393b40]'}
         `}
                 title={!isOpen ? label : ''}
             >
                 {/* Active Indicator - Fixed position for collapsed/expanded */}
                 {active && (
-                    <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#3574f0] rounded-r-full shadow-[0_0_8px_rgba(53,116,240,0.3)] ${isOpen ? 'translate-x-[-12px]' : 'translate-x-[-6px]'}`}></div>
+                    <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#e85d26] rounded-r-full shadow-[0_0_8px_rgba(232,93,38,0.3)] ${isOpen ? 'translate-x-[-12px]' : 'translate-x-[-6px]'}`}></div>
                 )}
 
                 {/* Icon */}
                 <div className="flex justify-center items-center z-10 flex-shrink-0">
-                    <Icon size={18} className={`transition-colors duration-200 ${active ? 'text-[#3574f0]' : 'text-[#6e7073] group-hover:text-[#dfe1e5]'}`} strokeWidth={active ? 2.5 : 2} />
+                    <Icon size={18} className={`transition-colors duration-200 ${active ? 'text-[#e85d26]' : 'text-[#6e7073] group-hover:text-[#dfe1e5]'}`} strokeWidth={active ? 2.5 : 2} />
                 </div>
 
                 {/* Label */}
@@ -97,7 +91,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ isOpen, currentView, o
             <div className={`h-12 flex items-center border-b border-[#43454a] relative flex-shrink-0 group/brand ${isOpen ? 'px-4' : 'justify-center'}`}>
                 <div className="flex items-center relative z-10 overflow-hidden">
                     {/* Logo - Rounded Square */}
-                    <div className="relative w-7 h-7 flex items-center justify-center flex-shrink-0 rounded-[var(--radius)] bg-[#3574f0] shadow-lg shadow-[#3574f020]">
+                    <div className="relative w-7 h-7 flex items-center justify-center flex-shrink-0 rounded-[var(--radius)] bg-[#e85d26] shadow-lg shadow-[#e85d2620]">
                         <Hexagon size={16} className="text-white" strokeWidth={2.5} />
                     </div>
 
@@ -114,11 +108,10 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ isOpen, currentView, o
                     <NavItem view="DASHBOARD" icon={Activity} label="Overview" />
                     <NavItem view="DYNAMIC_ROUTES" icon={Network} label="API Routes" />
                     <NavItem view="FUNCTIONS" icon={Code2} label="Functions Lib" />
-                    <NavItem view="STORAGE" icon={Database} label="Storage" />
                 </NavGroup>
 
                 <NavGroup label="OBSERVABILITY">
-                    <NavItem view="CICD" icon={List} label="Live Traces" />
+                    <NavItem view="CICD" icon={GitBranch} label="Live Traces" />
                     <NavItem view="INCIDENTS" icon={AlertCircle} label="Error Logs" alert={true} />
                 </NavGroup>
 
@@ -131,7 +124,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ isOpen, currentView, o
             <div className="p-2 border-t border-[#43454a] bg-[#2b2d30]">
                 <button className={`w-full flex items-center rounded-[var(--radius)] hover:bg-[#393b40] transition-colors group relative overflow-hidden ${isOpen ? 'p-2 gap-3' : 'justify-center p-1.5'}`}>
                     <div className="relative min-w-[28px]">
-                        <div className="w-7 h-7 rounded-[var(--radius)] bg-[#4e5157] border border-[#5a5d63] flex items-center justify-center text-white font-bold text-[10px] group-hover:border-[#3574f0] transition-colors">
+                        <div className="w-7 h-7 rounded-[var(--radius)] bg-[#4e5157] border border-[#5a5d63] flex items-center justify-center text-white font-bold text-[10px] group-hover:border-[#e85d26] transition-colors">
                             OP
                         </div>
                     </div>

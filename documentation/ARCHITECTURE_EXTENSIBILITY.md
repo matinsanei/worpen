@@ -5,46 +5,46 @@
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         WORPEN DYNAMIC API ENGINE                           │
-│                         Zero-Touch Extensibility System                      │
+│                         Zero-Touch Extensibility System                     │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                          FRONTEND LAYER (React + TypeScript)                │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  ┌────────────────────────────────────────────────────────────────────┐    │
-│  │  SETTINGS UI (Extensions Manager)                                  │    │
-│  │                                                                     │    │
-│  │  • User defines Custom Operation Schema (JSON Schema Draft 7)     │    │
-│  │  • Schema stored in: localStorage['worpen_custom_schemas']        │    │
-│  │  • Format: { operationName, schema, id, createdAt }               │    │
-│  │                                                                     │    │
-│  │  Example:                                                           │    │
-│  │  {                                                                  │    │
-│  │    "operationName": "NotifyOp",                                    │    │
-│  │    "schema": {                                                      │    │
-│  │      "type": "object",                                             │    │
-│  │      "required": ["message"],                                      │    │
-│  │      "properties": {                                               │    │
-│  │        "message": { "type": "string" }                             │    │
-│  │      }                                                              │    │
-│  │    }                                                                │    │
-│  │  }                                                                  │    │
-│  └────────────────────────────────────────────────────────────────────┘    │
+│  ┌────────────────────────────────────────────────────────────────────┐      │
+│  │  SETTINGS UI (Extensions Manager)                                  │      │
+│  │                                                                    │      │
+│  │  • User defines Custom Operation Schema (JSON Schema Draft 7)      │      │
+│  │  • Schema stored in: localStorage['worpen_custom_schemas']         │      │
+│  │  • Format: { operationName, schema, id, createdAt }                │      │
+│  │                                                                    │      │
+│  │  Example:                                                          │      │
+│  │  {                                                                 │      │
+│  │    "operationName": "NotifyOp",                                    │      │
+│  │    "schema": {                                                     │      │
+│  │      "type": "object",                                             │      │
+│  │      "required": ["message"],                                      │      │
+│  │      "properties": {                                               │      │
+│  │        "message": { "type": "string" }                             │      │
+│  │      }                                                             │      │
+│  │    }                                                               │      │ 
+│  │  }                                                                 │      │
+│  └────────────────────────────────────────────────────────────────────┘      │
 │                                    ↓                                         │
-│  ┌────────────────────────────────────────────────────────────────────┐    │
-│  │  MONACO EDITOR (Route Builder)                                     │    │
-│  │                                                                     │    │
-│  │  • Loads schemas from localStorage on mount                        │    │
-│  │  • Extends WORPEN_ROUTE_SCHEMA with custom operations             │    │
-│  │  • Provides:                                                        │    │
-│  │    - Autocomplete (Ctrl+Space)                                     │    │
-│  │    - Type validation                                               │    │
-│  │    - Inline documentation (hover)                                  │    │
-│  │    - Error highlighting                                            │    │
-│  │                                                                     │    │
-│  │  • Storage event listener for cross-tab sync                       │    │
-│  └────────────────────────────────────────────────────────────────────┘    │
+│  ┌────────────────────────────────────────────────────────────────────┐      │
+│  │  MONACO EDITOR (Route Builder)                                     │      │
+│  │                                                                    │      │
+│  │  • Loads schemas from localStorage on mount                        │      │
+│  │  • Extends WORPEN_ROUTE_SCHEMA with custom operations              │      │
+│  │  • Provides:                                                       │      │
+│  │    - Autocomplete (Ctrl+Space)                                     │      │
+│  │    - Type validation                                               │      │
+│  │    - Inline documentation (hover)                                  │      │
+│  │    - Error highlighting                                            │      │
+│  │                                                                    │      │
+│  │  • Storage event listener for cross-tab sync                       │      │
+│  └────────────────────────────────────────────────────────────────────┘      │
 │                                                                              │
 └──────────────────────────────────────┬───────────────────────────────────────┘
                                        │ HTTP POST /api/v1/dynamic-routes

@@ -84,9 +84,9 @@ export const AIGeneratorModal: React.FC<AIGeneratorModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="w-full max-w-4xl max-h-[90vh] flex flex-col bg-[#2b2d30] border border-[#43454a] rounded-lg shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-[#43454a] bg-gradient-to-r from-[#3574f0]/10 to-[#c678dd]/10">
+        <div className="flex items-center justify-between p-4 border-b border-[#43454a] bg-gradient-to-r from-[#e85d26]/10 to-[#c678dd]/10">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#3574f0] to-[#c678dd] flex items-center justify-center shadow-lg">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#e85d26] to-[#c678dd] flex items-center justify-center shadow-lg">
               <Sparkles size={20} className="text-white" />
             </div>
             <div>
@@ -115,7 +115,7 @@ export const AIGeneratorModal: React.FC<AIGeneratorModalProps> = ({
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Example: Calculate the total price including 15% tax..."
-              className="w-full h-32 px-4 py-3 bg-[#1e1f22] border border-[#43454a] rounded-[var(--radius)] text-[#dfe1e5] placeholder-[#6e7073] focus:outline-none focus:border-[#3574f0] transition-colors resize-none text-sm"
+              className="w-full h-32 px-4 py-3 bg-[#1e1f22] border border-[#43454a] rounded-[var(--radius)] text-[#dfe1e5] placeholder-[#6e7073] focus:outline-none focus:border-[#e85d26] transition-colors resize-none text-sm"
               disabled={loading}
             />
           </div>
@@ -144,7 +144,7 @@ export const AIGeneratorModal: React.FC<AIGeneratorModalProps> = ({
             <button
               onClick={handleGenerate}
               disabled={loading || !prompt.trim()}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#3574f0] to-[#c678dd] hover:from-[#2d5fc7] hover:to-[#a85ec4] text-white font-bold rounded-[var(--radius)] transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#e85d26] to-[#f2c55c] hover:from-[#c74e1f] hover:to-[#d9a03c] text-white font-bold rounded-[var(--radius)] transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
             >
               {loading ? (
                 <>

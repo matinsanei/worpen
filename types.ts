@@ -58,38 +58,4 @@ export interface AutomationRule {
   active: boolean;
 }
 
-export interface DockerLayer {
-  hash: string;
-  instruction: string;
-  size: string;
-  isShared: boolean;
-  status: 'CACHED' | 'DOWNLOADING' | 'REDUNDANT';
-}
-
-export interface ImageManifest {
-  id: string;
-  name: string;
-  tag: string;
-  totalSize: string;
-  layers: DockerLayer[];
-}
-
-export interface PipelineStage {
-  id: string;
-  name: string;
-  status: 'SUCCESS' | 'FAILED' | 'RUNNING' | 'PENDING';
-  duration: string;
-}
-
-export interface Pipeline {
-  id: string;
-  name: string;
-  branch: string;
-  commit: string;
-  author: string;
-  status: 'SUCCESS' | 'FAILED' | 'RUNNING' | 'PENDING';
-  lastRun: string;
-  stages: PipelineStage[];
-}
-
-export type ViewState = 'DASHBOARD' | 'DYNAMIC_ROUTES' | 'FUNCTIONS' | 'STORAGE' | 'CICD' | 'INCIDENTS' | 'SETTINGS' | 'FLEET' | 'DOCKER' | 'AUTOMATION' | 'DEPENDENCY';
+export type ViewState = 'DASHBOARD' | 'DYNAMIC_ROUTES' | 'FUNCTIONS' | 'CICD' | 'INCIDENTS' | 'SETTINGS';

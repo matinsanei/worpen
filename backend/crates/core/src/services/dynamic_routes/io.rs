@@ -16,6 +16,20 @@ pub async fn handle_http_request(
     
     // Resolve URL with variables
     let resolved_url = resolve_string(url, context);
+
+    // Sandbox enforcement (defense in depth — execution.rs already checks)
+    if let Some(policy) = context.sandbox.clone() {
+        if !policy.allow_net {
+            return Err("sandbox: network access denied for this route (allow_net=false)".to_string());
+        }
+        // extract host
+        let after_scheme = resolved_url.split("://").nth(1).unwrap_or(&resolved_url);
+        let host_port = after_scheme.split('/').next().unwrap_or("");
+        let host = host_port.split('@').next_back().unwrap_or(host_port).split(':').next().unwrap_or(host_port);
+        if !policy.is_host_allowed(host) {
+            return Err(format!("sandbox: host '{}' not in allowed_hosts {:?}", host, policy.allowed_hosts));
+        }
+    }
     
     // Create HTTP client
     let mut client_builder = reqwest::Client::builder();

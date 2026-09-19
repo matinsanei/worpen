@@ -64,7 +64,7 @@ cargo clippy --all-targets --all-features -- -D warnings
 
 # Run Python integration tests (optional)
 cd ..
-python test_all_yaml.py
+python tests/test_all_yaml.py
 ```
 
 ### 3. Start Development Server

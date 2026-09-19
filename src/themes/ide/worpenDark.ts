@@ -6,11 +6,11 @@ export const worpenDark: IDETheme = {
     activityBar: {
         bg: '#2b2d30',
         border: '#43454a',
-        activeIcon: '#3574f0',
-        activeBg: '#3574f015',
+        activeIcon: '#e85d26',
+        activeBg: '#e85d2615',
         inactiveIcon: '#6e7073',
         hoverBg: '#393b40',
-        indicator: '#3574f0',
+        indicator: '#e85d26',
     },
     sidebar: {
         bg: '#2b2d30',
@@ -20,7 +20,7 @@ export const worpenDark: IDETheme = {
         folderHoverBg: '#393b40',
         itemText: '#dfe1e5',
         itemHoverBg: '#393b40',
-        activeItemBg: '#3574f0',
+        activeItemBg: '#e85d26',
         activeItemText: '#ffffff',
         iconEnabled: '#59a869',
         iconDisabled: '#6e7073',
@@ -33,7 +33,7 @@ export const worpenDark: IDETheme = {
         tabActiveText: '#dfe1e5',
         tabInactiveText: '#6e7073',
         tabBorder: '#43454a',
-        tabIndicator: '#3574f0',
+        tabIndicator: '#e85d26',
         monacoTheme: 'worpen-dark',
         monacoConfig: {
             base: 'vs-dark',
@@ -60,7 +60,7 @@ export const worpenDark: IDETheme = {
         },
     },
     statusBar: {
-        bg: '#3574f0',
+        bg: '#e85d26',
         text: '#ffffff',
         hoverBg: 'rgba(255, 255, 255, 0.1)',
         border: 'rgba(255, 255, 255, 0.05)',
