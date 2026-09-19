@@ -7,346 +7,206 @@
 ██║███╗██║██║   ██║██╔══██╗██╔═══╝ ██╔══╝  ██║╚██╗██║
 ╚███╔███╔╝╚██████╔╝██║  ██║██║     ███████╗██║ ╚████║
  ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚═╝     ╚══════╝╚═╝  ╚═══╝
-                                                       
+
     🔥 LOGIC-AS-DATA • ZERO-COST INLINING • BYTECODE VM 🔥
 ```
 
 # ⚡ **W O R P E N** ⚡
-### **ᴛʜᴇ ᴅʏɴᴀᴍɪᴄ ᴀᴘɪ ᴇɴɢɪɴᴇ** • *ᴘᴏᴡᴇʀᴇᴅ ʙʏ ʀᴜsᴛ* 🦀
+### **ᴛʜᴇ ᴀᴄᴛɪᴏɴ ᴘʟᴀɴᴇ ꜰᴏʀ ᴀɪ ᴀɢᴇɴᴛs** • *ᴘᴏᴡᴇʀᴇᴅ ʙʏ ʀᴜsᴛ* 🦀
 
-[![Core](https://img.shields.io/badge/CORE-RUST_1.80+-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
-[![Performance](https://img.shields.io/badge/SPEED-38k%2B_REQ/S-green?style=for-the-badge&logo=speedtest)](https://github.com/matinsanei/worpen)
-[![Tests](https://img.shields.io/badge/TESTS-255_PASSING-blue?style=for-the-badge&logo=github-actions)](backend/tests)
+[![MCP](https://img.shields.io/badge/MCP-SERVER_%2B_STDIO-purple?style=for-the-badge&logo=openai)](https://modelcontextprotocol.io/)
+[![Core](https://img.shields.io/badge/CORE-RUST-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
+[![Sandbox](https://img.shields.io/badge/SANDBOX-CAPABILITY--BASED-red?style=for-the-badge&logo=shield)](documentation/01-introduction.md)
+[![Tests](https://img.shields.io/badge/TESTS-250_PASSING-blue?style=for-the-badge&logo=github-actions)](backend/crates/core/tests)
 [![License](https://img.shields.io/badge/LICENSE-MIT-blue?style=for-the-badge&logo=open-source-initiative)](LICENSE)
-[![YAML](https://img.shields.io/badge/YAML-SUPPORTED-blue?style=for-the-badge&logo=yaml)](documentation/13-yaml-syntax.md)
-[![WebSocket](https://img.shields.io/badge/WEBSOCKET-SUPPORTED-green?style=for-the-badge&logo=socket.io)](documentation/WEBSOCKET_GUIDE.md)
 
 <p align="center">
-  <b>Logic-as-Data</b> • <b>Bytecode VM</b> • <b>Zero-Cost Inlining</b> • <b>Hot-Swap</b> • <b>WebSocket</b>
+  <b>MCP Server</b> • <b>Sandboxed VM</b> • <b>Multi-Step Pipelines</b> • <b>Single Binary</b>
 </p>
 
-> *"Forget about middleware. Define your business logic as data, and let the Worpen VM execute it at metal speed."*
+> *"Don't make your LLM juggle ten tools. Give it one Worpen tool that runs the whole job — branched, looped, cached and sandboxed — in 4 milliseconds."*
 
-[Quick Start](#-quick-start) • [Benchmarks](#-performance--benchmarks) • [Architecture](#-architecture-the-internal-magic) • [Roadmap](documentation/ROADMAP.md)
+[Why Worpen for AI](#-why-ai-agents-need-worpen) • [60-Second Demo](#-60-second-demo) • [MCP Setup](#-mcp--give-your-agent-hands) • [Sandbox](#-sandbox--let-agents-touch-prod-safely) • [Docs](#-documentation)
 
 </div>
 
 ---
 
-## 🌌 𝐎𝐕𝐄𝐑𝐕𝐈𝐄𝐖
+## 🧠 𝐖𝐇𝐘 𝐀𝐈 𝐀𝐆𝐄𝐍𝐓𝐒 𝐍𝐄𝐄𝐃 𝐖𝐎𝐑𝐏𝐄𝐍
 
-**WORPEN** is a high-performance **Dynamic API Engine** that allows you to build complex backends using **YAML or JSON** without writing a single line of compiled code. 
+Every MCP server today is an **island**: one talks to the DB, one sends email, one hits Stripe. To finish a real task (*"refund order #42 and notify the customer"*), the LLM must chain 5+ tool calls itself — burning tokens, latency and patience, with full credentials in every hop.
 
-Unlike traditional interpreters that are slow and memory-heavy, Worpen compiles your logic into a specialized **Bytecode** and executes it via an **Integer-based Virtual Machine**. This gives you the **flexibility of Python** (Hot-swapping logic on the fly) with the **soul of Rust** (safety and raw speed).
-
-### 🎯 What Makes Worpen Special?
-
-- **🔥 Logic-as-Data**: Business rules are stored as data, not code. Change logic in production with zero downtime.
-- **🚀 Zero-Cost Inlining**: Functions are recursively flattened into the main execution path at load-time. Call overhead is **0ns**.
-- **🧠 Integer-based VM**: No HashMap lookups at runtime. All variables are mapped to direct memory indices (`O(1)` access).
-- **⚡ Async Persistence**: Routes are compiled once and cached in memory. Changes are persisted to disk asynchronously without blocking the hot path.
-- **🔌 Service Mesh Ready**: Native HTTP orchestration to call and pipe other microservices.
-- **🌐 WebSocket Support**: Real-time bidirectional communication with event-driven hooks and channel broadcasting.
-
----
-
-## 📊 𝐏𝐄𝐑𝐅𝐎𝐑𝐌𝐀𝐍𝐂𝐄 & 𝐁𝐄𝐍𝐂𝐇𝐌𝐀𝐑𝐊𝐒
-
-We believe in honest, end-to-end benchmarking. Worpen bridges the gap between dynamic languages and static binaries.
-
-**Test Environment:** Windows (Localhost), 100k Requests, 125 Concurrency.
-
-| Framework | Architecture | Throughput (Req/s) | Latency (Avg) | Status |
-| :--- | :--- | :--- | :--- | :--- |
-| **Worpen (Rust VM)** | **Dynamic Logic Engine** | **~38,405** 🚀 | **~4.1ms** | **The New King 👑** |
-| **Go (Gin)** | Native Static Compiled | ~17,800 | ~7.3ms | 1.7x Slower |
-| **Node.js (Fastify)** | JIT Compiled (V8) | ~13,000 | ~9.8ms | 2.3x Slower |
-| **Python (FastAPI)** | Interpreted | ~3,900 | ~32.0ms | **7.7x Slower** |
+**Worpen is the layer between your agent and the mess:**
 
 ```text
-Performance Visualization:
-WORPEN   ████████████████████████████████ 38,405 (100%)
-GO (GIN) ███████████████████░░░░░░░░░░░░░░░░░░ 17,800 (46%)
-NODE.JS  ███████████████░░░░░░░░░░░░░░░░░░░░░ 13,000 (34%)
-PYTHON   ████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 3,900  (10%)
+  BEFORE (LLM does everything)              AFTER (Worpen does the job)
+
+  LLM → db_lookup  ─┐                          LLM ──► refund_order ──► Worpen VM
+  LLM → calc_refund ─┤ 5 round-trips,               ├─ SQL (allow-listed)
+  LLM → stripe_api  ─┤ 5x latency,                  ├─ if/else + math
+  LLM → send_email  ─┤ credentials everywhere       ├─ http → Stripe
+  LLM → log_event   ─┘                              └─ email + audit log
+                                                    1 call. 4ms. Sandboxed.
 ```
 
----
-
-## 🏗️ 𝐀𝐑𝐂𝐇𝐈𝐓𝐄𝐂𝐓𝐔𝐑𝐄: 𝐓𝐇𝐄 𝐈𝐍𝐓𝐄𝐑𝐍𝐀𝐋 𝐌𝐀𝐆𝐈𝐂
-
-Worpen functions as a **Runtime Compiler**, not just a simple JSON parser.
-
-1.  **Lowering Phase:** Upon route registration, the `LogicCompiler` transforms human-readable strings (`"user_price"`) into a **Symbol Table** of integers (`index 4`).
-2.  **Inlining Phase:** All `CallFunction` operations are recursively injected into the parent logic, eliminating the need for a Stack Frame or Context Switch during execution.
-3.  **VM Execution:** The `VirtualMachine` iterates over a flat `Vec<OptimizedOperation>`. It accesses variables via **Direct Array Indexing**, which is highly friendly to CPU L1/L2 caches.
+- **Routes are tools.** Every YAML/JSON route you define instantly becomes an MCP tool (`tools/list` → `tools/call`). No glue code.
+- **Pipelines are jobs.** Multi-stage workflows with shared scope, per-stage timeouts and `allow_failure` become namespaced tools (`pipeline:<name>`) — the thing MCP ecosystems are missing.
+- **Sandboxed by design.** Capability-based policy per route: allowed hosts, SQL/Redis on-off, script execution deny-by-default, timeouts, rate limits, memory caps. The agent gets a leash, not the keys.
+- **Rust speed.** Logic compiles to bytecode and runs on an integer-indexed VM (~38k req/s). Your agent waits milliseconds, not seconds.
 
 ---
 
-## 🚀 𝐐𝐔𝐈𝐂𝐊 𝐒𝐓𝐀𝐑𝐓 (single binary)
-
-Worpen ships as **one file**: the same `worpen` binary serves the API, the UI, the CLI and MCP.
+## ⚡ 60-𝐒𝐄𝐂𝐎𝐍𝐃 𝐃𝐄𝐌𝐎
 
 ```bash
-# 1. Build everything (UI + optimized binary)
+# 1. One file, one port — API + UI + MCP + CLI
 npm run build:release
-
-# 2. Run — first time? take the interactive tour:
-./backend/target/release/worpen setup
 ./backend/target/release/worpen serve --port 3000
-
-# Open http://127.0.0.1:3000  (UI + API on one port, zero config)
+# Open http://127.0.0.1:3000
 ```
 
-No setup? Just run — sane defaults apply (`127.0.0.1:3000`, data auto-detected,
-open auth until you set `WORPEN_API_TOKEN`).
-
-### CLI (works fully headless, `--no-ui` friendly)
 ```bash
-worpen route list | add --file api.yaml [--locked] | exec --id <id> | audit
-worpen func list | add --file fn.json | delete --name <name>
-worpen pipeline list | define --file pipe.yaml | run --name <name> | runs
-worpen mcp serve-stdio | tools | call --tool <name>
-worpen doctor
+# 2. Define an action in YAML (hot-swappable, zero downtime)
+curl -X POST http://127.0.0.1:3000/api/v1/dynamic-routes/register \
+  -H 'Content-Type: application/x-yaml' -d '
+name: refund_order
+path: /api/refund
+method: POST
+logic:
+  - sql_op:
+      query: "SELECT total FROM orders WHERE id = ?"
+      args: ["{{order_id}}"]
+      output_var: order
+  - math_op:
+      operation: mul
+      args: ["{{order}}", 0.9]
+  - http_request:
+      url: "https://api.stripe.com/v1/refunds"
+      method: POST
+  - return:
+      value: "{{http_response}}"
+'
 ```
 
-### MCP (AI actions)
-Every route is an MCP tool, every pipeline a namespaced one (`pipeline:<name>`):
 ```bash
+# 3. Your agent calls it as ONE MCP tool
 curl -X POST http://127.0.0.1:3000/mcp \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call",
-       "params":{"name":"checkout_api","arguments":{"payload":{}}}}}'
-# STDIO for Claude Desktop / agents:
-worpen mcp serve-stdio
+       "params":{"name":"refund_order","arguments":{"payload":{"order_id":"42"}}}}}'
 ```
 
-### 3. Define a Global Function (Reusable Logic)
-```bash
-curl -X POST http://127.0.0.1:3000/api/v1/global-functions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "calculate_tax",
-    "params": ["price"],
-    "logic": [
-      { "math_op": { "operation": "sum", "args": ["{{price}}", 10] } },
-      { "set": { "var": "result", "value": "{{math_result}}" } }
-    ]
-  }'
-```
-
-### 3. Create a Route (The API)
-Worpen will **inline** the function logic at this stage.
-```bash
-curl -X POST http://127.0.0.1:3000/api/v1/dynamic-routes \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "checkout_api",
-    "path": "/api/checkout",
-    "method": "POST",
-    "logic": [
-      { "set": { "var": "base", "value": 50 } },
-      { "call_function": { "name": "calculate_tax", "args": ["{{base}}"], "output_var": "final" } },
-      { "return": { "value": "{{final}}" } }
-    ]
-  }'
-```
-
-### 4. Call your API
-```bash
-curl -X POST http://127.0.0.1:3000/api/checkout
-# Response: 60.0
-```
+A 4-step job — SQL, branching math, external API, structured return — in **one tool call**.
 
 ---
 
-## 🧬 𝐂𝐎𝐑𝐄 𝐂𝐀𝐏𝐀𝐁𝐈𝐋𝐈𝐓𝐈𝐄𝐒
+## 🔌 𝐌𝐂𝐏 — 𝐆𝐈𝐕𝐄 𝐘𝐎𝐔𝐑 𝐀𝐆𝐄𝐍𝐓 𝐇𝐀𝐍𝐃𝐒
 
-| Category | Operations | Description |
-|:---------|:-----------|:------------|
-| **Memory** | `Set`, `Get` | **O(1) Access** via Integer Indices |
-| **Logic** | `If`, `Switch`, `Loop` | Full control flow support |
-| **Math** | `sum`, `mul`, `div`, etc. | Blazing fast binary operations |
-| **Database** | `SqlOp` ⚡ | VM-optimized parameterized SQL queries |
-| **Caching** | `RedisOp` ⚡ | High-speed Redis operations with pooling |
-| **Networking**| `HttpRequest` | Built-in async HTTP client for Service Mesh |
-| **Documentation** | `Comment` 📝 NEW | Add inline documentation to your routes |
-| **Optimization**| `Inlining` | Compile-time function flattening |
+| Transport | How | Use for |
+|:----------|:----|:--------|
+| **HTTP** | `POST /mcp` — JSON-RPC (`initialize`, `tools/list`, `tools/call`) | OpenAI-style clients, webhooks, `curl` |
+| **REST** | `GET /mcp/tools`, `GET /mcp` (info) | Debugging, discovery |
+| **STDIO** | `worpen mcp serve-stdio` | **Claude Desktop**, agent harnesses |
 
-### 💾 SQL Operations Example
-```yaml
-logic:
-  - set:
-      var: user_id
-      value: 123
-  - sql_op:
-      query: "SELECT * FROM users WHERE id = ?"
-      args: ["{{user_id}}"]
-      output_var: user_data
-```
-
-### ⚡ Redis Caching Example (NEW)
-```yaml
-logic:
-  - set:
-      var: user_id
-      value: 123
-  - redis_op:
-      command: GET
-      key: "user:{{user_id}}:profile"
-      output_var: cached_profile
-  - if:
-      condition: "{{cached_profile}} == null"
-      then:
-        - sql_op:
-            query: "SELECT * FROM users WHERE id = ?"
-            args: ["{{user_id}}"]
-            output_var: user_data
-        - redis_op:
-            command: SET
-            key: "user:{{user_id}}:profile"
-            value: "{{json_stringify(user_data)}}"
-            ttl_seconds: 300
-            output_var: cache_status
-        - return:
-            value: "{{user_data}}"
-      otherwise:
-        - return:
-            value: "{{cached_profile}}"
-```
-
-**Features:**
-- ✅ Parameterized queries (SQL injection safe)
-- ✅ Variable interpolation from execution context
-- ✅ Full VM optimization (3-5µs overhead)
-- ✅ Direct memory indexing (O(1) access)
-
----
-
-## � 𝐂𝐎𝐌𝐌𝐄𝐍𝐓𝐒 𝐀𝐍𝐃 𝐃𝐎𝐂𝐔𝐌𝐄𝐍𝐓𝐀𝐓𝐈𝐎𝐍
-
-Worpen now supports **inline comments** in your route definitions. Comments are treated as **no-op operations** during VM execution, making them perfect for documenting complex logic flows.
-
-### Using Comments in JSON
+**Claude Desktop** (`claude_desktop_config.json`):
 ```json
 {
-  "name": "documented_route",
-  "path": "/api/order",
-  "method": "POST",
-  "logic": [
-    {
-      "comment": {
-        "text": "--- Initialize variables ---"
-      }
-    },
-    {
-      "set": {
-        "var": "base_price",
-        "value": 100
-      }
-    },
-    {
-      "comment": {
-        "text": "--- Calculate tax (10%) ---"
-      }
-    },
-    {
-      "math_op": {
-        "operation": "mul",
-        "args": ["{{base_price}}", 1.1]
-      }
-    },
-    {
-      "return": {
-        "value": "{{math_result}}"
-      }
+  "mcpServers": {
+    "worpen": {
+      "command": "/path/to/worpen",
+      "args": ["mcp", "serve-stdio"],
+      "env": { "DATA_DIR": "/path/to/backend/data" }
     }
-  ]
+  }
 }
 ```
 
-### Using Comments in YAML
+Tool naming: routes keep their names (`refund_order`), pipelines are namespaced (`pipeline:nightly_reconcile`). Auth-gated routes (`auth_required: true` + `WORPEN_API_TOKEN`) are enforced on every transport — including MCP.
+
+---
+
+## 🛡️ 𝐒𝐀𝐍𝐃𝐁𝐎𝐗 — 𝐋𝐄𝐓 𝐀𝐆𝐄𝐍𝐓𝐒 𝐓𝐎𝐔𝐂𝐇 𝐏𝐑𝐎𝐃 𝐒𝐀𝐅𝐄𝐋𝐘
+
 ```yaml
-name: documented_route
-path: /api/order
-method: POST
-logic:
-  - comment:
-      text: "--- Initialize variables ---"
-  - set:
-      var: base_price
-      value: 100
-  - comment:
-      text: "--- Calculate tax (10%) ---"
-  - math_op:
-      operation: mul
-      args:
-        - "{{base_price}}"
-        - 1.1
-  - return:
-      value: "{{math_result}}"
+name: ai_generated_route
+sandbox:
+  allow_net: true
+  allowed_hosts: ["api.stripe.com"]  # nothing else reachable
+  allow_sql: false                    # no DB for this one
+  allow_scripts: false                # never arbitrary code
+  max_timeout_ms: 10000
+  max_loop_iterations: 500
+  max_variables: 500
 ```
 
-**Benefits:**
-- ✅ Zero runtime overhead (comments are skipped during execution)
-- ✅ Better code maintainability and team collaboration
-- ✅ Support for Persian/Arabic and all UTF-8 characters
-- ✅ Works in both JSON and YAML formats
+Plus per-route **rate limits** (429 when exceeded) and a full **audit trail** (`GET /api/v1/dynamic-routes/audit`) — every agent action is recorded with timing and outcome. The UI's *Error Logs* page streams failures live from that trail.
+
+Generate routes with `--locked` and the CLI applies the strict policy automatically:
+```bash
+worpen route add --file agent_task.yaml --locked
+```
 
 ---
 
-## �📚 𝐃𝐎𝐂𝐔𝐌𝐄𝐍𝐓𝐀𝐓𝐈𝐎𝐍
+## 🖥️ 𝐂𝐋𝐈 (fully headless)
 
-### Core Documentation
-- 📖 **[Introduction](documentation/01-introduction.md)**
-- 🏗️ **[Variable Scoping & VM](documentation/03-variables-basics.md)**
-- 🔁 **[Advanced Loops & Logic](documentation/05-loops.md)**
-- 📞 **[Zero-Cost Functions](documentation/06-functions.md)**
-- 🔌 **[WebSocket Support](documentation/WEBSOCKET_GUIDE.md)** ⭐ NEW
-  - 📋 **[Quick Reference](documentation/WEBSOCKET_QUICKREF.md)**
-- 🔄 **[Migration from JSON to YAML](documentation/15-migration-guide.md)**
-- ✨ **[Performance Best Practices](documentation/16-best-practices.md)**
-- 📝 **[Changelog](CHANGELOG.md)**
-
-### Extensibility & Custom Operations 🎨 NEW
-- 🧩 **[Custom Operations Guide](documentation/CUSTOM_OPERATIONS_GUIDE.md)** - Complete guide to Zero-Touch Extensibility
-- 🚀 **[Extensions Quick Start](documentation/EXTENSIONS_QUICKSTART.md)** - 3-minute setup guide
-- 📦 **[Schema Examples](documentation/SCHEMA_EXAMPLES.md)** - 20+ ready-to-use operation schemas
-  - Notifications (NotifyOp, PushNotificationOp)
-  - Email (EmailOp, BulkEmailOp)
-  - SMS (SmsOp, WhatsAppOp)
-  - Webhooks (WebhookOp, SlackOp)
-  - Payments (PaymentOp, RefundOp)
-  - Analytics (TrackEventOp, MetricsOp)
-  - Data (CacheOp, QueueOp)
-  - Security (EncryptOp, AuditLogOp)
-  - AI (AiPromptOp)
+```bash
+worpen setup                                  # interactive first-run wizard → writes .env
+worpen serve [--port 3000] [--no-ui]          # API + UI + MCP on one port
+worpen route list | add | exec | delete | audit
+worpen func list | add | delete
+worpen pipeline list | define | run | runs    # multi-stage jobs
+worpen mcp tools | call --tool <name>
+worpen doctor
+```
 
 ---
 
-## 🎯 𝐂𝐔𝐑𝐑𝐄𝐍𝐓 𝐒𝐓𝐀𝐓𝐔𝐒
-6)
-- **Phase 1-3:** Core Engine, Operations & Persistence.
-- **Phase 4:** **Global Functions & Recursive Inlining.**
-- **Phase 5:** **Bytecode VM & Symbol Table Architecture.** (Speed: 38k+ Req/s)
-- **Phase 6:** **WebSocket Support with Event Hooks.** ⭐ NEW
-- **Phase 5:** **Bytecode VM & Symbol Table Architecture.** (Current Speed: 30k+ Req/s)
+## 🏗️ 𝐇𝐎𝐖 𝐈𝐓 𝐖𝐎𝐑𝐊𝐒
 
-### 🚀 Roadmap
-- [ ] **AI Inference Node:** Direct execution of ONNX models within the VM.
-- [ ] **JIT Native Compilation:** Using `Cranelift` to compile Bytecode to x86 Assembly.
-- [ ] **WASM Logic Blocks:** Import logic from any language (Go, C++, Rust).
-- [ ] **Visual Logic Editor:** Drag-and-drop IDE for Worpen.
+Not a JSON parser — a **runtime compiler**:
+
+1. **Lowering:** `{{user_price}}` becomes an integer index into a symbol table — `O(1)` access, no hashmaps on the hot path.
+2. **Inlining:** global functions are recursively flattened into the route at registration. Call overhead: zero.
+3. **VM execution:** a flat bytecode loop over direct array memory. 38k+ req/s on localhost.
+
+| Op family | Examples |
+|:----------|:---------|
+| Memory / Logic | `set`, `get`, `if`, `switch`, `loop`, `while`, `try/catch`, `parallel` |
+| Data | `math_op`, `string_op`, `date_op`, `json_op`, `map`, `filter`, `aggregate` |
+| I/O | `sql_op` (parameterized), `redis_op` (pooled), `http_request`, `ws_op` |
+| Meta | `comment` (zero-cost docs), `sleep`, `log` |
+
+```text
+WORPEN   ████████████████████████████████ 38,405 req/s (100%)
+GO       ███████████████████░░░░░░░░░░░░░ 17,800 (46%)
+NODE     ███████████████░░░░░░░░░░░░░░░░░ 13,000 (34%)
+PYTHON   ████░░░░░░░░░░░░░░░░░░░░░░░░░░░░  3,900 (10%)
+```
+
+---
+
+## 📚 𝐃𝐎𝐂𝐔𝐌𝐄𝐍𝐓𝐀𝐓𝐈𝐎𝐍
+
+- 📖 [Introduction](documentation/01-introduction.md) • [Variables & VM](documentation/03-variables-basics.md) • [Loops](documentation/05-loops.md) • [Functions](documentation/06-functions.md)
+- 🔌 [WebSocket](documentation/WEBSOCKET_GUIDE.md) • 📋 [WS Quickref](documentation/WEBSOCKET_QUICKREF.md)
+- 🧩 [Custom Operations](documentation/CUSTOM_OPERATIONS_GUIDE.md) • 📦 [Schema Examples](documentation/SCHEMA_EXAMPLES.md) • 🚀 [Extensions Quickstart](documentation/EXTENSIONS_QUICKSTART.md)
+- 🔄 [JSON→YAML Migration](documentation/15-migration-guide.md) • ✨ [Best Practices](documentation/16-best-practices.md) • 📝 [Changelog](CHANGELOG.md)
+
+### Roadmap — toward the agent-native backend
+- [ ] **Policy packs** for common agents (read-only analyst, billing operator, …)
+- [ ] **Approval gates:** pause a pipeline run for human sign-off, resume via API
+- [ ] **WASM logic blocks** (Go/C++/Rust imports) • **ONNX inference nodes** • **JIT via Cranelift**
 
 ---
 
 ## 🤝 𝐂𝐎𝐍𝐓𝐑𝐈𝐁𝐔𝐓𝐈𝐍𝐆
 
-Worpen is an ambitious project to redefine backend infrastructure. We welcome performance hackers, compiler designers, and Rust enthusiasts.
-55
-1.  **Fork** & **Clone**.
-2.  `cargo test` (We maintain 262+ tests guarding the VM).
-3.  Submit a PR with performance benchmarks.
+We welcome performance hackers, compiler nerds and agent-infra builders.
+
+1. **Fork** & **Clone**.
+2. `cargo test` (250+ tests guard the VM) • `cargo clippy --all-targets -- -D warnings` (must be clean).
+3. Submit a PR with benchmarks.
 
 ---
 
