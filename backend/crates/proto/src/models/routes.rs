@@ -260,6 +260,18 @@ pub struct SandboxPolicy {
     /// Max distinct variables per execution (memory DoS guard)
     #[serde(default = "default_max_vars")]
     pub max_variables: usize,
+    /// Block requests to private / loopback / link-local / multicast IPs (SSRF defense)
+    #[serde(default = "default_true")]
+    pub block_private_ips: bool,
+    /// Enforce read-only SQL queries (rejects INSERT, UPDATE, DELETE, DROP, etc.)
+    #[serde(default)]
+    pub read_only_sql: bool,
+    /// Whitelist of allowed SQL tables (empty = all tables allowed)
+    #[serde(default)]
+    pub allowed_tables: Vec<String>,
+    /// Maximum rows returned by a SQL query (DoS prevention)
+    #[serde(default = "default_max_sql_rows")]
+    pub max_sql_rows: usize,
 }
 
 fn default_true() -> bool {
@@ -277,6 +289,9 @@ fn default_max_iters() -> u32 {
 fn default_max_vars() -> usize {
     5000
 }
+fn default_max_sql_rows() -> usize {
+    1000
+}
 
 impl Default for SandboxPolicy {
     fn default() -> Self {
@@ -290,6 +305,10 @@ impl Default for SandboxPolicy {
             max_sleep_ms: 5_000,
             max_loop_iterations: 1000,
             max_variables: 5000,
+            block_private_ips: true,
+            read_only_sql: false,
+            allowed_tables: vec![],
+            max_sql_rows: 1000,
         }
     }
 }
@@ -307,6 +326,77 @@ impl SandboxPolicy {
             max_sleep_ms: 1_000,
             max_loop_iterations: 500,
             max_variables: 500,
+            block_private_ips: true,
+            read_only_sql: true,
+            allowed_tables: vec![],
+            max_sql_rows: 500,
+        }
+    }
+
+    /// Ready-made policy pack: Read-Only Analyst
+    /// Allows SELECT-only SQL queries with row limits, allows Redis, blocks all network and scripts.
+    pub fn read_only_analyst() -> Self {
+        Self {
+            allow_net: false,
+            allowed_hosts: vec![],
+            block_private_ips: true,
+            allow_sql: true,
+            read_only_sql: true,
+            allowed_tables: vec![],
+            max_sql_rows: 500,
+            allow_redis: true,
+            allow_scripts: false,
+            max_timeout_ms: 10_000,
+            max_sleep_ms: 1_000,
+            max_loop_iterations: 500,
+            max_variables: 1000,
+        }
+    }
+
+    /// Ready-made policy pack: Billing Operator
+    /// Allows outbound calls to payment APIs (e.g. Stripe) with private IP blocking,
+    /// allows SQL modifications only on billing-related tables.
+    pub fn billing_operator() -> Self {
+        Self {
+            allow_net: true,
+            allowed_hosts: vec!["api.stripe.com".to_string()],
+            block_private_ips: true,
+            allow_sql: true,
+            read_only_sql: false,
+            allowed_tables: vec![
+                "invoices".to_string(),
+                "subscriptions".to_string(),
+                "customers".to_string(),
+                "payments".to_string(),
+            ],
+            max_sql_rows: 1000,
+            allow_redis: true,
+            allow_scripts: false,
+            max_timeout_ms: 15_000,
+            max_sleep_ms: 2_000,
+            max_loop_iterations: 500,
+            max_variables: 2000,
+        }
+    }
+
+    /// Ready-made policy pack: Support Agent
+    /// Allows communication with ticketing and notification platforms (Zendesk, Slack),
+    /// read-only SQL on support tables.
+    pub fn support_agent() -> Self {
+        Self {
+            allow_net: true,
+            allowed_hosts: vec!["api.zendesk.com".to_string(), "slack.com".to_string()],
+            block_private_ips: true,
+            allow_sql: true,
+            read_only_sql: true,
+            allowed_tables: vec!["tickets".to_string(), "users".to_string()],
+            max_sql_rows: 500,
+            allow_redis: true,
+            allow_scripts: false,
+            max_timeout_ms: 10_000,
+            max_sleep_ms: 1_000,
+            max_loop_iterations: 500,
+            max_variables: 1000,
         }
     }
 

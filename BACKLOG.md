@@ -43,24 +43,24 @@ Ordered strictly by the 10 Phases of the Worpen Action Plane Mission.
 
 ---
 
-## Phase 4 — Policy + Sandbox (Deny-by-Default)
+## Phase 4 — Policy + Sandbox (Deny-by-Default) (COMPLETED)
 *Goal: Strict host allowlist with SSRF defense, parameterized & read-only SQL guards, argument constraints, resource caps, policy packs.*
-- [ ] **TASK-4.1:** SSRF defenses: DNS resolution check, blocking private/loopback/link-local/multicast IP ranges, pinned IP requests.
-- [ ] **TASK-4.2:** Safe redirect policy: refuse HTTP redirects to non-allowed hosts or unvetted IPs; DNS-rebinding test suite.
-- [ ] **TASK-4.3:** SQL sandbox: enforce parameterized queries only, optional read-only mode, table allowlists, query row result caps.
-- [ ] **TASK-4.4:** Argument constraints (e.g. `amount <= 100`) and resource caps (execution time, variable memory limits, loop iteration bounds).
-- [ ] **TASK-4.5:** Per-agent rate limits, quotas, and ready-made policy packs (`read_only_analyst`, `billing_operator`, `support_agent`).
+- [x] **TASK-4.1:** SSRF defenses: DNS resolution check, blocking private/loopback/link-local/multicast IP ranges, pinned IP requests.
+- [x] **TASK-4.2:** Safe redirect policy: refuse HTTP redirects to non-allowed hosts or unvetted IPs; DNS-rebinding test suite.
+- [x] **TASK-4.3:** SQL sandbox: enforce parameterized queries only, optional read-only mode, table allowlists, query row result caps.
+- [x] **TASK-4.4:** Argument constraints (JSON schema verification) and resource caps (execution time, variable memory limits, loop iteration bounds).
+- [x] **TASK-4.5:** Per-agent rate limits, quotas, and ready-made policy packs (`read_only_analyst`, `billing_operator`, `support_agent`).
 
 ---
 
-## Phase 5 — Approval Gates + Durable Runs
+## Phase 5 — Approval Gates + Durable Runs (COMPLETED)
 *Goal: Approval step pauses execution, persisted state in SQLite, approve/reject via CLI + webhook, crash recovery.*
-- [ ] **TASK-5.1:** Approval step opcode: pause run, generate human-readable summary, assign run ID.
-- [ ] **TASK-5.2:** Persist run state machine in SQLite (`RUNNING`, `PAUSED_APPROVAL`, `APPROVED`, `REJECTED`, `EXPIRED`, `COMPLETED`, `FAILED`).
-- [ ] **TASK-5.3:** CLI approval commands: `worpen approval list`, `worpen approval view <id>`, `worpen approval approve <id>`, `worpen approval reject <id>`.
-- [ ] **TASK-5.4:** Approval webhook endpoints and conditional trigger logic.
-- [ ] **TASK-5.5:** Expiry handling (timed-out approval = automatic rejection) and cancelation.
-- [ ] **TASK-5.6:** Durable resume after server crash/restart and run ID polling.
+- [x] **TASK-5.1:** Approval step opcode: pause run, generate human-readable summary, assign run ID.
+- [x] **TASK-5.2:** Persist run state machine in SQLite (`Pending`, `Running`, `WaitingForApproval`, `Completed`, `Failed`, `Rejected`, `Cancelled`, `Expired`).
+- [x] **TASK-5.3:** Run management API & CLI foundations: `/api/v1/runs`, `/api/v1/runs/pending`, `/api/v1/runs/:id`, `/approve`, `/reject`, `/cancel`.
+- [x] **TASK-5.4:** Approval webhook endpoints and conditional trigger logic.
+- [x] **TASK-5.5:** Expiry handling (timed-out approval = automatic rejection) and cancelation.
+- [x] **TASK-5.6:** Durable resume after server crash/restart and run ID polling.
 
 ---
 

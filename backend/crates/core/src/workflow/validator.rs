@@ -213,6 +213,9 @@ impl WorkflowValidator {
             WorkflowOpV1::Approval { summary, .. } => {
                 Self::validate_string_references(summary, defined_vars, &step.id)?;
                 defined_vars.insert(format!("{}_approved", step.id));
+                defined_vars.insert("__approved_by".to_string());
+                defined_vars.insert("__approval_reason".to_string());
+                defined_vars.insert("__approved_at".to_string());
             }
             WorkflowOpV1::Fail { message, .. } => {
                 Self::validate_string_references(message, defined_vars, &step.id)?;

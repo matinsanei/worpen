@@ -107,3 +107,119 @@ pub async fn rollback_workflow(
         )),
     }
 }
+
+#[derive(Deserialize)]
+pub struct ApprovalActionPayload {
+    pub approver: String,
+    #[serde(default)]
+    pub reason: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct RejectActionPayload {
+    pub rejecter: String,
+    #[serde(default)]
+    pub reason: Option<String>,
+}
+
+/// GET /api/v1/runs — List recent durable runs
+pub async fn list_runs(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<proto::models::WorkflowRun>>, (StatusCode, Json<Value>)> {
+    match state.workflow_service.list_runs(50).await {
+        Ok(runs) => Ok(Json(runs)),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": "list_runs_failed", "message": e })),
+        )),
+    }
+}
+
+/// GET /api/v1/runs/pending — List all runs waiting for human approval
+pub async fn list_pending_approvals(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<proto::models::WorkflowRun>>, (StatusCode, Json<Value>)> {
+    match state.workflow_service.list_pending_approvals().await {
+        Ok(runs) => Ok(Json(runs)),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": "list_pending_failed", "message": e })),
+        )),
+    }
+}
+
+/// GET /api/v1/runs/:id — Get run status by ID
+pub async fn get_run(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<proto::models::WorkflowRun>, (StatusCode, Json<Value>)> {
+    match state.workflow_service.get_run(&id).await {
+        Ok(Some(run)) => Ok(Json(run)),
+        Ok(None) => Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "not_found", "message": format!("Run '{}' not found", id) })),
+        )),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": "get_run_failed", "message": e })),
+        )),
+    }
+}
+
+/// POST /api/v1/runs/:id/approve — Human sign-off on an approval gate
+pub async fn approve_run(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Json(payload): Json<ApprovalActionPayload>,
+) -> Result<Json<proto::models::WorkflowRun>, (StatusCode, Json<Value>)> {
+    let reason = payload
+        .reason
+        .unwrap_or_else(|| "Approved via API".to_string());
+    match state
+        .workflow_service
+        .approve_run(&id, &payload.approver, &reason)
+        .await
+    {
+        Ok(run) => Ok(Json(run)),
+        Err(e) => Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "approval_failed", "message": e })),
+        )),
+    }
+}
+
+/// POST /api/v1/runs/:id/reject — Human rejection of an approval gate
+pub async fn reject_run(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Json(payload): Json<RejectActionPayload>,
+) -> Result<Json<proto::models::WorkflowRun>, (StatusCode, Json<Value>)> {
+    let reason = payload
+        .reason
+        .unwrap_or_else(|| "Rejected via API".to_string());
+    match state
+        .workflow_service
+        .reject_run(&id, &payload.rejecter, &reason)
+        .await
+    {
+        Ok(run) => Ok(Json(run)),
+        Err(e) => Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "rejection_failed", "message": e })),
+        )),
+    }
+}
+
+/// POST /api/v1/runs/:id/cancel — Cancel a run
+pub async fn cancel_run(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<proto::models::WorkflowRun>, (StatusCode, Json<Value>)> {
+    match state.workflow_service.cancel_run(&id).await {
+        Ok(run) => Ok(Json(run)),
+        Err(e) => Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "cancel_failed", "message": e })),
+        )),
+    }
+}

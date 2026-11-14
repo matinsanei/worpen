@@ -280,6 +280,11 @@ async fn test_canary_secret_http_injection_and_reflection_redaction() {
 name: http_secret_test
 version: "1.0"
 description: HTTP secret injection and redaction test
+policy:
+  allow_net: true
+  allowed_hosts:
+    - "127.0.0.1"
+  block_private_ips: false
 steps:
   - id: step_http
     op: http

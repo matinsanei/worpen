@@ -48,3 +48,29 @@
   6. Canary tests verify that even if an outbound HTTP server echoes the credential back, or a database error reflects the query, zero secret tokens leak to outputs or audit files.
 - **Consequences:** Agents are completely isolated from credentials while retaining the ability to execute privileged operations through policy-governed steps. Zero credential leakage across outputs, logs, and audit trails.
 
+## ADR-0007: Deny-by-Default Policy, SSRF Guards, and IP Pinning
+- **Date:** 2026-11-14
+- **Status:** Accepted
+- **Context:** AI workflows interacting with external HTTP and database resources are vulnerable to Server-Side Request Forgery (SSRF), DNS rebinding, cloud metadata exfiltration (169.254.169.254), internal port scanning, SQL injection, and data tampering.
+- **Decision:**
+  1. Default policy denies all unlisted network access.
+  2. Implement strict SSRF defenses in `worpen_core::sandbox::ssrf` blocking private (RFC 1918), link-local, loopback, CGNAT, broadcast, and multicast IP ranges (including IPv4-mapped IPv6).
+  3. Pre-resolve DNS and pin the outbound socket connection to the vetted IP, preventing time-of-check to time-of-use (TOCTOU) DNS rebinding attacks.
+  4. Enforce safe redirect policies: abort HTTP redirects if target host is not in allowlist or resolves to a private IP.
+  5. Provide SQL sandbox with `read_only_sql` enforcement, table allowlists, and row result caps to guard against data destruction and memory exhaustion.
+  6. Provide ready-made policy packs (`read_only_analyst`, `billing_operator`, `support_agent`).
+- **Consequences:** Makes workflow execution impervious to SSRF, DNS rebinding, and unauthorized database writes.
+
+## ADR-0008: Durable Workflow Runs and Human Approval Gates
+- **Date:** 2026-11-14
+- **Status:** Accepted
+- **Context:** Mission-critical AI workflows cannot execute dangerous actions (e.g. issuing financial refunds or modifying database schemas) without human oversight. If the server process restarts while waiting for approval, the execution state must not be lost.
+- **Decision:**
+  1. Introduce `WorkflowOpV1::Approval` gate that pauses workflow execution and transitions the run into `WaitingForApproval`.
+  2. Implement SQLite-persisted `DurableRunStore` (`workflow_runs` table) tracking run ID, status, step index, variables, and approval metadata.
+  3. Provide `approve_run`, `reject_run`, and `cancel_run` APIs with configurable timeout / expiry handling (`now > expires_at` marks run as `Expired`).
+  4. Resuming an approved run restores execution memory and variables, advancing execution until the next gate or completion.
+  5. State survives full application restarts and provides CLI / REST endpoints (`/api/v1/runs/*`).
+- **Consequences:** Guarantees deterministic, restart-safe human approval gates for high-risk agent operations.
+
+

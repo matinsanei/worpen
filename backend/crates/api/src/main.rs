@@ -235,6 +235,16 @@ async fn serve(a: cli::ServeArgs) {
             "/api/v1/workflows/:name/rollback",
             post(handlers::rollback_workflow),
         )
+        // Durable Runs & Approval Gates (Phase 5)
+        .route("/api/v1/runs", get(handlers::list_runs))
+        .route(
+            "/api/v1/runs/pending",
+            get(handlers::list_pending_approvals),
+        )
+        .route("/api/v1/runs/:id", get(handlers::get_run))
+        .route("/api/v1/runs/:id/approve", post(handlers::approve_run))
+        .route("/api/v1/runs/:id/reject", post(handlers::reject_run))
+        .route("/api/v1/runs/:id/cancel", post(handlers::cancel_run))
         // Dynamic routes (single-call workflows / MCP tools)
         .route(
             "/api/v1/dynamic-routes",

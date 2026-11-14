@@ -135,8 +135,52 @@ pub struct WorkflowReturnV1 {
 }
 
 /// Execution mode for workflow runs
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
 pub enum ExecutionMode {
     Live,
     DryRun,
+}
+
+/// Durable workflow run execution status
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum RunStatus {
+    Pending,
+    Running,
+    WaitingForApproval,
+    Completed,
+    Failed,
+    Rejected,
+    Cancelled,
+    Expired,
+}
+
+/// Information about a pending human approval gate
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct PendingApproval {
+    pub step_id: String,
+    pub summary: String,
+    pub requested_at: String,
+    pub expires_at: String,
+}
+
+/// Durable run record persisted in SQLite
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct WorkflowRun {
+    pub run_id: String,
+    pub workflow_name: String,
+    pub version: String,
+    pub status: RunStatus,
+    pub mode: ExecutionMode,
+    pub step_index: usize,
+    pub variables: HashMap<String, Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pending_approval: Option<PendingApproval>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
 }

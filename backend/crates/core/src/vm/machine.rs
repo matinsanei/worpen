@@ -143,6 +143,7 @@ impl VirtualMachine {
         }
     }
 
+    #[allow(dead_code)]
     fn check_net(&self, url: &str) -> Result<String, String> {
         if let Some(policy) = &self.sandbox {
             if !policy.allow_net {
@@ -322,6 +323,10 @@ impl VirtualMachine {
                         query.clone()
                     };
 
+                    if let Some(policy) = &self.sandbox {
+                        crate::sandbox::validate_sql_policy(&resolved_query, policy)?;
+                    }
+
                     // Execute SQL query
                     if let Some(pool) = &self.db_pool {
                         let mut query_builder = sqlx::query(&resolved_query);
@@ -345,7 +350,7 @@ impl VirtualMachine {
                             .map_err(|e| format!("SQL execution error: {}", e))?;
 
                         // Convert rows to JSON array
-                        let json_rows: Vec<Value> = rows
+                        let mut json_rows: Vec<Value> = rows
                             .iter()
                             .map(|row| {
                                 let mut obj = serde_json::Map::new();
@@ -372,6 +377,13 @@ impl VirtualMachine {
                                 Value::Object(obj)
                             })
                             .collect();
+
+                        // Enforce row caps
+                        if let Some(policy) = &self.sandbox {
+                            if json_rows.len() > policy.max_sql_rows {
+                                json_rows.truncate(policy.max_sql_rows);
+                            }
+                        }
 
                         // Store result in memory
                         self.memory
@@ -540,15 +552,55 @@ impl VirtualMachine {
                     timeout_ms,
                 } => {
                     let resolved_url = self.resolve_string(url)?;
-                    self.check_net(&resolved_url)?;
                     let timeout = timeout_ms.unwrap_or(
                         self.sandbox
                             .as_ref()
                             .map(|p| p.max_timeout_ms)
                             .unwrap_or(10_000),
                     );
-                    let client = reqwest::Client::builder()
-                        .timeout(std::time::Duration::from_millis(timeout))
+
+                    let mut client_builder = reqwest::Client::builder()
+                        .timeout(std::time::Duration::from_millis(timeout));
+
+                    if let Some(policy) = &self.sandbox {
+                        let (host, port, pinned_ip) =
+                            crate::sandbox::resolve_and_validate_host(&resolved_url, policy)
+                                .await?;
+                        // Pin connection to validated IP to defend against DNS rebinding
+                        client_builder = client_builder
+                            .resolve(&host, std::net::SocketAddr::new(pinned_ip, port));
+
+                        // Safe redirect defense
+                        let policy_clone = policy.clone();
+                        let redirect_policy = reqwest::redirect::Policy::custom(move |attempt| {
+                            if attempt.previous().len() >= 5 {
+                                return attempt.stop();
+                            }
+                            let next_host_opt = attempt.url().host_str().map(|h| h.to_string());
+                            if let Some(next_host) = next_host_opt {
+                                if !policy_clone.is_host_allowed(&next_host) {
+                                    return attempt.error(format!(
+                                        "sandbox: redirect to host '{}' denied by allowlist",
+                                        next_host
+                                    ));
+                                }
+                                if policy_clone.block_private_ips {
+                                    if let Ok(ip) = next_host.parse::<std::net::IpAddr>() {
+                                        if crate::sandbox::is_blocked_ip(ip) {
+                                            return attempt.error(format!(
+                                                "sandbox: redirect to private IP '{}' denied",
+                                                ip
+                                            ));
+                                        }
+                                    }
+                                }
+                            }
+                            attempt.follow()
+                        });
+                        client_builder = client_builder.redirect(redirect_policy);
+                    }
+
+                    let client = client_builder
                         .build()
                         .map_err(|e| format!("HTTP client error: {}", e))?;
                     let mut rb = match method.as_str() {

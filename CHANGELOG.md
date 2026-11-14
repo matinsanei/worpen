@@ -13,6 +13,36 @@
 - Established `STATE.md` and `DECISIONS.md` (ADR-0001, ADR-0002, ADR-0003).
 - Cleaned `README.md`: Removed unverified comparison bar charts and fabricated performance claims; aligned roadmap with enterprise action plane.
 
+### ⏸️ Approval Gates & Durable Runs (Phase 5)
+- **Durable Runs State Machine (`worpen-core::workflow::durable`):**
+  - Introduced `WorkflowRun` and `RunStatus` (`Pending`, `Running`, `WaitingForApproval`, `Completed`, `Failed`, `Rejected`, `Cancelled`, `Expired`).
+  - Persisted runs in SQLite `workflow_runs` table with run metadata, step index, variables JSON, pending approval, and results.
+- **Human Approval Gates (`WorkflowOpV1::Approval`):**
+  - Pauses execution and transitions run to `WaitingForApproval` with human-readable summary and configurable expiration timeout (`expires_at`).
+  - Implemented `approve_run`: verifies decision window, injects `__approved_by` and `__approval_reason` into variables, and resumes execution to subsequent steps.
+  - Implemented `reject_run` and `cancel_run` for human or administrative termination.
+- **Crash/Restart Recovery:**
+  - Preserves run state across process crashes and restarts, allowing operators to list pending approvals and resume execution seamlessly.
+- **Durable REST Endpoints:**
+  - Added `/api/v1/runs`, `/api/v1/runs/pending`, `/api/v1/runs/:id`, `/approve`, `/reject`, `/cancel`.
+- **Durable Test Suite:**
+  - Created `backend/crates/core/tests/approval_durable_test.rs` covering pause-and-approve cycles, rejection, and recovery across process restarts.
+
+### 🛡️ Policy & Sandbox (Phase 4)
+- **SSRF Defenses & IP Pinning (`worpen-core::sandbox::ssrf`):**
+  - Implemented IP range blocklist covering RFC 1918 private IPs, loopback (`127.0.0.0/8`, `::1`), link-local (`169.254.0.0/16`, `fe80::/10`), CGNAT (`100.64.0.0/10`), broadcast, multicast, and IPv4-mapped IPv6.
+  - Implemented asynchronous DNS resolution with IP validation before socket creation.
+  - Pinned outbound HTTP requests to the validated IP on `reqwest::ClientBuilder::resolve` to defeat DNS rebinding attacks.
+  - Configured safe HTTP redirect policy that validates every redirect target against host allowlist and blocked IPs.
+- **SQL Sandboxing (`worpen-core::sandbox::sql`):**
+  - Added `read_only_sql` policy enforcement rejecting destructive DDL/DML statements (`INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `CREATE`, `TRUNCATE`, `REPLACE`).
+  - Added `allowed_tables` enforcement parsing and validating table access in SQL queries.
+  - Added `max_sql_rows` capping result sets to prevent memory exhaustion DoS.
+- **Ready-Made Policy Packs:**
+  - Added `SandboxPolicy::read_only_analyst()`, `SandboxPolicy::billing_operator()`, `SandboxPolicy::support_agent()`.
+- **Policy Test Suite:**
+  - Created `backend/crates/core/tests/policy_sandbox_test.rs` validating SSRF blocking, DNS resolution guards, SQL restrictions, and policy packs.
+
 ### 🔑 Secrets Isolation & Redaction (Phase 3)
 - **Secret Architecture (`worpen-core::secrets`):**
   - References strictly use `{{secret:name}}` format, never exposed in agent prompts or accessible via runtime memory inspection.

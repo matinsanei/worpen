@@ -1,5 +1,6 @@
 use crate::services::DynamicRouteService;
 use crate::workflow::compiler::WorkflowCompiler;
+use crate::workflow::durable::{DurableRunStore, DurableWorkflowEngine, WorkflowRun};
 use crate::workflow::validator::WorkflowValidator;
 use proto::models::{
     ExecutionMode, HttpMethod, RouteDefinition, RouteType, WorkflowOpV1, WorkflowSpecV1,
@@ -171,6 +172,87 @@ impl WorkflowService {
         versions
     }
 
+    /// Ensure the durable execution engine and SQLite runs table are initialized
+    pub async fn ensure_durable_engine(&self) -> Result<Arc<DurableWorkflowEngine>, String> {
+        let pool = self
+            .route_service
+            .get_db_pool()
+            .ok_or_else(|| "Database pool not configured on DynamicRouteService".to_string())?;
+
+        let store = Arc::new(DurableRunStore::new(pool.clone()));
+        store.init().await?;
+        let engine = DurableWorkflowEngine::new(store, pool, self.route_service.secret_store());
+        Ok(Arc::new(engine))
+    }
+
+    /// Start a durable workflow run with SQLite persistence and approval gate support
+    pub async fn start_run(
+        &self,
+        name: &str,
+        payload: Option<Value>,
+        mode: ExecutionMode,
+    ) -> Result<WorkflowRun, String> {
+        let spec = self
+            .get_workflow(name)
+            .ok_or_else(|| format!("Workflow '{}' not found", name))?;
+        let engine = self.ensure_durable_engine().await?;
+        engine.start_run(&spec, payload, mode).await
+    }
+
+    /// Retrieve a durable run by ID
+    pub async fn get_run(&self, run_id: &str) -> Result<Option<WorkflowRun>, String> {
+        let engine = self.ensure_durable_engine().await?;
+        engine.store().get_run(run_id).await
+    }
+
+    /// List recent durable runs
+    pub async fn list_runs(&self, limit: usize) -> Result<Vec<WorkflowRun>, String> {
+        let engine = self.ensure_durable_engine().await?;
+        engine.store().list_runs(limit).await
+    }
+
+    /// List all runs waiting for human approval
+    pub async fn list_pending_approvals(&self) -> Result<Vec<WorkflowRun>, String> {
+        let engine = self.ensure_durable_engine().await?;
+        engine.store().list_pending_approvals().await
+    }
+
+    /// Approve a pending approval gate and resume execution
+    pub async fn approve_run(
+        &self,
+        run_id: &str,
+        approver: &str,
+        reason: &str,
+    ) -> Result<WorkflowRun, String> {
+        let engine = self.ensure_durable_engine().await?;
+        let run = engine
+            .store()
+            .get_run(run_id)
+            .await?
+            .ok_or_else(|| format!("Run '{}' not found", run_id))?;
+        let spec = self
+            .get_workflow(&run.workflow_name)
+            .ok_or_else(|| format!("Workflow '{}' not found", run.workflow_name))?;
+        engine.approve_run(&spec, run_id, approver, reason).await
+    }
+
+    /// Reject a pending approval gate
+    pub async fn reject_run(
+        &self,
+        run_id: &str,
+        rejecter: &str,
+        reason: &str,
+    ) -> Result<WorkflowRun, String> {
+        let engine = self.ensure_durable_engine().await?;
+        engine.reject_run(run_id, rejecter, reason).await
+    }
+
+    /// Cancel a running or waiting workflow run
+    pub async fn cancel_run(&self, run_id: &str) -> Result<WorkflowRun, String> {
+        let engine = self.ensure_durable_engine().await?;
+        engine.cancel_run(run_id).await
+    }
+
     /// Execute workflow in Live or DryRun mode
     pub async fn execute(
         &self,
@@ -181,6 +263,19 @@ impl WorkflowService {
         let spec = self
             .get_workflow(name)
             .ok_or_else(|| format!("Workflow '{}' not found", name))?;
+
+        let has_approval = spec
+            .steps
+            .iter()
+            .any(|s| matches!(s.op, WorkflowOpV1::Approval { .. }));
+
+        if has_approval && mode == ExecutionMode::Live {
+            let run = self.start_run(name, payload, mode).await?;
+            if let Some(res) = run.result {
+                return Ok(res);
+            }
+            return Ok(serde_json::to_value(&run).unwrap_or_default());
+        }
 
         let result = match mode {
             ExecutionMode::Live => {
