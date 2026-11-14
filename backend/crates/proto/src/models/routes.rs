@@ -310,7 +310,8 @@ impl SandboxPolicy {
         }
     }
 
-    /// Host allowlist check. Supports exact, suffix (".example.com") and substring.
+    /// Host allowlist check. Supports exact and subdomain suffix (".example.com" or "example.com") matching.
+    /// Rejects substring matching to prevent domain spoofing (e.g. evil-stripe.com).
     pub fn is_host_allowed(&self, host: &str) -> bool {
         if !self.allow_net {
             return false;
@@ -319,10 +320,48 @@ impl SandboxPolicy {
             return true; // legacy permissive
         }
         let h = host.to_lowercase();
-        self.allowed_hosts.iter().any(|a| {
-            let a = a.to_lowercase();
-            h == a || h.ends_with(&format!(".{}", a)) || h.contains(&a)
+        self.allowed_hosts.iter().any(|allowed| {
+            let a = allowed.to_lowercase();
+            let domain = a.trim_start_matches('.');
+            h == domain || h.ends_with(&format!(".{}", domain))
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_host_allowlist_exact_and_subdomain() {
+        let policy = SandboxPolicy {
+            allow_net: true,
+            allowed_hosts: vec!["api.stripe.com".to_string(), "internal.net".to_string()],
+            ..Default::default()
+        };
+
+        // Allowed: exact matches
+        assert!(policy.is_host_allowed("api.stripe.com"));
+        assert!(policy.is_host_allowed("internal.net"));
+        // Allowed: subdomains of internal.net
+        assert!(policy.is_host_allowed("billing.internal.net"));
+
+        // Blocked: substring attack / spoofing
+        assert!(!policy.is_host_allowed("api.stripe.com.attacker.com"));
+        assert!(!policy.is_host_allowed("attacker-api.stripe.com"));
+        assert!(!policy.is_host_allowed("notapi.stripe.com"));
+        assert!(!policy.is_host_allowed("api.stripe.com.co"));
+        assert!(!policy.is_host_allowed("google.com"));
+    }
+
+    #[test]
+    fn test_host_allowlist_net_disabled() {
+        let policy = SandboxPolicy {
+            allow_net: false,
+            allowed_hosts: vec!["api.stripe.com".to_string()],
+            ..Default::default()
+        };
+        assert!(!policy.is_host_allowed("api.stripe.com"));
     }
 }
 

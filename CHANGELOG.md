@@ -1,6 +1,21 @@
 # 📝 Changelog
 
-## [Unreleased] - 2026-01-03
+## [Unreleased] - 2026-11-14 (Enterprise Action Plane Loop)
+
+### 🔒 Security - Sandbox & Allowlist
+- **SEC-01 Fix:** Eliminated unsafe substring match (`h.contains(&a)`) in `SandboxPolicy::is_host_allowed`.
+- Enforced strict exact domain or explicit subdomain suffix matching (`h == domain || h.ends_with(&format!(".{}", domain))`).
+- Added regression unit tests against domain spoofing and substring attacks in `proto::models::routes`.
+
+### 📚 Documentation & Audit
+- Published `AUDIT.md`: Complete codebase and claim verification against actual implementation.
+- Established `BACKLOG.md` ordered across 10 mission phases.
+- Established `STATE.md` and `DECISIONS.md` (ADR-0001, ADR-0002, ADR-0003).
+- Cleaned `README.md`: Removed unverified comparison bar charts and fabricated performance claims; aligned roadmap with enterprise action plane.
+
+### 🧹 Code Quality
+- Formatted entire Rust codebase across `core`, `proto`, `infra`, and `api` using `cargo fmt`.
+
 
 ### ✨ Added - WebSocket Support (Phase 6)
 - **Real-time WebSocket support** with event-driven architecture

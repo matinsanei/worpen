@@ -24,7 +24,7 @@
   <b>MCP Server</b> • <b>Sandboxed VM</b> • <b>Multi-Step Pipelines</b> • <b>Single Binary</b>
 </p>
 
-> *"Don't make your LLM juggle ten tools. Give it one Worpen tool that runs the whole job — branched, looped, cached and sandboxed — in 4 milliseconds."*
+> *"Don't make your LLM juggle ten tools. Give it one Worpen tool that runs the whole job — branched, looped, cached and sandboxed."*
 
 [Why Worpen for AI](#-why-ai-agents-need-worpen) • [60-Second Demo](#-60-second-demo) • [MCP Setup](#-mcp--give-your-agent-hands) • [Sandbox](#-sandbox--let-agents-touch-prod-safely) • [Docs](#-documentation)
 
@@ -46,13 +46,13 @@ Every MCP server today is an **island**: one talks to the DB, one sends email, o
   LLM → stripe_api  ─┤ 5x latency,                  ├─ if/else + math
   LLM → send_email  ─┤ credentials everywhere       ├─ http → Stripe
   LLM → log_event   ─┘                              └─ email + audit log
-                                                    1 call. 4ms. Sandboxed.
+                                                    1 call. Sandboxed. Deterministic.
 ```
 
 - **Routes are tools.** Every YAML/JSON route you define instantly becomes an MCP tool (`tools/list` → `tools/call`). No glue code.
 - **Pipelines are jobs.** Multi-stage workflows with shared scope, per-stage timeouts and `allow_failure` become namespaced tools (`pipeline:<name>`) — the thing MCP ecosystems are missing.
 - **Sandboxed by design.** Capability-based policy per route: allowed hosts, SQL/Redis on-off, script execution deny-by-default, timeouts, rate limits, memory caps. The agent gets a leash, not the keys.
-- **Rust speed.** Logic compiles to bytecode and runs on an integer-indexed VM (~38k req/s). Your agent waits milliseconds, not seconds.
+- **Rust speed.** Logic compiles to bytecode and runs on an integer-indexed VM with direct array memory. Your agent waits milliseconds, not seconds.
 
 ---
 
@@ -168,35 +168,29 @@ Not a JSON parser — a **runtime compiler**:
 
 1. **Lowering:** `{{user_price}}` becomes an integer index into a symbol table — `O(1)` access, no hashmaps on the hot path.
 2. **Inlining:** global functions are recursively flattened into the route at registration. Call overhead: zero.
-3. **VM execution:** a flat bytecode loop over direct array memory. 38k+ req/s on localhost.
+3. **VM execution:** a flat bytecode loop over direct array memory.
 
 | Op family | Examples |
 |:----------|:---------|
 | Memory / Logic | `set`, `get`, `if`, `switch`, `loop`, `while`, `try/catch`, `parallel` |
 | Data | `math_op`, `string_op`, `date_op`, `json_op`, `map`, `filter`, `aggregate` |
-| I/O | `sql_op` (parameterized), `redis_op` (pooled), `http_request`, `ws_op` |
+| I/O | `sql_op` (parameterized), `redis_op` (pooled), `http_request` |
 | Meta | `comment` (zero-cost docs), `sleep`, `log` |
-
-```text
-WORPEN   ████████████████████████████████ 38,405 req/s (100%)
-GO       ███████████████████░░░░░░░░░░░░░ 17,800 (46%)
-NODE     ███████████████░░░░░░░░░░░░░░░░░ 13,000 (34%)
-PYTHON   ████░░░░░░░░░░░░░░░░░░░░░░░░░░░░  3,900 (10%)
-```
 
 ---
 
 ## 📚 𝐃𝐎𝐂𝐔𝐌𝐄𝐍𝐓𝐀𝐓𝐈𝐎𝐍
 
 - 📖 [Introduction](documentation/01-introduction.md) • [Variables & VM](documentation/03-variables-basics.md) • [Loops](documentation/05-loops.md) • [Functions](documentation/06-functions.md)
-- 🔌 [WebSocket](documentation/WEBSOCKET_GUIDE.md) • 📋 [WS Quickref](documentation/WEBSOCKET_QUICKREF.md)
 - 🧩 [Custom Operations](documentation/CUSTOM_OPERATIONS_GUIDE.md) • 📦 [Schema Examples](documentation/SCHEMA_EXAMPLES.md) • 🚀 [Extensions Quickstart](documentation/EXTENSIONS_QUICKSTART.md)
 - 🔄 [JSON→YAML Migration](documentation/15-migration-guide.md) • ✨ [Best Practices](documentation/16-best-practices.md) • 📝 [Changelog](CHANGELOG.md)
 
-### Roadmap — toward the agent-native backend
-- [ ] **Policy packs** for common agents (read-only analyst, billing operator, …)
-- [ ] **Approval gates:** pause a pipeline run for human sign-off, resume via API
-- [ ] **WASM logic blocks** (Go/C++/Rust imports) • **ONNX inference nodes** • **JIT via Cranelift**
+### Roadmap — toward the enterprise action plane
+- [ ] **Workflow Spec v1:** strict validation, immutable versions, dry-run mode
+- [ ] **Secret Isolation:** runtime references (`{{secret:name}}`), multi-source, automatic redaction
+- [ ] **SSRF & Sandbox:** pre-resolution DNS filtering, private IP blocking, parameterized/read-only SQL guards
+- [ ] **Approval Gates:** pause workflow run for human sign-off via CLI/webhook, durable SQLite state
+- [ ] **Tamper-Evident Audit:** cryptographically chained audit log (`worpen audit verify`)
 
 ---
 
