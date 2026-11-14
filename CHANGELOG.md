@@ -2,6 +2,14 @@
 
 ## [Unreleased] - 2026-11-14 (Enterprise Action Plane Loop)
 
+### 🛡️ Security Hardening & Threat Modeling (Phase 9)
+- **Comprehensive STRIDE Threat Model:**
+  - Published `THREAT_MODEL.md` analyzing all 5 runtime trust boundaries, protect surfaces (credentials, enterprise databases, internal networks, execution state, audit trails), and mitigations.
+- **Truthful Vulnerability Disclosure Policy:**
+  - Rewrote `SECURITY.md` defining supported versions (`0.1.x`), eliminating fictional bounty programs and placeholder keys, establishing clear in-scope and out-of-scope boundaries, and detailing a 24h/72h/14d coordinated disclosure SLA.
+- **Adversarial Security Test Suite:**
+  - Created `backend/crates/core/tests/adversarial_security_test.rs` validating protections against loopback/0.0.0.0, cloud metadata, RFC 1918, CGNAT, IPv4-mapped IPv6, domain spoofing attacks, destructive SQL statements & comments, path traversal in workflow names, and unbounded loop attacks.
+
 ### 🛠️ Developer Experience & Tooling (Phase 8)
 - **`worpen init` Project Scaffolding:**
   - Added CLI scaffolding command creating starter workflows (`refund.yaml` with approval gate, `db_report.yaml` with read-only SQL, `issue_triage.yaml` with SSRF policy), `.cursor/mcp.json`, `.env.example`, and `worpen.yaml`.

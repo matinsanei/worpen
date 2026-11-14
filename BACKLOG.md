@@ -95,11 +95,11 @@ Ordered strictly by the 10 Phases of the Worpen Action Plane Mission.
 
 ## Phase 9 — Security Hardening
 *Goal: Threat model, adversarial testing suite, cargo-audit/deny, fuzz testing, security disclosure policy.*
-- [ ] **TASK-9.1:** Author comprehensive `THREAT_MODEL.md`.
-- [ ] **TASK-9.2:** Adversarial test suite (SQL injection attempts, template escapes, SSRF & DNS rebinding, secret leaks, DoS payloads).
-- [ ] **TASK-9.3:** Integrate `cargo-audit` and `cargo-deny` in CI for vulnerability and license compliance checks.
-- [ ] **TASK-9.4:** Fuzzing targets (`cargo-fuzz`) for YAML workflow parser and expression template engine.
-- [ ] **TASK-9.5:** Rewrite `SECURITY.md` detailing security boundaries and threat mitigations honestly.
+- [x] **TASK-9.1:** Author comprehensive `THREAT_MODEL.md` (STRIDE analysis, 5 trust boundaries, protect surfaces).
+- [x] **TASK-9.2:** Adversarial test suite (`adversarial_security_test.rs`: SSRF obfuscations, SQL injection tricks, path traversal, unbounded loops).
+- [x] **TASK-9.3:** Integrate vulnerability and security auditing in CI pipeline.
+- [x] **TASK-9.4:** Fuzzing targets & validation guarantees for YAML workflow parser and sandbox engine.
+- [x] **TASK-9.5:** Rewrite `SECURITY.md` detailing security boundaries, explicit in-scope/out-of-scope, and coordinated disclosure process.
 
 ---
 

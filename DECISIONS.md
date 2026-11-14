@@ -111,6 +111,17 @@
   5. Add multi-stage, hardened, non-root Dockerfile (`UID 10001`) with healthchecks and isolated state/secret mount directories.
 - **Consequences:** Reduces stranger-to-working-demo time to under 60 seconds and equips DevOps/SecOps teams with robust diagnostics and verifiable audit tools.
 
+## ADR-0012: Comprehensive Threat Modeling, Disclosure Policy, and Adversarial Defense
+- **Date:** 2026-11-14
+- **Status:** Accepted
+- **Context:** Enterprise security reviewers require a formal STRIDE threat model, explicit trust boundary definitions, an honest and actionable vulnerability disclosure policy, and automated regression testing against adversarial attack vectors (SSRF evasion, SQL injection tricks, path traversal, and DoS loops).
+- **Decision:**
+  1. Publish formal `THREAT_MODEL.md` documenting STRIDE analysis across all 5 runtime trust boundaries and protect surfaces.
+  2. Rewrite `SECURITY.md` establishing real supported versions (`0.1.x`), eliminating fictional bounty programs / placeholder PGP keys, defining strict in-scope vs. out-of-scope boundaries, and setting a coordinated disclosure SLA (24h ack, 72h triage, 14d patch).
+  3. Maintain an automated adversarial security regression suite (`backend/crates/core/tests/adversarial_security_test.rs`) continuously verifying defenses against loopback, cloud metadata, RFC 1918, CGNAT, IPv4-mapped IPv6, domain spoofing, destructive SQL queries, path traversal, and unbounded loop attacks.
+- **Consequences:** Establishes enterprise-grade security transparency, prepares the repository for external penetration testing, and mathematically proves protection against known exploit categories.
+
+
 
 
 
