@@ -27,3 +27,10 @@
 - **Context:** The default HTTP router exposed dozens of unmaintained agent/container monitoring and WebSocket endpoints. Concurrently, `DynamicRouteService` never received the initialized database pool in `build_state` or `serve_stdio`, causing any route executing `SqlOp` to crash.
 - **Decision:** Freeze all legacy daemon endpoints (Docker, fleet agents, incidents, terminals, dynamic WebSockets) from the active server router. Inject the initialized SQLite connection pool into `DynamicRouteService` across both HTTP serve and STDIO MCP modes, and ensure execution errors in VM are surfaced directly without silent fallback.
 - **Consequences:** Hardens the attack surface, aligns the runtime strictly with workflow execution, and enables full database operations for local agents via STDIO MCP.
+
+## ADR-0005: Workflow Spec v1, Strict Validation & Immutable Versioning
+- **Date:** 2026-11-14
+- **Status:** Accepted
+- **Context:** AI agents and human operators require deterministic multi-step workflow execution defined in clean, human-readable YAML with schema validation, bounded loop iterations, undefined variable rejection, dry-run simulation, and rollback protection.
+- **Decision:** Introduce `WorkflowSpecV1` (`name`, `description`, `input_schema`, `policy`, `steps`, `return`). Validate variable scopes strictly at registration to prevent runtime crashes from undefined variables. Enforce `max_iterations` caps on all loops. Provide simulation in `ExecutionMode::DryRun` where side-effects (`sql`, `http`, `approval`) are mocked with `_worpen_dry_run: true`. Store each registered version immutably in `<data_dir>/workflows/<name>/v<version>.yaml` and enable zero-downtime rollback. Automatically synchronize registered workflows into the integer-indexed VM and MCP server.
+- **Consequences:** Provides a production-grade action plane contract for AI agents. Prevents dangerous unbounded loops, catches syntax/variable errors before deployment, and enables risk-free dry runs.

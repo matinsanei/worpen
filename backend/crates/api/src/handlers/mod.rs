@@ -22,6 +22,7 @@ pub mod logs;
 pub mod pipelines;
 #[allow(dead_code, unused_imports)]
 pub mod terminal;
+pub mod workflows;
 #[allow(dead_code, unused_imports)]
 pub mod ws;
 
@@ -45,6 +46,7 @@ pub use logs::*;
 pub use pipelines::*;
 #[allow(unused_imports)]
 pub use terminal::*;
+pub use workflows::*;
 #[allow(unused_imports)]
 pub use ws::ws_handler;
 

@@ -21,6 +21,7 @@ pub struct AppState {
     pub automation_service: Arc<AutomationService>,
     pub pipeline_service: Arc<PipelineService>,
     pub dynamic_route_service: Arc<DynamicRouteService>,
+    pub workflow_service: Arc<worpen_core::workflow::WorkflowService>,
     #[allow(dead_code)]
     pub connected_agents: Arc<DashMap<uuid::Uuid, Sender<String>>>,
 }

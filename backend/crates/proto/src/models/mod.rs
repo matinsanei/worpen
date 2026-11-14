@@ -6,6 +6,7 @@ pub mod logs;
 pub mod pipelines;
 pub mod routes;
 pub mod terminal;
+pub mod workflow;
 
 pub use agent::*;
 pub use automation::*;
@@ -15,3 +16,4 @@ pub use logs::*;
 pub use pipelines::*;
 pub use routes::*;
 pub use terminal::*;
+pub use workflow::*;

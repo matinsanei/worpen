@@ -151,6 +151,12 @@ async fn build_state(database_url: &str, data_dir: &str) -> AppState {
     let pipeline_service = std::sync::Arc::new(
         worpen_core::services::PipelineService::with_executor(dynamic_route_service.clone()),
     );
+    let resolved_data_dir = std::env::var("DATA_DIR").unwrap_or_else(|_| "data".to_string());
+    let workflow_service = std::sync::Arc::new(worpen_core::workflow::WorkflowService::new(
+        resolved_data_dir,
+        dynamic_route_service.clone(),
+    ));
+    let _ = workflow_service.load_persisted_workflows().await;
     let connected_agents = std::sync::Arc::new(dashmap::DashMap::new());
     AppState {
         agent_service,
@@ -160,6 +166,7 @@ async fn build_state(database_url: &str, data_dir: &str) -> AppState {
         automation_service,
         pipeline_service,
         dynamic_route_service,
+        workflow_service,
         connected_agents,
     }
 }
@@ -209,6 +216,24 @@ async fn serve(a: cli::ServeArgs) {
         .route(
             "/api/v1/pipelines/:id/runs",
             get(handlers::pipeline_runs_by_id),
+        )
+        // Workflow Spec v1 endpoints
+        .route(
+            "/api/v1/workflows",
+            get(handlers::list_workflows).post(handlers::register_workflow),
+        )
+        .route("/api/v1/workflows/:name", get(handlers::get_workflow))
+        .route(
+            "/api/v1/workflows/:name/execute",
+            post(handlers::execute_workflow),
+        )
+        .route(
+            "/api/v1/workflows/:name/versions",
+            get(handlers::list_versions),
+        )
+        .route(
+            "/api/v1/workflows/:name/rollback",
+            post(handlers::rollback_workflow),
         )
         // Dynamic routes (single-call workflows / MCP tools)
         .route(

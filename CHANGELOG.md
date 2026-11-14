@@ -13,6 +13,14 @@
 - Established `STATE.md` and `DECISIONS.md` (ADR-0001, ADR-0002, ADR-0003).
 - Cleaned `README.md`: Removed unverified comparison bar charts and fabricated performance claims; aligned roadmap with enterprise action plane.
 
+### 📜 Workflow Spec v1 (Phase 2)
+- **Implemented WorkflowSpecV1:** Defined strict YAML specification with `version`, `name`, `description`, `input_schema` (JSON Schema), `policy`, `steps`, and structured `return`.
+- **Registration Validation:** Enforced strict variable scope checking (rejection of undefined variables), mandatory loop iteration bounds (`max_iterations > 0` and bounded by policy), and JSON Schema verification.
+- **Side-Effect Protections & Idempotency:** Added support for per-step `timeout_ms`, retry with backoff, and automatic `Idempotency-Key` injection on HTTP steps.
+- **Dry-Run Simulation:** Introduced `ExecutionMode::DryRun` allowing agents to simulate workflow execution without executing real side-effects (mocked SQL, HTTP, and approvals labeled with `_worpen_dry_run: true`).
+- **Immutable Versioning & Rollback:** Added versioned file persistence (`<data_dir>/workflows/<name>/v<version>.yaml`), listing historical versions, and rollback capability via `WorkflowService`.
+- **Integrated Endpoints:** Added `/api/v1/workflows` REST API endpoints (`list`, `register`, `get`, `execute`, `versions`, `rollback`) synchronized with the integer-indexed VM and MCP server.
+
 ### 🎯 Focus & Architecture (Phase 1)
 - **Frozen Legacy Daemon Endpoints:** Deactivated unmaintained Docker container, agent monitoring, terminal websockets, and dynamic WebSocket endpoints from the active server router in `api/src/main.rs`.
 - **Database Pool Integration in STDIO MCP & Serve:** Fixed missing database pool injection in `DynamicRouteService`, allowing SQL operations (`sql_op`) to execute deterministically in both HTTP server and STDIO MCP mode.

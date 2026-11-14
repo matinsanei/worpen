@@ -22,15 +22,15 @@ Ordered strictly by the 10 Phases of the Worpen Action Plane Mission.
 
 ---
 
-## Phase 2 — Workflow Spec v1
+## Phase 2 — Workflow Spec v1 (COMPLETED)
 *Goal: Strict YAML schema, validation at registration, immutable versions + rollback, dry-run mode, core ops with idempotency and retries.*
-- [ ] **TASK-2.1:** Implement Workflow Spec v1 strict schema parser & validator (name, description, input JSON-schema, policy, steps, return).
-- [ ] **TASK-2.2:** Validation at registration: type checking, undefined variable detection, unknown op detection, unbounded loop prevention.
-- [ ] **TASK-2.3:** Core Ops suite: `sql`, `http`, `if`/`switch`, `loop` (capped), `transform`, `try`/`catch`, `parallel`, `approval`, `return`/`fail`.
-- [ ] **TASK-2.4:** Per-step timeout and retry with exponential backoff.
-- [ ] **TASK-2.5:** Idempotency keys support for every side-effect operation.
-- [ ] **TASK-2.6:** Immutable versioning and rollback capability for registered workflows.
-- [ ] **TASK-2.7:** Dry-run execution mode (simulate execution without executing side-effects).
+- [x] **TASK-2.1:** Implement Workflow Spec v1 strict schema parser & validator (name, description, input JSON-schema, policy, steps, return).
+- [x] **TASK-2.2:** Validation at registration: type checking, undefined variable detection, unknown op detection, unbounded loop prevention.
+- [x] **TASK-2.3:** Core Ops suite: `sql`, `http`, `if`/`switch`, `loop` (capped), `transform`, `try`/`catch`, `parallel`, `approval`, `return`/`fail`.
+- [x] **TASK-2.4:** Per-step timeout and retry with exponential backoff.
+- [x] **TASK-2.5:** Idempotency keys support for every side-effect operation.
+- [x] **TASK-2.6:** Immutable versioning and rollback capability for registered workflows.
+- [x] **TASK-2.7:** Dry-run execution mode (simulate execution without executing side-effects).
 
 ---
 

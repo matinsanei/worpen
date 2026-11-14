@@ -1,22 +1,22 @@
 # Current State
 
 ## Current Phase
-**Phase 1 — Focus (COMPLETED)**  
-**Next Phase: Phase 2 — Workflow Spec v1**
+**Phase 2 — Workflow Spec v1 (COMPLETED)**  
+**Next Phase: Phase 3 — Secrets Isolation**
 
 ## Loop Protocol Status
-- **Iteration:** 2
-- **Current Task:** Phase 1 Exit Criteria Verified -> Transition to Phase 2 (Workflow Spec v1)
+- **Iteration:** 3
+- **Current Task:** Phase 2 Complete -> Moving to Phase 3 (Secrets Isolation)
 - **Status:** Done
-- **Plan for Next Turn (Phase 2):**
-  1. Define strict `WorkflowSpecV1` schema in YAML (name, description, input_schema, policy, steps, return).
-  2. Implement validation at registration (variable definition check, unknown op detection, loop iteration bounds).
-  3. Support per-step timeout and retry with exponential backoff.
-  4. Support idempotency keys for side-effect ops (`http`, `sql`).
-  5. Add dry-run execution mode.
+- **Plan for Next Turn (Phase 3):**
+  1. Implement `SecretProvider` abstraction with sources: environment variables, secret files, OS keychain/keyring.
+  2. Implement runtime secret injection (`{{secret:name}}`) injected at step execution boundary without leaking to agent.
+  3. Implement automatic secret redaction engine for logs, audit trails, error strings, and VM outputs.
+  4. Write canary secret integration tests (inject planted secrets and grep all outputs/logs to ensure zero leakage).
+  5. Run formatting, clippy, and test suite.
 
 ## Verification & Metrics
 - `cargo fmt --all -- --check`: Clean.
 - `cargo clippy --all-targets -- -D warnings`: Clean (0 warnings).
-- `cargo test`: 257 passed, 0 failed.
+- `cargo test`: 262 passed, 0 failed.
 - Branch: `enterprise-loop` (clean working tree).
