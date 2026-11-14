@@ -94,3 +94,45 @@ async fn test_cli_audit_verify_on_empty_and_active_chain() {
 
     let _ = fs::remove_dir_all(&temp_dir);
 }
+
+#[tokio::test]
+async fn test_cli_test_command_workflow_dry_run() {
+    let temp_dir =
+        std::env::temp_dir().join(format!("worpen_cli_test_cmd_{}", uuid::Uuid::new_v4()));
+    fs::create_dir_all(&temp_dir).unwrap();
+
+    let wf_file = temp_dir.join("test_wf.yaml");
+    let yaml = r#"
+name: cli_dry_run_test
+version: "1.0"
+description: CLI test verification
+input_schema:
+  type: object
+  properties:
+    amount:
+      type: number
+steps:
+  - id: step_math
+    op: transform
+    expr: "{{amount}} * 2"
+    output_var: doubled
+return:
+  status: 200
+  value:
+    doubled: "{{doubled}}"
+"#;
+    fs::write(&wf_file, yaml).unwrap();
+
+    let args = api::cli::TestArgs {
+        file: wf_file.to_str().unwrap().to_string(),
+        payload: serde_json::json!({ "amount": 21 }).to_string(),
+    };
+
+    let result = api::ops::run_test(&args).await;
+    assert!(
+        result.is_ok(),
+        "worpen test command must succeed for valid workflow"
+    );
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}

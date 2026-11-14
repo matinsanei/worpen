@@ -294,26 +294,47 @@ fn default_max_sql_rows() -> usize {
 }
 
 impl Default for SandboxPolicy {
+    /// True Deny-by-Default sandbox policy.
+    /// Disallows outbound network, disallows arbitrary SQL, restricts to read-only SQL, blocks private IPs.
     fn default() -> Self {
         Self {
-            allow_net: true,
+            allow_net: false,
             allowed_hosts: vec![],
-            allow_sql: true,
-            allow_redis: true,
+            allow_sql: false,
+            allow_redis: false,
             allow_scripts: false,
             max_timeout_ms: 10_000,
-            max_sleep_ms: 5_000,
-            max_loop_iterations: 1000,
-            max_variables: 5000,
+            max_sleep_ms: 2_000,
+            max_loop_iterations: 500,
+            max_variables: 1000,
             block_private_ips: true,
-            read_only_sql: false,
+            read_only_sql: true,
             allowed_tables: vec![],
-            max_sql_rows: 1000,
+            max_sql_rows: 500,
         }
     }
 }
 
 impl SandboxPolicy {
+    /// Permissive policy retained strictly for legacy backwards compatibility or unconfined test fixtures.
+    pub fn permissive_legacy() -> Self {
+        Self {
+            allow_net: true,
+            allowed_hosts: vec!["*".to_string()],
+            allow_sql: true,
+            allow_redis: true,
+            allow_scripts: true,
+            max_timeout_ms: 30_000,
+            max_sleep_ms: 10_000,
+            max_loop_iterations: 5000,
+            max_variables: 10000,
+            block_private_ips: true,
+            read_only_sql: false,
+            allowed_tables: vec![],
+            max_sql_rows: 5000,
+        }
+    }
+
     /// Strict default for AI-generated / untrusted routes.
     pub fn restrictive_default() -> Self {
         Self {
@@ -401,17 +422,21 @@ impl SandboxPolicy {
     }
 
     /// Host allowlist check. Supports exact and subdomain suffix (".example.com" or "example.com") matching.
+    /// Denies by default: an empty allowed_hosts list strictly denies all outbound traffic.
     /// Rejects substring matching to prevent domain spoofing (e.g. evil-stripe.com).
     pub fn is_host_allowed(&self, host: &str) -> bool {
         if !self.allow_net {
             return false;
         }
         if self.allowed_hosts.is_empty() {
-            return true; // legacy permissive
+            return false; // Strict deny-by-default: empty allowlist denies all outbound hosts
         }
         let h = host.to_lowercase();
         self.allowed_hosts.iter().any(|allowed| {
             let a = allowed.to_lowercase();
+            if a == "*" {
+                return true;
+            }
             let domain = a.trim_start_matches('.');
             h == domain || h.ends_with(&format!(".{}", domain))
         })
@@ -442,6 +467,30 @@ mod tests {
         assert!(!policy.is_host_allowed("notapi.stripe.com"));
         assert!(!policy.is_host_allowed("api.stripe.com.co"));
         assert!(!policy.is_host_allowed("google.com"));
+    }
+
+    #[test]
+    fn test_host_allowlist_deny_by_default() {
+        // Default policy denies net
+        let default_policy = SandboxPolicy::default();
+        assert!(!default_policy.is_host_allowed("api.stripe.com"));
+
+        // allow_net=true but empty allowed_hosts strictly denies all hosts
+        let policy = SandboxPolicy {
+            allow_net: true,
+            allowed_hosts: vec![],
+            ..Default::default()
+        };
+        assert!(!policy.is_host_allowed("api.stripe.com"));
+        assert!(!policy.is_host_allowed("google.com"));
+
+        // Wildcard allowlist explicitly allows hosts
+        let wildcard_policy = SandboxPolicy {
+            allow_net: true,
+            allowed_hosts: vec!["*".to_string()],
+            ..Default::default()
+        };
+        assert!(wildcard_policy.is_host_allowed("api.stripe.com"));
     }
 
     #[test]

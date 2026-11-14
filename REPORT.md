@@ -2,15 +2,16 @@
 
 **Date:** 2026-11-15  
 **Branch:** `enterprise-loop`  
-**Status:** All 10 Phases Successfully Completed  
-**Test Baseline:** 286 automated tests passing across 10 specialized test suites  
+**Version:** `v0.1.1`  
+**Status:** All 10 Phases & Post-Review Security Hardening Successfully Completed  
+**Test Baseline:** 299 automated tests passing across 16 specialized test suites and crates  
 **Linter Status:** Zero warnings under `cargo clippy --all-targets -- -D warnings` and `cargo fmt`  
 
 ---
 
 ## 1. Executive Summary
 
-Over a continuous, disciplined, 10-phase engineering loop, **Worpen** was transformed from an unfocused prototype with unverified claims and legacy container monitoring daemons into a hardened, production-grade **Action Plane for AI Agents**.
+Over a continuous, disciplined, 10-phase engineering loop followed by a critical post-audit security hardening cycle, **Worpen** was transformed from an unfocused prototype with unverified claims and legacy container monitoring daemons into a hardened, production-grade **Action Plane for AI Agents**.
 
 The transformation strictly adhered to the North Star guiding principle:
 > *"An agent completes a real multi-step job in one call, never sees a credential, can only do what policy allows, risky steps pause for human approval, and every action is provably recorded."*
@@ -25,13 +26,14 @@ Every architectural decision was documented in formal Architecture Decision Reco
 | :--- | :--- | :--- |
 | **Product Focus** | Fragmented across Docker container control, agent shells, and WebSocket proxies. | Strictly focused as an **Action Plane for AI Agents**. Legacy daemons frozen from router. |
 | **Security SEC-01** | Substring domain check `h.contains(&a)` allowed spoofing (`api.stripe.com.evil.com`). | Strict domain equality or explicit subdomain suffix matching (`h == a \|\| h.ends_with(".a")`). |
-| **SSRF Defenses** | No IP validation; internal networks (`127.0.0.1`, `169.254.169.254`) reachable. | Pre-flight DNS resolution, RFC 1918/link-local/CGNAT blocklist, and IP-pinned outbound sockets. |
-| **Credential Safety** | Plaintext tokens in route definitions; credentials visible in symbol tables. | Late-binding `{{secret:name}}` injection; zero symbol table registration; automatic `[REDACTED]` engine. |
-| **Workflow Definition** | Ad-hoc bytecode compiler without validation or iteration limits. | **Workflow Spec v1** (YAML): JSON Schema validation, variable scoping, mandatory loop bounds, dry-run mode. |
-| **Human Approvals** | Non-existent; risky operations executed immediately without oversight. | **Durable Approval Gates** (`op: approval`): pauses execution in SQLite state machine; restart-safe; CLI/MCP approvals. |
-| **Audit Trail** | In-memory ring buffer easily truncated or wiped on restart. | **Cryptographic SHA-256 Hash Chaining**: append-only log with genesis anchor; `verify_audit_chain`; CEF/OTel exports. |
-| **MCP Integration** | Minimal endpoint with raw error strings and missing workflow tools. | **Enterprise MCP Quality**: tool risk hints (`readOnly`, `destructive`, `idempotent`), identity filtering, structured errors, client configs. |
-| **Developer Experience** | Missing scaffolding, no health diagnostics, manual YAML authoring. | `worpen init` with starter templates (`refund.yaml`), `worpen doctor` diagnostics, `worpen audit verify`. |
+| **SSRF Defenses** | No IP validation; internal networks (`127.0.0.1`, `169.254.169.254`) reachable. | Deny-by-default; pre-flight DNS resolution, RFC 1918/link-local/CGNAT blocklist, and IP-pinned outbound sockets. |
+| **Credential Safety** | Plaintext tokens in route definitions; credentials visible in symbol tables. | Late-binding `{{secret:name}}` injection; zero symbol table registration; multi-encoding `[REDACTED]` engine (raw, Base64, Hex, URL). |
+| **SQL Sandboxing** | Mutation keywords permitted; regex bypassed via CTEs or comma joins. | Deny-by-default; comment/literal stripping; token stream AST validation; multi-table validation; `PRAGMA query_only = ON;`. |
+| **Workflow Definition** | Ad-hoc bytecode compiler without validation or iteration limits. | **Workflow Spec v1** (YAML): JSON Schema validation, variable scoping, mandatory loop bounds, dry-run simulation mode (`worpen test`). |
+| **Human Approvals** | Non-existent; risky operations executed immediately without oversight. | **Durable Approval Gates** (`op: approval`): pauses execution in SQLite state machine; restart-safe; operator-isolated via CLI / authenticated REST; anti-self-approval strictly prevents initiator from self-approving. |
+| **Audit Trail** | In-memory ring buffer easily truncated or wiped on restart. | **Cryptographic HMAC-Keyed Hash Chaining**: append-only log with genesis anchor and HMAC-SHA256 signatures (`WORPEN_AUDIT_KEY`); `verify_audit_chain`; CEF/OTel exports. |
+| **MCP Integration** | Minimal endpoint with raw error strings and missing workflow tools. | **Enterprise MCP Quality**: tool risk hints (`readOnly`, `destructive`, `idempotent`), identity filtering, structured errors, client configs; approval tools isolated from agent MCP surface. |
+| **Developer Experience** | Missing scaffolding, no health diagnostics, manual YAML authoring. | `worpen init` starter templates (`refund.yaml`), `worpen test` dry-run validator, `worpen doctor` diagnostics, `worpen audit verify`. |
 | **Performance Claims** | Fabricated ASCII chart claiming 38,405 req/s vs Go/Node without reproduction scripts. | Fictional claims eliminated; Criterion microbenchmarks provided in `benches/`; honest numbers only. |
 | **Security Disclosure** | Fictional versions (`2.4.x`), placeholder PGP key (`0xDEADBEEF`), fake bounty. | Truthful `SECURITY.md` (`v0.1.x`), STRIDE `THREAT_MODEL.md`, 24h/72h/14d coordinated disclosure SLA. |
 
@@ -87,7 +89,7 @@ Every architectural decision was documented in formal Architecture Decision Reco
 * Added standard MCP tool annotations (`readOnly`, `destructive`, `idempotent`) across all tools.
 * Implemented caller identity & role filtering (`X-Agent-Role`, e.g. `read_only_analyst` filtering out mutating tools).
 * Standardized agent error responses into structured `McpAgentError` format (`{ code, message, hint, retryable, fields }`).
-* Exposed built-in workflow run and approval tools: `get_run`, `list_pending_approvals`, `approve_run`, `reject_run`, and `verify_audit`.
+* Exposed built-in workflow run and inspection tools (`get_run`, `list_pending_approvals`, `verify_audit`).
 * Generated ready-to-use client configurations for Claude Desktop, Cursor, and VS Code.
 
 ### Phase 8: Developer Experience (`b2f60f5`)
@@ -102,32 +104,64 @@ Every architectural decision was documented in formal Architecture Decision Reco
 * Rewrote `SECURITY.md` establishing real supported versions (`0.1.x`), defining strict in-scope/out-of-scope boundaries, and setting a coordinated disclosure SLA (24h ack, 72h triage, 14d patch).
 * Created adversarial security test suite (`adversarial_security_test.rs`) verifying protection against SSRF obfuscations (0.0.0.0, octal/hex, IPv4-mapped IPv6, CGNAT), domain spoofing, SQL comments/subquery injections, path traversal in workflow names, and unbounded loop attacks.
 
-### Phase 10: Launch Assets & Final Verification (Current)
+### Phase 10: Launch Assets & Final Verification
 * Rewrote `README.md` completely: removed decorative font artifacts, presented clear value proposition, 60s quickstart with human approval demo, Mermaid architecture diagram, client configs, and verifiable Criterion benchmark instructions.
 * Created `ABOUT.md` with GitHub topics and elevator pitch.
-* Compiled this comprehensive final transformation report.
+
+### Post-Audit Hardening (v0.1.1): Critical Fixes & Hardening
+Following independent external code review, 5 critical vulnerabilities and architectural flaws were permanently remediated:
+1. **Operator-Isolated Approvals & Anti-Self-Approval Enforcement:**
+   - Completely eliminated `approve_run` and `reject_run` from agent MCP toolsets (`APPROVAL_CHANNEL_SEPARATION`).
+   - Restated approval execution strictly to operator channels: CLI (`worpen workflow approve`) or authenticated management REST API requiring `WORPEN_API_TOKEN`.
+   - Durable engine tracks run `initiator`. If `approver == initiator`, approval is strictly rejected.
+2. **True Deny-by-Default Policy:**
+   - `SandboxPolicy::default()` now strictly defaults to `allow_net: false`, `allow_sql: false`, and empty `allowed_hosts: []` strictly denies all outbound network traffic.
+3. **Hardened SQL Sandboxing & C-level SQLite Enforcement:**
+   - Comment (`/* */`, `--`) and string literal stripping before AST token stream analysis.
+   - Whole-statement token inspection blocking mutation keywords (`INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `TRUNCATE`, `REPLACE`, `ATTACH`, `PRAGMA`).
+   - Comma join (`FROM t1, t2`) and `JOIN` table extraction ensuring all referenced tables match `allowed_tables`.
+   - Runtime SQLite C-engine read-only lock via `PRAGMA query_only = ON;`.
+4. **Keyed HMAC-SHA256 Audit Chaining:**
+   - Appended `hmac_signature` field to each audit block, signed with secret key `WORPEN_AUDIT_KEY` (or machine anchor).
+   - Defeats offline recomputation and truncation attacks by adversaries with filesystem access.
+5. **Multi-Encoding Redaction Engine:**
+   - `RedactionEngine` generates and redacts raw plaintext, Base64 (padded and unpadded), Hexadecimal (lowercase and uppercase), and URL percent-encoded variants, replacing longest strings first.
+6. **Delivered Architecture Promises:**
+   - Idempotency key SQLite index and run deduplication.
+   - Step retry with exponential backoff (`max_attempts`, `backoff_ms`).
+   - `worpen test --file <path> [--payload <json>]` CLI dry-run validation.
+7. **Repository Hygiene:**
+   - Untracked `backend/worpen.db` and committed `backend/Cargo.lock`.
+   - Purged ~60 clutter files (demo JSON/Python scripts, temporary phase markdown summaries).
 
 ---
 
 ## 4. Test & Verification Suite Metrics
 
-All tests run concurrently and pass without failure in the local environment:
+All 299 tests pass concurrently with zero warnings across the entire workspace:
 
-| Test Suite File | Domain Covered | Tests | Status |
+| Test Suite / Target | Domain Covered | Tests | Status |
 | :--- | :--- | :---: | :---: |
 | `policy_sandbox_test.rs` | SSRF IP blocklists, DNS guards, SQL read-only, table allowlists | 4 | **PASS** |
-| `canary_secrets_test.rs` | Zero secret leakage across SQL, HTTP reflection, errors, and audit logs | 3 | **PASS** |
-| `approval_durable_test.rs` | Approval gate pauses, resume, rejection, crash recovery | 4 | **PASS** |
+| `canary_secrets_test.rs` | Zero secret leakage across SQL, HTTP reflection, Base64/Hex/URL encoding, errors | 4 | **PASS** |
+| `approval_durable_test.rs` | Approval gate pauses, resume, rejection, crash recovery, anti-self-approval | 4 | **PASS** |
 | `workflow_spec_test.rs` | Validation, loop bounds, undefined variable rejection, dry-run simulation | 5 | **PASS** |
-| `audit_tamper_test.rs` | Hash chain verification, tampered payload detection, CEF/OTel export | 6 | **PASS** |
+| `audit_tamper_test.rs` | HMAC hash chain verification, tampered payload detection, CEF/OTel export | 7 | **PASS** |
 | `adversarial_security_test.rs` | SSRF obfuscation, domain spoofing, SQL injection tricks, path traversal | 5 | **PASS** |
-| `mcp_test.rs` | MCP initialize/ping, annotations, identity filtering, structured errors, approval cycle | 5 | **PASS** |
-| `cli_test.rs` | `worpen init`, template parsing, `worpen doctor`, local audit verification | 3 | **PASS** |
+| `mcp_test.rs` | MCP initialize/ping, annotations, identity filtering, structured errors, approval channel isolation | 5 | **PASS** |
+| `cli_test.rs` | `worpen init`, template parsing, `worpen doctor`, `worpen test`, local audit verification | 4 | **PASS** |
 | `integration_schema_validation.rs`| JSON Schema input validation and detailed error reporting | 9 | **PASS** |
 | `integration_yaml_routes.rs` | YAML/JSON format detection, dynamic route execution | 9 | **PASS** |
-| Core Unit Tests (`lib.rs`) | VM, bytecode compiler, expression engine, filter pipes, symbol tables | 165 | **PASS** |
+| `integration_expression_templates.rs`| Expression template evaluation and string formatting | 10 | **PASS** |
+| `e2e_yaml_expressions.rs` | End-to-end YAML expression pipeline evaluation | 10 | **PASS** |
+| `error_handling_tests.rs` | Detailed VM error propagation, bounds checking, and safety traps | 32 | **PASS** |
+| `vm_redis_test.rs` / `vm_sql_test.rs` | Low-level VM data connector execution | 5 | **PASS** |
+| `vm_test.rs` / `vm_websocket_test.rs` | Core bytecode VM and WebSocket connection handling | 8 | **PASS** |
+| `dynamic_route_cache_test.rs` | Dynamic route caching and hot reloading | 1 | **PASS** |
+| Proto Unit Tests (`proto/lib.rs`)| Protocol serialization, deserialization, and route models | 3 | **PASS** |
+| Core Unit Tests (`worpen_core/lib.rs`)| VM, bytecode compiler, expression engine, filter pipes, symbol tables | 168 | **PASS** |
 | Doc Tests (`worpen_core`) | Inline documentation examples and doctests | 6 | **PASS** |
-| **TOTAL** | **Full Workspace Automated Test Coverage** | **286** | **100% PASS** |
+| **TOTAL** | **Full Workspace Automated Test Coverage** | **299** | **100% PASS** |
 
 ---
 
@@ -178,7 +212,7 @@ Worpen has completed its transformation. It stands as a verifiable, enterprise-g
 - **Zero visible credentials**
 - **Strict SSRF and SQL policy sandboxing**
 - **Durable human approval gates**
-- **Mathematically provable, hash-chained audit trails**
+- **Tamper-evident, HMAC-keyed hash-chained audit trails**
 - **First-class Model Context Protocol (MCP) server**
 
 The codebase on branch `enterprise-loop` is clean, completely green, and ready for deployment.

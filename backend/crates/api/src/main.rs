@@ -134,6 +134,12 @@ async fn main() {
                 std::process::exit(1);
             }
         }
+        Commands::Test(args) => {
+            if let Err(e) = ops::run_test(&args).await {
+                eprintln!("error: {}", e);
+                std::process::exit(1);
+            }
+        }
         Commands::Setup => {
             if let Err(e) = ops::setup().await {
                 eprintln!("error: {}", e);

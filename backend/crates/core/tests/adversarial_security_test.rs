@@ -110,6 +110,7 @@ fn test_adversarial_ssrf_obfuscated_and_special_ips() {
 #[test]
 fn test_adversarial_domain_spoofing_attempts() {
     let policy = SandboxPolicy {
+        allow_net: true,
         allowed_hosts: vec!["api.stripe.com".to_string(), "api.github.com".to_string()],
         ..Default::default()
     };
@@ -139,6 +140,7 @@ fn test_adversarial_domain_spoofing_attempts() {
 #[test]
 fn test_adversarial_sql_injection_and_destructive_queries() {
     let read_only_policy = SandboxPolicy {
+        allow_sql: true,
         read_only_sql: true,
         allowed_tables: vec!["refunds".to_string(), "customers".to_string()],
         ..Default::default()
@@ -160,6 +162,13 @@ fn test_adversarial_sql_injection_and_destructive_queries() {
         "SELECT * FROM user_passwords;",
         "SELECT * FROM sqlite_master;",
         "SELECT password_hash FROM admin_credentials;",
+        // CTE mutation attack
+        "WITH cte AS (SELECT 1) DELETE FROM refunds WHERE 1=1;",
+        // Comment bypass attack
+        "/* comment */ DROP TABLE refunds;",
+        "-- leading comment\nTRUNCATE TABLE refunds;",
+        // Comma join table allowlist bypass
+        "SELECT * FROM refunds, admin_credentials WHERE refunds.id = admin_credentials.id;",
     ];
 
     for q in attack_queries {

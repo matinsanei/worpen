@@ -814,3 +814,72 @@ pub async fn workflow_reject(a: &RejectRunArgs) -> Result<(), String> {
     println!("{}", serde_json::to_string_pretty(&v).unwrap_or_default());
     Ok(())
 }
+
+pub async fn run_test(a: &crate::cli::TestArgs) -> Result<(), String> {
+    let path = std::path::Path::new(&a.file);
+    if !path.exists() {
+        return Err(format!("File not found: {}", a.file));
+    }
+    let content = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let payload: serde_json::Value =
+        serde_json::from_str(&a.payload).map_err(|e| format!("Invalid JSON payload: {}", e))?;
+
+    println!("Testing definition: {}", a.file);
+    println!(
+        "Mock payload: {}",
+        serde_json::to_string_pretty(&payload).unwrap_or_default()
+    );
+    println!("--------------------------------------------------");
+
+    // 1. Try parsing as WorkflowSpecV1
+    if let Ok(spec) = serde_yaml::from_str::<proto::models::WorkflowSpecV1>(&content) {
+        println!("Type: Workflow Spec v1 ('{}' v{})", spec.name, spec.version);
+        println!("Steps: {}", spec.steps.len());
+
+        // Run validation
+        if let Err(e) = worpen_core::workflow::WorkflowValidator::validate(&spec) {
+            eprintln!("❌ Validation error: {}", e);
+            return Err(e);
+        }
+        println!("✅ Schema & variable validation passed");
+
+        // Dry-run simulation
+        let temp_dir =
+            std::env::temp_dir().join(format!("worpen_test_cli_{}", uuid::Uuid::new_v4()));
+        let _ = std::fs::create_dir_all(&temp_dir);
+        let route_service =
+            std::sync::Arc::new(worpen_core::services::DynamicRouteService::with_data_dir(
+                temp_dir.to_str().unwrap().to_string(),
+            ));
+        let wf_svc = worpen_core::workflow::service::WorkflowService::new(
+            temp_dir.to_str().unwrap().to_string(),
+            route_service,
+        );
+        wf_svc.register_workflow(&content).await?;
+
+        let res = wf_svc
+            .execute(
+                &spec.name,
+                Some(payload),
+                proto::models::ExecutionMode::DryRun,
+            )
+            .await?;
+
+        println!("✅ Dry-run simulation completed successfully!");
+        println!(
+            "Simulated Output:\n{}",
+            serde_json::to_string_pretty(&res).unwrap_or_default()
+        );
+        return Ok(());
+    }
+
+    // 2. Try parsing as RouteDefinition
+    if let Ok(route) = serde_json::from_str::<proto::models::RouteDefinition>(&content) {
+        println!("Type: Route Definition ('{}')", route.name);
+        println!("Path: {} [{:?}]", route.path, route.method);
+        println!("✅ JSON route format verified");
+        return Ok(());
+    }
+
+    Err("Could not parse file as WorkflowSpecV1 (YAML) or RouteDefinition (JSON)".to_string())
+}

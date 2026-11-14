@@ -37,6 +37,9 @@ async fn test_approval_gate_pause_and_approve_cycle() {
 name: refund_workflow
 version: "1.0"
 description: Refund demo with human approval gate
+policy:
+  allow_sql: true
+  read_only_sql: false
 input_schema:
   type: object
   properties:
@@ -275,4 +278,72 @@ return:
         assert_eq!(completed.status, RunStatus::Completed);
         assert_eq!(completed.result.unwrap()["persisted"], "saved_in_sqlite");
     }
+}
+
+#[tokio::test]
+async fn test_durable_idempotency_deduplication() {
+    let temp_dir = std::env::temp_dir().join(format!("worpen_test_{}", uuid::Uuid::new_v4()));
+    fs::create_dir_all(&temp_dir).unwrap();
+    let data_dir = temp_dir.to_str().unwrap().to_string();
+
+    let db_pool = SqlitePoolOptions::new()
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+
+    let mut route_service = DynamicRouteService::with_data_dir(data_dir.clone());
+    route_service.set_db_pool(db_pool.clone());
+    let wf_svc = WorkflowService::new(data_dir.clone(), Arc::new(route_service));
+
+    let yaml = r#"
+name: idempotent_test
+version: "1.0"
+description: Idempotency deduplication test
+steps:
+  - id: step1
+    op: transform
+    expr: "100 + 50"
+    output_var: sum
+return:
+  status: 200
+  value:
+    sum: "{{sum}}"
+"#;
+    wf_svc.register_workflow(yaml).await.unwrap();
+
+    let payload = Some(serde_json::json!({
+        "idempotency_key": "payment_tx_998877",
+        "customer": "bob"
+    }));
+
+    // First call: executes and completes
+    let run1 = wf_svc
+        .start_run_with_meta(
+            "idempotent_test",
+            payload.clone(),
+            ExecutionMode::Live,
+            Some("agent:order_worker".to_string()),
+            Some("payment_tx_998877".to_string()),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(run1.status, RunStatus::Completed);
+    assert_eq!(run1.idempotency_key.as_deref(), Some("payment_tx_998877"));
+
+    // Second call with same idempotency key: returns existing run without re-running!
+    let run2 = wf_svc
+        .start_run_with_meta(
+            "idempotent_test",
+            payload,
+            ExecutionMode::Live,
+            Some("agent:order_worker".to_string()),
+            Some("payment_tx_998877".to_string()),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(run2.run_id, run1.run_id);
+    assert_eq!(run2.status, RunStatus::Completed);
+    assert_eq!(run2.result, run1.result);
 }

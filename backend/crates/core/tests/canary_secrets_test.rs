@@ -57,6 +57,9 @@ async fn test_canary_secrets_isolation_and_redaction() {
 name: secret_vault_test
 version: "1.0"
 description: Canary secret isolation test
+policy:
+  allow_sql: true
+  read_only_sql: false
 steps:
   - id: step_insert
     op: sql
@@ -184,6 +187,8 @@ async fn test_canary_secrets_redacted_in_errors() {
 name: secret_error_test
 version: "1.0"
 description: Secret error redaction test
+policy:
+  allow_sql: true
 steps:
   - id: step_fail
     op: sql
@@ -338,5 +343,94 @@ return:
         !audit_file_content.contains(canary_api_token),
         "Secret leaked in audit log: {}",
         audit_file_content
+    );
+}
+
+#[tokio::test]
+async fn test_canary_secret_multi_encoding_http_reflection() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+
+    let secret_val = "sk_live_encoded_canary_445566";
+    let b64_secret = worpen_core::helpers::base64_encode(secret_val);
+    let hex_secret = hex::encode(secret_val.as_bytes());
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+
+    let s_b64 = b64_secret.clone();
+    let s_hex = hex_secret.clone();
+    let server_handle = tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.unwrap();
+        let mut buf = vec![0u8; 2048];
+        let n = socket.read(&mut buf).await.unwrap();
+        let _req = String::from_utf8_lossy(&buf[..n]).to_string();
+
+        // Server echoes secret in Base64 and Hex representations
+        let body = format!(r#"{{"b64":"{}","hex":"{}"}}"#, s_b64, s_hex);
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
+            body.len(),
+            body
+        );
+        socket.write_all(response.as_bytes()).await.unwrap();
+    });
+
+    let temp_dir = std::env::temp_dir().join(format!("worpen_test_{}", uuid::Uuid::new_v4()));
+    fs::create_dir_all(&temp_dir).unwrap();
+    let data_dir = temp_dir.to_str().unwrap().to_string();
+
+    let secret_store = SecretStore::new();
+    secret_store.set_secret("token", secret_val);
+
+    let mut route_service = DynamicRouteService::with_data_dir(data_dir.clone());
+    route_service.set_secret_store(Arc::new(secret_store));
+    let route_service_arc = Arc::new(route_service);
+
+    let workflow_service = WorkflowService::new(data_dir.clone(), route_service_arc.clone());
+
+    let yaml = format!(
+        r#"
+name: multi_enc_test
+version: "1.0"
+description: Multi-encoding redaction test
+policy:
+  allow_net: true
+  allowed_hosts:
+    - "127.0.0.1"
+  block_private_ips: false
+steps:
+  - id: step_req
+    op: http
+    method: GET
+    url: "http://127.0.0.1:{}/status"
+    output_var: raw_resp
+
+return:
+  status: 200
+  value:
+    resp: "{{{{raw_resp}}}}"
+"#,
+        port
+    );
+
+    workflow_service.register_workflow(&yaml).await.unwrap();
+    let res = workflow_service
+        .execute("multi_enc_test", None, ExecutionMode::Live)
+        .await
+        .unwrap();
+
+    server_handle.await.unwrap();
+
+    let out_str = serde_json::to_string(&res).unwrap();
+    // Both Base64 and Hex reflections must be redacted
+    assert!(
+        !out_str.contains(&b64_secret),
+        "Base64 encoded secret leaked!"
+    );
+    assert!(!out_str.contains(&hex_secret), "Hex encoded secret leaked!");
+    assert!(
+        out_str.contains("[REDACTED]"),
+        "Missing [REDACTED] in output"
     );
 }

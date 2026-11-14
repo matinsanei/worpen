@@ -36,14 +36,26 @@ impl DurableRunStore {
             pending_approval TEXT,
             result TEXT,
             error TEXT,
+            initiator TEXT,
+            idempotency_key TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         );
+        CREATE INDEX IF NOT EXISTS idx_workflow_runs_idempotency ON workflow_runs (workflow_name, idempotency_key);
         "#;
         sqlx::query(sql)
             .execute(&self.pool)
             .await
             .map_err(|e| format!("Failed to create workflow_runs table: {}", e))?;
+
+        // Safely upgrade existing tables if columns missing
+        let _ = sqlx::query("ALTER TABLE workflow_runs ADD COLUMN initiator TEXT")
+            .execute(&self.pool)
+            .await;
+        let _ = sqlx::query("ALTER TABLE workflow_runs ADD COLUMN idempotency_key TEXT")
+            .execute(&self.pool)
+            .await;
+
         Ok(())
     }
 
@@ -51,8 +63,8 @@ impl DurableRunStore {
         let sql = r#"
         INSERT INTO workflow_runs (
             run_id, workflow_name, version, status, mode, step_index,
-            variables, pending_approval, result, error, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            variables, pending_approval, result, error, initiator, idempotency_key, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         ON CONFLICT(run_id) DO UPDATE SET
             status = excluded.status,
             step_index = excluded.step_index,
@@ -60,6 +72,8 @@ impl DurableRunStore {
             pending_approval = excluded.pending_approval,
             result = excluded.result,
             error = excluded.error,
+            initiator = excluded.initiator,
+            idempotency_key = excluded.idempotency_key,
             updated_at = excluded.updated_at;
         "#;
 
@@ -100,6 +114,8 @@ impl DurableRunStore {
             .bind(pending_json)
             .bind(result_json)
             .bind(&run.error)
+            .bind(&run.initiator)
+            .bind(&run.idempotency_key)
             .bind(&run.created_at)
             .bind(&run.updated_at)
             .execute(&self.pool)
@@ -152,6 +168,30 @@ impl DurableRunStore {
         Ok(runs)
     }
 
+    pub async fn get_run_by_idempotency_key(
+        &self,
+        workflow_name: &str,
+        idempotency_key: &str,
+    ) -> Result<Option<WorkflowRun>, String> {
+        let sql = "SELECT * FROM workflow_runs WHERE workflow_name = $1 AND idempotency_key = $2 ORDER BY created_at DESC LIMIT 1";
+        let maybe_row = sqlx::query(sql)
+            .bind(workflow_name)
+            .bind(idempotency_key)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| {
+                format!(
+                    "Failed to fetch run by idempotency_key '{}': {}",
+                    idempotency_key, e
+                )
+            })?;
+
+        match maybe_row {
+            Some(row) => Ok(Some(Self::row_to_run(&row)?)),
+            None => Ok(None),
+        }
+    }
+
     fn row_to_run(row: &sqlx::sqlite::SqliteRow) -> Result<WorkflowRun, String> {
         let status_str: String = row
             .try_get("status")
@@ -194,6 +234,8 @@ impl DurableRunStore {
             .and_then(|s| serde_json::from_str(&s).ok());
 
         let error: Option<String> = row.try_get("error").ok().flatten();
+        let initiator: Option<String> = row.try_get("initiator").ok().flatten();
+        let idempotency_key: Option<String> = row.try_get("idempotency_key").ok().flatten();
 
         let step_index: i64 = row.try_get("step_index").unwrap_or(0);
 
@@ -208,6 +250,8 @@ impl DurableRunStore {
             pending_approval,
             result,
             error,
+            initiator,
+            idempotency_key,
             created_at: row.try_get("created_at").unwrap_or_default(),
             updated_at: row.try_get("updated_at").unwrap_or_default(),
         })
@@ -254,17 +298,62 @@ impl DurableWorkflowEngine {
         payload: Option<Value>,
         mode: ExecutionMode,
     ) -> Result<WorkflowRun, String> {
+        self.start_run_with_meta(spec, payload, mode, None, None)
+            .await
+    }
+
+    /// Start a new durable run with initiator and idempotency tracking
+    pub async fn start_run_with_meta(
+        &self,
+        spec: &WorkflowSpecV1,
+        payload: Option<Value>,
+        mode: ExecutionMode,
+        initiator: Option<String>,
+        idempotency_key: Option<String>,
+    ) -> Result<WorkflowRun, String> {
+        let effective_idempotency_key = idempotency_key.or_else(|| {
+            payload
+                .as_ref()
+                .and_then(|p| p.get("idempotency_key"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        });
+
+        // 1. Idempotency deduplication check
+        if let Some(ref ikey) = effective_idempotency_key {
+            if let Ok(Some(existing_run)) = self
+                .store
+                .get_run_by_idempotency_key(&spec.name, ikey)
+                .await
+            {
+                // If run already exists, return it to prevent duplicate execution
+                return Ok(existing_run);
+            }
+        }
+
         let run_id = Uuid::new_v4().to_string();
         let now = Utc::now().to_rfc3339();
 
+        let effective_initiator = initiator
+            .or_else(|| {
+                payload
+                    .as_ref()
+                    .and_then(|p| p.get("__initiator"))
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+            })
+            .or_else(|| Some("system".to_string()));
+
         let _ = self.audit_chain.append(
             "workflow.start",
-            "agent",
+            effective_initiator.as_deref().unwrap_or("agent"),
             &spec.name,
             json!({
                 "run_id": &run_id,
                 "version": &spec.version,
                 "mode": format!("{:?}", mode),
+                "initiator": &effective_initiator,
+                "idempotency_key": &effective_idempotency_key,
             }),
             Some("allowed"),
         );
@@ -297,6 +386,8 @@ impl DurableWorkflowEngine {
             pending_approval: None,
             result: None,
             error: None,
+            initiator: effective_initiator,
+            idempotency_key: effective_idempotency_key,
             created_at: now.clone(),
             updated_at: now,
         };
@@ -351,8 +442,30 @@ impl DurableWorkflowEngine {
                 return Ok(run.clone());
             }
 
-            // 2. Execute normal step
-            let step_result = self.execute_step(step, run, &policy).await;
+            // 2. Execute normal step with retry policy (if configured)
+            let max_attempts = step
+                .retry
+                .as_ref()
+                .map(|r| r.max_attempts)
+                .unwrap_or(1)
+                .max(1);
+            let base_backoff_ms = step.retry.as_ref().map(|r| r.backoff_ms).unwrap_or(100);
+
+            let mut attempts = 0;
+            let step_result = loop {
+                attempts += 1;
+                match self.execute_step(step, run, &policy).await {
+                    Ok(val) => break Ok(val),
+                    Err(err) => {
+                        if attempts >= max_attempts {
+                            break Err(err);
+                        }
+                        let delay_ms = base_backoff_ms * (1 << (attempts - 1)).min(30_000);
+                        tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
+                    }
+                }
+            };
+
             match step_result {
                 Ok(_) => {
                     run.step_index += 1;
@@ -426,6 +539,18 @@ impl DurableWorkflowEngine {
                 "Run '{}' is not waiting for approval (current status: {:?})",
                 run_id, run.status
             ));
+        }
+
+        // Anti-self-approval enforcement: Run initiator cannot approve their own run
+        if let Some(ref initiator) = run.initiator {
+            let clean_approver = approver.trim().to_lowercase();
+            let clean_initiator = initiator.trim().to_lowercase();
+            if !clean_approver.is_empty() && clean_approver == clean_initiator {
+                return Err(format!(
+                    "Self-approval forbidden: Initiator '{}' cannot approve their own run '{}'. Approval must come from a distinct operator.",
+                    initiator, run_id
+                ));
+            }
         }
 
         // Check if approval has expired
@@ -602,11 +727,27 @@ impl DurableWorkflowEngine {
                     }
                 }
 
-                // 4. Execute query
-                let rows = query_builder
-                    .fetch_all(&self.db_pool)
-                    .await
-                    .map_err(|e| format!("SQL execution error: {}", e))?;
+                // 4. Execute query with C-level read-only enforcement when requested
+                let rows = if policy.read_only_sql {
+                    let mut conn = self
+                        .db_pool
+                        .acquire()
+                        .await
+                        .map_err(|e| format!("Failed to acquire DB connection: {}", e))?;
+                    let _ = sqlx::query("PRAGMA query_only = ON;")
+                        .execute(&mut *conn)
+                        .await;
+                    let result = query_builder.fetch_all(&mut *conn).await;
+                    let _ = sqlx::query("PRAGMA query_only = OFF;")
+                        .execute(&mut *conn)
+                        .await;
+                    result.map_err(|e| format!("SQL execution error: {}", e))?
+                } else {
+                    query_builder
+                        .fetch_all(&self.db_pool)
+                        .await
+                        .map_err(|e| format!("SQL execution error: {}", e))?
+                };
 
                 // 5. Convert rows to JSON and apply row cap
                 let mut json_rows = Vec::new();

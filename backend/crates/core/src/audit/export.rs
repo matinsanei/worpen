@@ -36,7 +36,8 @@ pub fn export_cef(records: &[AuditRecord]) -> String {
             .replace('=', "\\=");
 
         let cef_line = format!(
-            "CEF:0|Worpen|ActionPlane|0.1.0|{}|{}|{}|src={} cs1={} cs1Label=Workflow msg={} cn1={} cn1Label=Index cs2={} cs2Label=EntryHash",
+            "CEF:0|Worpen|ActionPlane|{}|{}|{}|{}|src={} cs1={} cs1Label=Workflow msg={} cn1={} cn1Label=Index cs2={} cs2Label=EntryHash",
+            env!("CARGO_PKG_VERSION"),
             r.action,
             r.action,
             severity,
@@ -93,7 +94,7 @@ pub fn export_otel(records: &[AuditRecord]) -> Value {
                 "resource": {
                     "attributes": [
                         { "key": "service.name", "value": { "stringValue": "worpen" } },
-                        { "key": "service.version", "value": { "stringValue": "0.1.0" } }
+                        { "key": "service.version", "value": { "stringValue": env!("CARGO_PKG_VERSION") } }
                     ]
                 },
                 "scopeLogs": [

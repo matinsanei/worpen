@@ -1,6 +1,6 @@
 [package]
 name = "worpen-core"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Matin Sanei <saneimatin33@gmail.com>"]
 description = "Core domain logic and VM for Worpen Dynamic API Engine"
@@ -28,6 +28,7 @@ deadpool-redis = "0.18"
 tokio-tungstenite = "0.24"
 dashmap = "6.1"
 sha2 = "0.10"
+hmac = "0.12"
 hex = "0.4"
 
 [dev-dependencies]

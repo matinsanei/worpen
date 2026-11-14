@@ -49,8 +49,20 @@ pub enum Commands {
         #[command(subcommand)]
         cmd: WorkflowCmd,
     },
+    /// Test a workflow or route with dry-run simulation, mock execution, and policy checks
+    Test(TestArgs),
     /// Interactive first-run wizard (port, token, ui) — writes .env
     Setup,
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct TestArgs {
+    /// Path to YAML or JSON workflow or route file
+    #[arg(short, long)]
+    pub file: String,
+    /// Mock input payload (JSON string)
+    #[arg(long, default_value = "{}")]
+    pub payload: String,
 }
 
 #[derive(Parser, Debug, Clone)]

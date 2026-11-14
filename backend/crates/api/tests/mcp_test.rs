@@ -63,18 +63,20 @@ async fn test_mcp_tools_list_annotations_and_builtins() {
     let Json(resp) = mcp_handler(State(state), HeaderMap::new(), Json(list_req)).await;
     let tools = resp["result"]["tools"].as_array().expect("tools array");
 
-    // Assert built-in tools are present
+    // Assert built-in read-only verification tools are present
     let tool_names: Vec<String> = tools
         .iter()
         .filter_map(|t| t["name"].as_str().map(|s| s.to_string()))
         .collect();
     assert!(tool_names.contains(&"get_run".to_string()));
     assert!(tool_names.contains(&"list_pending_approvals".to_string()));
-    assert!(tool_names.contains(&"approve_run".to_string()));
-    assert!(tool_names.contains(&"reject_run".to_string()));
     assert!(tool_names.contains(&"verify_audit".to_string()));
 
-    // Verify all tools have proper annotations
+    // Strict channel separation: approve_run and reject_run must NEVER be exposed as agent MCP tools
+    assert!(!tool_names.contains(&"approve_run".to_string()));
+    assert!(!tool_names.contains(&"reject_run".to_string()));
+
+    // Verify all exposed tools have proper annotations
     for t in tools {
         let name = t["name"].as_str().unwrap();
         let annotations = &t["annotations"];
@@ -90,9 +92,6 @@ async fn test_mcp_tools_list_annotations_and_builtins() {
         if name == "get_run" || name == "list_pending_approvals" || name == "verify_audit" {
             assert_eq!(annotations["readOnly"], true);
             assert_eq!(annotations["idempotent"], true);
-        } else if name == "approve_run" || name == "reject_run" {
-            assert_eq!(annotations["readOnly"], false);
-            assert_eq!(annotations["idempotent"], false);
         }
     }
 }
@@ -244,8 +243,8 @@ return:
     assert_eq!(pending_runs.len(), 1);
     assert_eq!(pending_runs[0]["run_id"], run_id);
 
-    // 3. Supervisor approves run via MCP tool
-    let approve_req = RpcRequest {
+    // 3. Agent attempts to self-approve via MCP tool — MUST BE BLOCKED by channel separation!
+    let agent_approve_req = RpcRequest {
         jsonrpc: Some("2.0".to_string()),
         id: Some(json!(42)),
         method: "tools/call".to_string(),
@@ -253,20 +252,47 @@ return:
             "name": "approve_run",
             "arguments": {
                 "run_id": run_id,
-                "approver": "supervisor_alice",
-                "reason": "Legitimate claim confirmed"
+                "approver": "mcp_agent",
+                "reason": "Agent attempting self-approval"
             }
         })),
     };
-    let Json(resp3) = mcp_handler(State(state.clone()), HeaderMap::new(), Json(approve_req)).await;
+    let Json(resp3) = mcp_handler(
+        State(state.clone()),
+        HeaderMap::new(),
+        Json(agent_approve_req),
+    )
+    .await;
     let res3 = &resp3["result"];
-    assert_eq!(res3["isError"], false);
-    let run_res = &res3["result"];
-    assert_eq!(run_res["status"], "completed");
-    assert_eq!(run_res["result"]["status"], "refunded");
-    assert_eq!(run_res["result"]["approved_by"], "supervisor_alice");
+    assert_eq!(res3["isError"], true);
+    assert_eq!(
+        res3["structuredError"]["code"],
+        "APPROVAL_CHANNEL_SEPARATION"
+    );
 
-    // 4. Verify cryptographic audit chain via MCP tool
+    // 4. Operator channel: Anti-self-approval check
+    // If the initiator attempts to approve through the operator channel, it must be rejected!
+    let self_approve_res = state
+        .workflow_service
+        .approve_run(&run_id, "mcp_agent", "Self-approval attempt")
+        .await;
+    assert!(self_approve_res.is_err());
+    assert!(self_approve_res
+        .unwrap_err()
+        .contains("Self-approval forbidden"));
+
+    // 5. Authorized distinct human operator approves via operator channel
+    let approved_run = state
+        .workflow_service
+        .approve_run(&run_id, "supervisor_alice", "Legitimate claim confirmed")
+        .await
+        .expect("Operator approval must succeed");
+    assert_eq!(approved_run.status, proto::models::RunStatus::Completed);
+    let run_res = approved_run.result.expect("completed result");
+    assert_eq!(run_res["status"], "refunded");
+    assert_eq!(run_res["approved_by"], "supervisor_alice");
+
+    // 6. Verify cryptographic audit chain via MCP tool
     let audit_req = RpcRequest {
         jsonrpc: Some("2.0".to_string()),
         id: Some(json!(43)),

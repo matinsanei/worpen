@@ -1,7 +1,7 @@
 # Worpen Threat Model & Security Architecture
 
 **Document Version:** 1.0.0  
-**Target System:** Worpen Action Plane for AI Agents (`v0.1.0`)  
+**Target System:** Worpen Action Plane for AI Agents (`v0.1.1`)  
 **Methodology:** STRIDE (Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege)
 
 ---
@@ -71,17 +71,23 @@ In this architecture, autonomous agents (such as Claude, Cursor, or custom LLM h
 ## 4. STRIDE Threat Analysis
 
 ### 4.1 Spoofing Identity
-* **Threat:** A compromised agent or external caller impersonates an authorized supervisor to approve high-risk operations (e.g. issuing financial refunds).
+* **Threat:** A compromised agent or external caller impersonates an authorized supervisor or self-approves high-risk operations (e.g. issuing financial refunds).
 * **Mitigation:**
-  - Token-based API authentication (`WORPEN_API_TOKEN`).
-  - Strict caller role filtering (`X-Agent-Role`) removing approval tools from unprivileged agents (e.g. `read_only_analyst`).
-  - Durable workflow engine records approver identity and reasons immutably in SQLite and the cryptographic audit log.
+  - **Dedicated Operator Channel:** Approval tools (`approve_run`, `reject_run`) are strictly forbidden via MCP and removed from agent toolsets (`APPROVAL_CHANNEL_SEPARATION`).
+  - **Strict Anti-Self-Approval Enforcement:** The durable workflow engine records the run `initiator`. If the approver matches the initiator, the engine strictly rejects the approval.
+  - **Authenticated Management Channels:** Approvals require dedicated operator credentials via CLI (`worpen workflow approve`) or authenticated REST endpoints with `WORPEN_API_TOKEN`.
 
 ### 4.2 Tampering with Data
-* **Threat 1:** An agent constructs malicious SQL injection queries to alter database records or drop tables.
-  * **Mitigation:** Query analysis enforces `read_only_sql` (rejecting `INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `TRUNCATE`) and validates tables against an explicit `allowed_tables` whitelist.
-* **Threat 2:** An attacker tampers with on-disk execution logs to erase evidence of unauthorized actions.
-  * **Mitigation:** Append-only SHA-256 hash chaining (`worpen_core::audit::chain`). Each entry links to the previous entry's hash. Any modification, insertion, or deletion breaks the chain and is detected by `verify_audit_chain`.
+* **Threat 1:** An agent constructs malicious SQL injection queries (e.g. CTEs `WITH x AS (...) DELETE`, comment obfuscation `/* ... */ DROP`, comma joins) to alter database records or access unauthorized tables.
+  * **Mitigation:** 
+    - Full comment and string literal stripping before tokenization.
+    - Whole-query token stream inspection denying all DDL/DML mutation keywords (`INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `TRUNCATE`, `REPLACE`, `ATTACH`, `PRAGMA`).
+    - Multi-table extraction handling comma joins (`FROM t1, t2`) and checking all referenced tables against `allowed_tables`.
+    - Runtime SQLite C-engine enforcement via `PRAGMA query_only = ON;` on the active connection.
+* **Threat 2:** An attacker with filesystem write access tampers with on-disk execution logs or recomputes SHA-256 hash chains to erase evidence.
+  * **Mitigation:** 
+    - Keyed HMAC-SHA256 cryptographic chaining (`WORPEN_AUDIT_KEY`). Every block's entry hash is cryptographically signed with the HMAC secret key.
+    - An attacker who recalculates SHA-256 hashes or truncates the log cannot forge valid HMAC signatures without the audit secret key.
 
 ### 4.3 Repudiation
 * **Threat:** An operator denies having approved a risky financial transaction or privileged action.
@@ -90,22 +96,22 @@ In this architecture, autonomous agents (such as Claude, Cursor, or custom LLM h
   - Provable hash-chained audit log records all lifecycle events (`workflow.approval_requested`, `workflow.approved`, `workflow.completed`) with exportability to CEF (Common Event Format) and OpenTelemetry.
 
 ### 4.4 Information Disclosure
-* **Threat:** Secrets (e.g. Stripe API keys, database credentials) leak into LLM prompts, agent context windows, error reflections, or audit logs.
+* **Threat:** Secrets (e.g. Stripe API keys, database credentials) leak into LLM prompts, agent context windows, error reflections, or audit logs through encoding transformations (Base64, Hex, URL percent-encoding).
 * **Mitigation:**
   - Variable lowerer explicitly strips and refuses to register `secret:*` tokens into symbol tables or agent-accessible variable memory.
   - Secrets are injected late at the transport boundary into HTTP headers or parameterized SQL query binds.
-  - `RedactionEngine` scans all output values, error strings, and audit logs, replacing every known secret token with `[REDACTED]`.
+  - `RedactionEngine` automatically registers and redacts multiple representations of every secret: raw plaintext, Base64 (padded and unpadded), Hexadecimal (lowercase and uppercase), and URL percent-encoding.
 
 ### 4.5 Denial of Service (DoS)
 * **Threat 1:** An agent generates unbounded loops or recursive calls that hang the runtime or exhaust CPU.
   * **Mitigation:** Workflow registration validator rejects any workflow with loops lacking explicit `max_iterations`, and enforces an upper bound defined by policy.
 * **Threat 2:** SQL queries return millions of rows, exhausting host memory.
-  * **Mitigation:** Sandboxed SQL execution enforces `max_sql_rows` (default 1,000 rows) with strict fetch limits.
+  * **Mitigation:** Sandboxed SQL execution enforces `max_sql_rows` (default 500-1,000 rows) with strict fetch limits.
 
 ### 4.6 Elevation of Privilege (SSRF & Sandbox Escapes)
 * **Threat:** An agent instructs Worpen to make outbound HTTP requests to internal IP addresses (e.g. `127.0.0.1`, AWS metadata `169.254.169.254`, router management interfaces) or executes DNS rebinding attacks.
 * **Mitigation:**
-  - Deny-by-default host allowlist (`policy.allowed_hosts`) with strict exact-match or subdomain matching (SEC-01 fix).
+  - **Deny-by-Default Policy:** `allow_net: false` and `allow_sql: false` by default; an empty `allowed_hosts` list strictly rejects all outbound network calls.
   - Outbound IP range blocklist covering RFC 1918 private subnets, loopback (`127.0.0.0/8`, `::1`), link-local (`169.254.0.0/16`, `fe80::/10`), CGNAT (`100.64.0.0/10`), and multicast.
   - Pre-flight DNS resolution with IP pinning on the outbound `reqwest` client, defeating TOCTOU DNS rebinding.
   - Strict redirect validation ensuring redirect targets do not resolve to blocked IPs or unlisted domains.

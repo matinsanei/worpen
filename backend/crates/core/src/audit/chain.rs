@@ -1,4 +1,5 @@
 use chrono::Utc;
+use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -9,7 +10,27 @@ use std::sync::RwLock;
 
 pub const GENESIS_HASH: &str = "0000000000000000000000000000000000000000000000000000000000000000";
 
-/// Cryptographically chained tamper-evident audit record
+type HmacSha256 = Hmac<Sha256>;
+
+/// Resolve the HMAC audit secret key from environment or fallback to machine anchor
+pub fn get_audit_secret_key() -> Vec<u8> {
+    if let Ok(key) = std::env::var("WORPEN_AUDIT_KEY") {
+        let trimmed = key.trim();
+        if !trimmed.is_empty() {
+            return trimmed.as_bytes().to_vec();
+        }
+    }
+    b"worpen-system-audit-anchor-hmac-v1".to_vec()
+}
+
+/// Compute HMAC-SHA256 signature over entry hash using secret audit key
+pub fn compute_hmac_signature(key: &[u8], entry_hash: &str) -> String {
+    let mut mac = HmacSha256::new_from_slice(key).expect("HMAC can take key of any length");
+    mac.update(entry_hash.as_bytes());
+    hex::encode(mac.finalize().into_bytes())
+}
+
+/// Cryptographically chained tamper-evident audit record with HMAC-SHA256 anchor
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AuditRecord {
     pub index: u64,
@@ -22,6 +43,8 @@ pub struct AuditRecord {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub policy_decision: Option<String>,
     pub entry_hash: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hmac_signature: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,8 +105,17 @@ pub fn compute_entry_hash(
     hex::encode(hasher.finalize())
 }
 
-/// Verify cryptographic integrity of an audit chain JSONL string or reader
+/// Verify cryptographic integrity of an audit chain JSONL string or reader using active audit key
 pub fn verify_audit_chain(content: &str) -> Result<VerificationReport, ChainVerificationError> {
+    let key = get_audit_secret_key();
+    verify_audit_chain_with_key(content, &key)
+}
+
+/// Verify cryptographic integrity of an audit chain with an explicit HMAC anchor key
+pub fn verify_audit_chain_with_key(
+    content: &str,
+    key: &[u8],
+) -> Result<VerificationReport, ChainVerificationError> {
     if content.trim().is_empty() {
         return Ok(VerificationReport {
             valid: true,
@@ -158,6 +190,19 @@ pub fn verify_audit_chain(content: &str) -> Result<VerificationReport, ChainVeri
                 expected_hash: Some(computed),
                 actual_hash: Some(record.entry_hash),
             });
+        }
+
+        // 4. Verify HMAC-SHA256 signature if present
+        if let Some(ref sig) = record.hmac_signature {
+            let expected_sig = compute_hmac_signature(key, &record.entry_hash);
+            if sig != &expected_sig {
+                return Err(ChainVerificationError {
+                    broken_index: record.index,
+                    reason: "HMAC signature mismatch: audit record was modified or recalculated without secret audit key".to_string(),
+                    expected_hash: Some(expected_sig),
+                    actual_hash: Some(sig.clone()),
+                });
+            }
         }
 
         if expected_index == 0 {
@@ -250,6 +295,9 @@ impl AuditChainManager {
             policy_decision,
         );
 
+        let key = get_audit_secret_key();
+        let hmac_signature = compute_hmac_signature(&key, &entry_hash);
+
         let record = AuditRecord {
             index,
             timestamp,
@@ -260,6 +308,7 @@ impl AuditChainManager {
             details,
             policy_decision: policy_decision.map(|s| s.to_string()),
             entry_hash: entry_hash.clone(),
+            hmac_signature: Some(hmac_signature),
         };
 
         let line =

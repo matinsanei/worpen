@@ -197,11 +197,26 @@ impl WorkflowService {
         payload: Option<Value>,
         mode: ExecutionMode,
     ) -> Result<WorkflowRun, String> {
+        self.start_run_with_meta(name, payload, mode, None, None)
+            .await
+    }
+
+    /// Start a durable workflow run with initiator and idempotency tracking
+    pub async fn start_run_with_meta(
+        &self,
+        name: &str,
+        payload: Option<Value>,
+        mode: ExecutionMode,
+        initiator: Option<String>,
+        idempotency_key: Option<String>,
+    ) -> Result<WorkflowRun, String> {
         let spec = self
             .get_workflow(name)
             .ok_or_else(|| format!("Workflow '{}' not found", name))?;
         let engine = self.ensure_durable_engine().await?;
-        engine.start_run(&spec, payload, mode).await
+        engine
+            .start_run_with_meta(&spec, payload, mode, initiator, idempotency_key)
+            .await
     }
 
     /// Retrieve a durable run by ID
@@ -265,6 +280,19 @@ impl WorkflowService {
         payload: Option<Value>,
         mode: ExecutionMode,
     ) -> Result<Value, String> {
+        self.execute_with_meta(name, payload, mode, None, None)
+            .await
+    }
+
+    /// Execute workflow in Live or DryRun mode with initiator and idempotency tracking
+    pub async fn execute_with_meta(
+        &self,
+        name: &str,
+        payload: Option<Value>,
+        mode: ExecutionMode,
+        initiator: Option<String>,
+        idempotency_key: Option<String>,
+    ) -> Result<Value, String> {
         let spec = self
             .get_workflow(name)
             .ok_or_else(|| format!("Workflow '{}' not found", name))?;
@@ -275,7 +303,9 @@ impl WorkflowService {
             .any(|s| matches!(s.op, WorkflowOpV1::Approval { .. }));
 
         if has_approval && mode == ExecutionMode::Live {
-            let run = self.start_run(name, payload, mode).await?;
+            let run = self
+                .start_run_with_meta(name, payload, mode, initiator, idempotency_key)
+                .await?;
             if let Some(res) = run.result {
                 return Ok(res);
             }

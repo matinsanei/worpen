@@ -124,11 +124,11 @@ flowchart TD
 
 | Layer | Mechanism | Protection Guarantee |
 | :--- | :--- | :--- |
-| **Credentials** | `{{secret:name}}` Late-Binding | Secrets are never registered in symbol tables or memory visible to agents. Automatically redacted to `[REDACTED]` across all logs and outputs. |
-| **Network & SSRF** | Pre-Flight DNS & Socket IP Pinning | Denies private RFC 1918 IPs, loopback (`127.0.0.1`), cloud metadata (`169.254.169.254`), CGNAT, and IPv4-mapped IPv6. Outbound sockets are pinned to prevent DNS rebinding. |
-| **Database** | SQL AST & Table Allowlist | `read_only_sql` blocks all DDL/DML mutations (`DROP`, `ALTER`, `DELETE`, `UPDATE`, `INSERT`). Queries are constrained to `allowed_tables` with row caps. |
-| **Approvals** | Durable State Machine | Execution halts at `op: approval` steps. State survives application crashes and restarts in SQLite (`workflow_runs`). |
-| **Audit Log** | SHA-256 Hash Chaining | Every action links cryptographically to the previous entry hash: `SHA-256(index + timestamp + prev_hash + action + actor + details)`. Any tampering breaks the chain. |
+| **Credentials** | `{{secret:name}}` Late-Binding & Multi-Encoding Redaction | Secrets are never registered in symbol tables or memory visible to agents. Automatically redacted to `[REDACTED]` across raw plaintext, Base64, Hexadecimal, and URL percent-encoding. |
+| **Network & SSRF** | Deny-by-Default, Pre-Flight DNS & Socket IP Pinning | Deny-by-default (`allow_net: false`). Empty allowlist rejects all outbound traffic. Blocks private RFC 1918 IPs, loopback (`127.0.0.1`), cloud metadata (`169.254.169.254`), CGNAT, and IPv4-mapped IPv6 with pinned outbound sockets. |
+| **Database** | Tokenized Sanitization, Table Allowlist & SQLite `PRAGMA query_only` | Sanitizes comments and strings; denies all DDL/DML mutations across the token stream (blocking CTE & subquery bypasses). Enforces multi-table comma joins allowlists and activates SQLite C-engine `PRAGMA query_only = ON;`. |
+| **Approvals** | Dedicated Operator Channel & Anti-Self-Approval | Approval gates can NEVER be approved via agent MCP tools (`APPROVAL_CHANNEL_SEPARATION`). Approvals strictly require operator CLI (`worpen workflow approve`) or authenticated management REST endpoints. Initiators are strictly forbidden from self-approving runs. |
+| **Audit Log** | HMAC-SHA256 Keyed Cryptographic Chaining | Every action links cryptographically to the previous entry hash and is signed with a secret HMAC key (`WORPEN_AUDIT_KEY`). Verifiably tamper-evident against unauthorized log tampering, truncation, or recomputation. |
 
 For detailed architectural analysis, read our formal [Threat Model (THREAT_MODEL.md)](THREAT_MODEL.md).
 
@@ -243,6 +243,7 @@ return:
 # Project & Health
 worpen init [path]               # Scaffold a new project with starter templates
 worpen doctor                    # Run complete system & sandbox diagnostics
+worpen test --file wf.yaml       # Validate schema & dry-run simulate with mock inputs
 worpen serve --port 3000         # Launch the action plane runtime
 
 # Workflow Management

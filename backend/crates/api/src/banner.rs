@@ -57,7 +57,11 @@ pub fn print_banner() {
         "{}",
         "═══════════════════════════════════════════════════════".bright_black()
     );
-    println!("{} {}", "Version:".bright_white(), "0.1.0".green());
+    println!(
+        "{} {}",
+        "Version:".bright_white(),
+        env!("CARGO_PKG_VERSION").green()
+    );
     println!("{} {}", "Author:".bright_white(), "Matin Sanei".cyan());
     println!(
         "{}",

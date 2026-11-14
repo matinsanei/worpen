@@ -87,7 +87,7 @@ impl McpAgentError {
                 "Action paused at approval gate for run '{}': {}",
                 run_id, summary
             ),
-            hint: "A human operator must approve this run before execution can proceed. Use tool 'approve_run'"
+            hint: "An authorized human operator must approve this run via CLI ('worpen workflow approve') or authenticated management REST API. Agents cannot self-approve via MCP."
                 .to_string(),
             retryable: true,
             fields: Some(json!({ "run_id": run_id })),
@@ -160,51 +160,9 @@ pub async fn build_tools(state: &AppState, headers: Option<&HeaderMap>) -> Vec<V
         "_worpen": {"kind": "builtin", "tool": "list_pending_approvals"}
     }));
 
-    if !is_read_only_agent {
-        tools.push(json!({
-            "name": "approve_run",
-            "description": "Approve a paused workflow run and resume execution.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "run_id": {"type": "string", "description": "UUID of the paused run"},
-                    "approver": {"type": "string", "description": "Identity of the approver"},
-                    "reason": {"type": "string", "description": "Business reason for approval"}
-                },
-                "required": ["run_id", "approver", "reason"]
-            },
-            "annotations": {
-                "readOnly": false,
-                "destructive": false,
-                "idempotent": false
-            },
-            "_worpen": {"kind": "builtin", "tool": "approve_run"}
-        }));
-
-        tools.push(json!({
-            "name": "reject_run",
-            "description": "Reject a workflow run waiting for approval.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "run_id": {"type": "string", "description": "UUID of the run to reject"},
-                    "rejecter": {"type": "string", "description": "Identity of the rejecter"},
-                    "reason": {"type": "string", "description": "Reason for rejection"}
-                },
-                "required": ["run_id", "rejecter", "reason"]
-            },
-            "annotations": {
-                "readOnly": false,
-                "destructive": false,
-                "idempotent": false
-            },
-            "_worpen": {"kind": "builtin", "tool": "reject_run"}
-        }));
-    }
-
     tools.push(json!({
         "name": "verify_audit",
-        "description": "Verify the cryptographic SHA-256 hash chain integrity of the on-disk audit log.",
+        "description": "Verify the cryptographic HMAC-SHA256 hash chain integrity of the on-disk audit log.",
         "inputSchema": {
             "type": "object",
             "properties": {}
@@ -446,43 +404,17 @@ pub async fn call_tool(
                 .map_err(|e| McpAgentError::execution_error(&e))?;
             Ok(json!(pending))
         }
-        "approve_run" | "worpen:approve_run" => {
-            let run_id = args.get("run_id").and_then(|v| v.as_str()).ok_or_else(|| {
-                McpAgentError::execution_error("Missing required parameter 'run_id'")
-            })?;
-            let approver = args
-                .get("approver")
-                .and_then(|v| v.as_str())
-                .unwrap_or("operator");
-            let reason = args
-                .get("reason")
-                .and_then(|v| v.as_str())
-                .unwrap_or("Approved via MCP");
-            let run = state
-                .workflow_service
-                .approve_run(run_id, approver, reason)
-                .await
-                .map_err(|e| McpAgentError::execution_error(&e))?;
-            Ok(json!(run))
-        }
-        "reject_run" | "worpen:reject_run" => {
-            let run_id = args.get("run_id").and_then(|v| v.as_str()).ok_or_else(|| {
-                McpAgentError::execution_error("Missing required parameter 'run_id'")
-            })?;
-            let rejecter = args
-                .get("rejecter")
-                .and_then(|v| v.as_str())
-                .unwrap_or("operator");
-            let reason = args
-                .get("reason")
-                .and_then(|v| v.as_str())
-                .unwrap_or("Rejected via MCP");
-            let run = state
-                .workflow_service
-                .reject_run(run_id, rejecter, reason)
-                .await
-                .map_err(|e| McpAgentError::execution_error(&e))?;
-            Ok(json!(run))
+        "approve_run" | "worpen:approve_run" | "reject_run" | "worpen:reject_run" => {
+            Err(McpAgentError {
+                code: "APPROVAL_CHANNEL_SEPARATION".to_string(),
+                message: format!(
+                    "Tool '{}' is strictly forbidden via MCP. Approvals and rejections must occur through the dedicated operator channel (CLI 'worpen workflow approve' or authenticated REST API) with distinct operator credentials.",
+                    tool_name
+                ),
+                hint: "Contact an authorized human operator to approve or reject this run via CLI or the authenticated management console.".to_string(),
+                retryable: false,
+                fields: Some(json!({ "forbidden_tool": tool_name })),
+            })
         }
         "verify_audit" | "worpen:verify_audit" => {
             let chain = state.dynamic_route_service.audit_chain();
@@ -495,10 +427,13 @@ pub async fn call_tool(
             // Check workflow spec v1
             let wf_name = tool_name.strip_prefix("workflow:").unwrap_or(tool_name);
             if let Some(_spec) = state.workflow_service.get_workflow(wf_name) {
+                let caller = extract_caller_role(Some(headers))
+                    .map(|r| format!("agent:{}", r))
+                    .unwrap_or_else(|| "mcp_agent".to_string());
                 let payload = args.get("payload").cloned().or(Some(args.clone()));
                 let run_res = state
                     .workflow_service
-                    .execute(wf_name, payload, ExecutionMode::Live)
+                    .execute_with_meta(wf_name, payload, ExecutionMode::Live, Some(caller), None)
                     .await;
                 match run_res {
                     Ok(val) => {
@@ -675,12 +610,6 @@ pub async fn serve_stdio() -> Result<(), String> {
                         "annotations": {"readOnly": true, "destructive": false, "idempotent": true}
                     }),
                     json!({
-                        "name": "approve_run",
-                        "description": "Approve a paused workflow run.",
-                        "inputSchema": {"type": "object", "properties": {"run_id": {"type": "string"}, "approver": {"type": "string"}, "reason": {"type": "string"}}, "required": ["run_id", "approver", "reason"]},
-                        "annotations": {"readOnly": false, "destructive": false, "idempotent": false}
-                    }),
-                    json!({
                         "name": "verify_audit",
                         "description": "Verify audit log integrity.",
                         "inputSchema": {"type": "object"},
@@ -755,27 +684,13 @@ pub async fn serve_stdio() -> Result<(), String> {
                             json!({ "content": [{"type": "text", "text": e}], "isError": true }),
                         ),
                     },
-                    "approve_run" => {
-                        let run_id = args.get("run_id").and_then(|v| v.as_str()).unwrap_or("");
-                        let approver = args
-                            .get("approver")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("operator");
-                        let reason = args
-                            .get("reason")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("Approved via MCP stdio");
-                        match wf_svc.approve_run(run_id, approver, reason).await {
-                            Ok(run) => rpc_ok(
-                                id,
-                                json!({ "content": [{"type": "text", "text": serde_json::to_string_pretty(&run).unwrap_or_default()}], "isError": false }),
-                            ),
-                            Err(e) => rpc_ok(
-                                id,
-                                json!({ "content": [{"type": "text", "text": e}], "isError": true }),
-                            ),
-                        }
-                    }
+                    "approve_run" | "reject_run" => rpc_ok(
+                        id,
+                        json!({
+                            "content": [{"type": "text", "text": "Approvals and rejections are strictly forbidden via MCP stdio. Use operator CLI: 'worpen workflow approve'"}],
+                            "isError": true
+                        }),
+                    ),
                     "verify_audit" => match svc.audit_chain().verify() {
                         Ok(rep) => rpc_ok(
                             id,
@@ -791,7 +706,16 @@ pub async fn serve_stdio() -> Result<(), String> {
                         let wf_name = name.strip_prefix("workflow:").unwrap_or(&name);
                         if wf_svc.get_workflow(wf_name).is_some() {
                             let payload = args.get("payload").cloned().or(Some(args.clone()));
-                            match wf_svc.execute(wf_name, payload, ExecutionMode::Live).await {
+                            match wf_svc
+                                .execute_with_meta(
+                                    wf_name,
+                                    payload,
+                                    ExecutionMode::Live,
+                                    Some("agent:stdio".to_string()),
+                                    None,
+                                )
+                                .await
+                            {
                                 Ok(val) => rpc_ok(
                                     id,
                                     json!({ "content": [{"type": "text", "text": serde_json::to_string_pretty(&val).unwrap_or_default()}], "isError": false }),

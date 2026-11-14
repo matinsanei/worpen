@@ -343,11 +343,31 @@ impl VirtualMachine {
                             }
                         }
 
-                        // Execute and fetch results
-                        let rows = query_builder
-                            .fetch_all(pool)
-                            .await
-                            .map_err(|e| format!("SQL execution error: {}", e))?;
+                        // Execute and fetch results with C-engine level read-only enforcement
+                        let is_ro = self
+                            .sandbox
+                            .as_ref()
+                            .map(|s| s.read_only_sql)
+                            .unwrap_or(false);
+                        let rows = if is_ro {
+                            let mut conn = pool
+                                .acquire()
+                                .await
+                                .map_err(|e| format!("Failed to acquire DB connection: {}", e))?;
+                            let _ = sqlx::query("PRAGMA query_only = ON;")
+                                .execute(&mut *conn)
+                                .await;
+                            let res = query_builder.fetch_all(&mut *conn).await;
+                            let _ = sqlx::query("PRAGMA query_only = OFF;")
+                                .execute(&mut *conn)
+                                .await;
+                            res.map_err(|e| format!("SQL execution error: {}", e))?
+                        } else {
+                            query_builder
+                                .fetch_all(pool)
+                                .await
+                                .map_err(|e| format!("SQL execution error: {}", e))?
+                        };
 
                         // Convert rows to JSON array
                         let mut json_rows: Vec<Value> = rows

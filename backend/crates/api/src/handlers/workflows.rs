@@ -166,12 +166,14 @@ pub async fn get_run(
     }
 }
 
-/// POST /api/v1/runs/:id/approve — Human sign-off on an approval gate
+/// POST /api/v1/runs/:id/approve — Operator sign-off on an approval gate
 pub async fn approve_run(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     Path(id): Path<String>,
     Json(payload): Json<ApprovalActionPayload>,
 ) -> Result<Json<proto::models::WorkflowRun>, (StatusCode, Json<Value>)> {
+    crate::auth::require_token(&headers)?;
     let reason = payload
         .reason
         .unwrap_or_else(|| "Approved via API".to_string());
@@ -188,12 +190,14 @@ pub async fn approve_run(
     }
 }
 
-/// POST /api/v1/runs/:id/reject — Human rejection of an approval gate
+/// POST /api/v1/runs/:id/reject — Operator rejection of an approval gate
 pub async fn reject_run(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     Path(id): Path<String>,
     Json(payload): Json<RejectActionPayload>,
 ) -> Result<Json<proto::models::WorkflowRun>, (StatusCode, Json<Value>)> {
+    crate::auth::require_token(&headers)?;
     let reason = payload
         .reason
         .unwrap_or_else(|| "Rejected via API".to_string());
