@@ -2,6 +2,19 @@
 
 ## [Unreleased] - 2026-11-14 (Enterprise Action Plane Loop)
 
+### 🛠️ Developer Experience & Tooling (Phase 8)
+- **`worpen init` Project Scaffolding:**
+  - Added CLI scaffolding command creating starter workflows (`refund.yaml` with approval gate, `db_report.yaml` with read-only SQL, `issue_triage.yaml` with SSRF policy), `.cursor/mcp.json`, `.env.example`, and `worpen.yaml`.
+- **`worpen doctor` System Diagnostics:**
+  - Added comprehensive health inspection checking filesystem permissions, database connectivity, audit chain status, SSRF sandbox defenses, secrets sources, and auth state.
+- **CLI Workflow & Audit Commands:**
+  - Added `worpen workflow register/run/pending/approve/reject` for headless CLI workflow management.
+  - Added `worpen audit verify` and `worpen audit export` for cryptographic audit integrity checking and SIEM log export directly from CLI.
+- **Hardened Multi-Stage Dockerfile:**
+  - Created minimal multi-stage Docker build with non-root user (`UID 10001`), state and secret volume mounts, and built-in healthchecks.
+- **CLI Test Suite:**
+  - Created `backend/crates/api/tests/cli_test.rs` validating project scaffolding, starter template syntax, doctor checks, and local/remote audit verification.
+
 ### 🤖 MCP Quality & Agent Tooling (Phase 7)
 - **Standard Tool Annotations:**
   - Added `readOnly`, `destructive`, and `idempotent` hints across dynamic routes, pipelines, workflows, and built-in management tools.

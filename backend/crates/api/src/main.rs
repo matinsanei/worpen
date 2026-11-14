@@ -104,6 +104,36 @@ async fn main() {
                 std::process::exit(1);
             }
         }
+        Commands::Init(a) => {
+            if let Err(e) = ops::init(&a).await {
+                eprintln!("error: {}", e);
+                std::process::exit(1);
+            }
+        }
+        Commands::Audit { cmd } => {
+            let res = match cmd {
+                cli::AuditCliCmd::Verify(a) => ops::audit_verify(&a).await,
+                cli::AuditCliCmd::Export(a) => ops::audit_export(&a).await,
+            };
+            if let Err(e) = res {
+                eprintln!("error: {}", e);
+                std::process::exit(1);
+            }
+        }
+        Commands::Workflow { cmd } => {
+            let res = match cmd {
+                cli::WorkflowCmd::List(s) => ops::workflow_list(&s).await,
+                cli::WorkflowCmd::Register(a) => ops::workflow_register(&a).await,
+                cli::WorkflowCmd::Run(a) => ops::workflow_run(&a).await,
+                cli::WorkflowCmd::Pending(s) => ops::workflow_pending(&s).await,
+                cli::WorkflowCmd::Approve(a) => ops::workflow_approve(&a).await,
+                cli::WorkflowCmd::Reject(a) => ops::workflow_reject(&a).await,
+            };
+            if let Err(e) = res {
+                eprintln!("error: {}", e);
+                std::process::exit(1);
+            }
+        }
         Commands::Setup => {
             if let Err(e) = ops::setup().await {
                 eprintln!("error: {}", e);

@@ -99,6 +99,19 @@
   5. Provide out-of-the-box client configurations for Claude Desktop, Cursor, and VS Code.
 - **Consequences:** Makes Worpen a top-tier MCP server for Claude, Cursor, and autonomous agent frameworks with zero guessing, clear risk boundaries, and first-class human approval handling.
 
+## ADR-0011: Enterprise Developer Experience, Scaffolding, and Doctor Diagnostics
+- **Date:** 2026-11-14
+- **Status:** Accepted
+- **Context:** Delivering on the North Star requirement ("a stranger installs it in <60s, runs the refund demo with a human approval from the CLI") requires zero-friction onboarding, robust system diagnostics, starter templates, production multi-stage containerization, and seamless CLI workflows.
+- **Decision:**
+  1. Implement `worpen init [path]` which scaffolds a project with production starter templates (`refund.yaml` with approval gate, `db_report.yaml` with read-only SQL, `issue_triage.yaml` with SSRF policy), `.cursor/mcp.json`, `.env.example`, and `worpen.yaml`.
+  2. Implement `worpen doctor` to run comprehensive health diagnostics across filesystem permissions, database connectivity, audit chain status, SSRF sandbox defenses, secrets sources, and auth state.
+  3. Implement `worpen audit verify` and `worpen audit export` for CLI audit verification and SIEM log extraction.
+  4. Implement CLI workflow execution commands: `worpen workflow register`, `worpen workflow run`, `worpen workflow pending`, `worpen workflow approve`, and `worpen workflow reject`.
+  5. Add multi-stage, hardened, non-root Dockerfile (`UID 10001`) with healthchecks and isolated state/secret mount directories.
+- **Consequences:** Reduces stranger-to-working-demo time to under 60 seconds and equips DevOps/SecOps teams with robust diagnostics and verifiable audit tools.
+
+
 
 
 

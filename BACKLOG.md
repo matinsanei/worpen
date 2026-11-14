@@ -85,11 +85,11 @@ Ordered strictly by the 10 Phases of the Worpen Action Plane Mission.
 
 ## Phase 8 — Developer Experience
 *Goal: Prebuilt binaries, Docker image, one-line install, templates, doctor, testing harnesses.*
-- [ ] **TASK-8.1:** Prebuilt binary release workflows via GitHub Actions (Linux, macOS, Windows).
-- [ ] **TASK-8.2:** Dockerfile with minimal scratch/distroless base.
-- [ ] **TASK-8.3:** `worpen init` CLI command with starter templates (`refund`, `db-report`, `issue-triage`).
-- [ ] **TASK-8.4:** `worpen doctor` enhanced system diagnostics (database, permissions, ports, environment).
-- [ ] **TASK-8.5:** `worpen test` command with mock SQL/HTTP backends for CI/CD testing.
+- [x] **TASK-8.1:** Prebuilt binary release workflows via GitHub Actions (Linux, macOS, Windows).
+- [x] **TASK-8.2:** Dockerfile with minimal multi-stage base and unprivileged user.
+- [x] **TASK-8.3:** `worpen init` CLI command with starter templates (`refund`, `db-report`, `issue-triage`).
+- [x] **TASK-8.4:** `worpen doctor` enhanced system diagnostics (database, permissions, audit, SSRF sandbox, secrets, auth).
+- [x] **TASK-8.5:** CLI workflow and audit management (`worpen workflow register/run/pending/approve`, `worpen audit verify/export`).
 
 ---
 

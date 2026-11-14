@@ -37,6 +37,18 @@ pub enum Commands {
         #[command(subcommand)]
         cmd: PipeCmd,
     },
+    /// Initialize a new Worpen project with starter templates
+    Init(InitArgs),
+    /// Tamper-evident audit trail commands
+    Audit {
+        #[command(subcommand)]
+        cmd: AuditCliCmd,
+    },
+    /// Manage and execute Workflow Spec v1 jobs
+    Workflow {
+        #[command(subcommand)]
+        cmd: WorkflowCmd,
+    },
     /// Interactive first-run wizard (port, token, ui) — writes .env
     Setup,
 }
@@ -232,6 +244,103 @@ pub struct RunsArgs {
     pub pipeline_id: Option<String>,
     #[arg(long, default_value_t = 20)]
     pub limit: usize,
+    #[command(flatten)]
+    pub server: ServerRef,
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct InitArgs {
+    /// Directory to initialize (defaults to current directory ".")
+    #[arg(default_value = ".")]
+    pub path: String,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum AuditCliCmd {
+    /// Verify cryptographic hash-chain integrity of the audit trail
+    Verify(AuditVerifyArgs),
+    /// Export audit log in JSONL, CEF, or OTel formats
+    Export(AuditExportArgs),
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct AuditVerifyArgs {
+    /// Data directory to verify locally (default "auto")
+    #[arg(long, env = "DATA_DIR", default_value = "auto")]
+    pub data_dir: String,
+    /// Optional remote server to verify via REST
+    #[arg(long)]
+    pub server: Option<String>,
+    /// Optional auth token for remote server
+    #[arg(long, env = "WORPEN_TOKEN")]
+    pub token: Option<String>,
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct AuditExportArgs {
+    /// Export format: jsonl | cef | otel
+    #[arg(long, default_value = "jsonl")]
+    pub format: String,
+    #[command(flatten)]
+    pub server: ServerRef,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum WorkflowCmd {
+    /// List registered workflows
+    List(ServerRef),
+    /// Register workflow from YAML file
+    Register(AddWorkflowArgs),
+    /// Execute workflow by name
+    Run(RunWorkflowArgs),
+    /// List runs waiting for human approval
+    Pending(ServerRef),
+    /// Approve a pending run
+    Approve(ApproveRunArgs),
+    /// Reject a pending run
+    Reject(RejectRunArgs),
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct AddWorkflowArgs {
+    #[arg(long)]
+    pub file: String,
+    #[command(flatten)]
+    pub server: ServerRef,
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct RunWorkflowArgs {
+    #[arg(long)]
+    pub name: String,
+    #[arg(long, default_value = "{}")]
+    pub payload: String,
+    #[arg(long, default_value_t = false)]
+    pub dry_run: bool,
+    #[command(flatten)]
+    pub server: ServerRef,
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct ApproveRunArgs {
+    #[arg(long)]
+    pub run_id: String,
+    #[arg(long, default_value = "operator")]
+    pub approver: String,
+    #[arg(long, default_value = "Approved via CLI")]
+    pub reason: String,
+    #[command(flatten)]
+    pub server: ServerRef,
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct RejectRunArgs {
+    #[arg(long)]
+    pub run_id: String,
+    #[arg(long, default_value = "operator")]
+    pub rejecter: String,
+    #[arg(long, default_value = "Rejected via CLI")]
+    pub reason: String,
     #[command(flatten)]
     pub server: ServerRef,
 }

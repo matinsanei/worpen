@@ -1,0 +1,13 @@
+target/
+backend/target/
+.git/
+.github/
+dist/
+node_modules/
+.env*
+*.db
+*.db-shm
+*.db-wal
+data/
+secrets/
+*.log
