@@ -1,217 +1,291 @@
-<div align="center">
+# Worpen: The Action Plane for AI Agents
 
-```text
-██╗    ██╗ ██████╗ ██████╗ ██████╗ ███████╗███╗   ██╗
-██║    ██║██╔═══██╗██╔══██╗██╔══██╗██╔════╝████╗  ██║
-██║ █╗ ██║██║   ██║██████╔╝██████╔╝█████╗  ██╔██╗ ██║
-██║███╗██║██║   ██║██╔══██╗██╔═══╝ ██╔══╝  ██║╚██╗██║
-╚███╔███╔╝╚██████╔╝██║  ██║██║     ███████╗██║ ╚████║
- ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚═╝     ╚══════╝╚═╝  ╚═══╝
+[![CI](https://github.com/matinsanei/worpen/actions/workflows/ci.yml/badge.svg)](https://github.com/matinsanei/worpen/actions)
+[![MCP](https://img.shields.io/badge/MCP-Server%20%2B%20STDIO-8A2BE2.svg)](https://modelcontextprotocol.io/)
+[![Rust](https://img.shields.io/badge/Rust-1.80%2B-orange.svg)](https://www.rust-lang.org/)
+[![Audit](https://img.shields.io/badge/Audit-SHA--256%20Hash--Chained-green.svg)](THREAT_MODEL.md)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-    🔥 LOGIC-AS-DATA • ZERO-COST INLINING • BYTECODE VM 🔥
-```
+> **North Star:** An agent completes a real multi-step job in one call, never sees a credential, can only do what policy allows, risky steps pause for human approval, and every action is provably recorded.
 
-# ⚡ **W O R P E N** ⚡
-### **ᴛʜᴇ ᴀᴄᴛɪᴏɴ ᴘʟᴀɴᴇ ꜰᴏʀ ᴀɪ ᴀɢᴇɴᴛs** • *ᴘᴏᴡᴇʀᴇᴅ ʙʏ ʀᴜsᴛ* 🦀
-
-[![MCP](https://img.shields.io/badge/MCP-SERVER_%2B_STDIO-purple?style=for-the-badge&logo=openai)](https://modelcontextprotocol.io/)
-[![Core](https://img.shields.io/badge/CORE-RUST-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
-[![Sandbox](https://img.shields.io/badge/SANDBOX-CAPABILITY--BASED-red?style=for-the-badge&logo=shield)](documentation/01-introduction.md)
-[![Tests](https://img.shields.io/badge/TESTS-250_PASSING-blue?style=for-the-badge&logo=github-actions)](backend/crates/core/tests)
-[![License](https://img.shields.io/badge/LICENSE-MIT-blue?style=for-the-badge&logo=open-source-initiative)](LICENSE)
-
-<p align="center">
-  <b>MCP Server</b> • <b>Sandboxed VM</b> • <b>Multi-Step Pipelines</b> • <b>Single Binary</b>
-</p>
-
-> *"Don't make your LLM juggle ten tools. Give it one Worpen tool that runs the whole job — branched, looped, cached and sandboxed."*
-
-[Why Worpen for AI](#-why-ai-agents-need-worpen) • [60-Second Demo](#-60-second-demo) • [MCP Setup](#-mcp--give-your-agent-hands) • [Sandbox](#-sandbox--let-agents-touch-prod-safely) • [Docs](#-documentation)
-
-</div>
+Worpen sits between autonomous AI agents (Claude, Cursor, OpenAI Agents, custom harnesses) and your enterprise systems. Instead of handing an LLM raw API credentials and database access, you give it policy-governed tools that execute multi-step workflows deterministically in milliseconds.
 
 ---
 
-## 🧠 𝐖𝐇𝐘 𝐀𝐈 𝐀𝐆𝐄𝐍𝐓𝐒 𝐍𝐄𝐄𝐃 𝐖𝐎𝐑𝐏𝐄𝐍
+## Why Worpen?
 
-Every MCP server today is an **island**: one talks to the DB, one sends email, one hits Stripe. To finish a real task (*"refund order #42 and notify the customer"*), the LLM must chain 5+ tool calls itself — burning tokens, latency and patience, with full credentials in every hop.
+Every MCP server today is an isolated island: one talks to PostgreSQL, one sends emails, one touches Stripe. To accomplish a business task (*"Issue refund for order #1042 and notify the customer"*), an LLM must orchestrate 5+ tool calls itself—burning context window tokens, multiplying latency, and seeing plaintext credentials at every hop.
 
-**Worpen is the layer between your agent and the mess:**
-
-```text
-  BEFORE (LLM does everything)              AFTER (Worpen does the job)
-
-  LLM → db_lookup  ─┐                          LLM ──► refund_order ──► Worpen VM
-  LLM → calc_refund ─┤ 5 round-trips,               ├─ SQL (allow-listed)
-  LLM → stripe_api  ─┤ 5x latency,                  ├─ if/else + math
-  LLM → send_email  ─┤ credentials everywhere       ├─ http → Stripe
-  LLM → log_event   ─┘                              └─ email + audit log
-                                                    1 call. Sandboxed. Deterministic.
 ```
+BEFORE: Unsandboxed LLM Round-Trips (High Risk)
+  LLM ──(sees raw password)──► Database Lookup
+  LLM ──(manual math)────────► Calculate Net Refund
+  LLM ──(sees Stripe token)──► Stripe API Mutation
+  LLM ──(sees SMTP auth)─────► Email Notification
+  * Risky actions execute without human confirmation; zero tamper-evident audit.
 
-- **Routes are tools.** Every YAML/JSON route you define instantly becomes an MCP tool (`tools/list` → `tools/call`). No glue code.
-- **Pipelines are jobs.** Multi-stage workflows with shared scope, per-stage timeouts and `allow_failure` become namespaced tools (`pipeline:<name>`) — the thing MCP ecosystems are missing.
-- **Sandboxed by design.** Capability-based policy per route: allowed hosts, SQL/Redis on-off, script execution deny-by-default, timeouts, rate limits, memory caps. The agent gets a leash, not the keys.
-- **Rust speed.** Logic compiles to bytecode and runs on an integer-indexed VM with direct array memory. Your agent waits milliseconds, not seconds.
+AFTER: Worpen Action Plane (Enterprise Safe)
+  LLM ──(1 MCP Tool Call)───► Worpen Action Plane
+                               ├─ SQL Query (Table allowlist & read-only guard)
+                               ├─ Calculation (Bounded transform)
+                               ├─ Approval Gate (Pauses if amount > $50)
+                               ├─ Outbound API (Credentials injected late, IP pinned)
+                               └─ Provenance Log (Tamper-evident SHA-256 chain)
+  * LLM never sees a credential. Risky operations pause for human review.
+```
 
 ---
 
-## ⚡ 60-𝐒𝐄𝐂𝐎𝐍𝐃 𝐃𝐄𝐌𝐎
+## 60-Second Quickstart
+
+### 1. Build and Run
 
 ```bash
-# 1. One file, one port — API + UI + MCP + CLI
-npm run build:release
-./backend/target/release/worpen serve --port 3000
-# Open http://127.0.0.1:3000
+# Build binary
+cd backend && cargo build --release --bin worpen
+cd ..
+
+# Verify environment diagnostics
+./backend/target/release/worpen doctor
 ```
+
+### 2. Scaffold a Project
 
 ```bash
-# 2. Define an action in YAML (hot-swappable, zero downtime)
-curl -X POST http://127.0.0.1:3000/api/v1/dynamic-routes/register \
-  -H 'Content-Type: application/x-yaml' -d '
-name: refund_order
-path: /api/refund
-method: POST
-logic:
-  - sql_op:
-      query: "SELECT total FROM orders WHERE id = ?"
-      args: ["{{order_id}}"]
-      output_var: order
-  - math_op:
-      operation: mul
-      args: ["{{order}}", 0.9]
-  - http_request:
-      url: "https://api.stripe.com/v1/refunds"
-      method: POST
-  - return:
-      value: "{{http_response}}"
-'
+# Initialize project with production starter templates
+./backend/target/release/worpen init my-action-plane
+cd my-action-plane
 ```
+
+### 3. Run the Refund Demo with Human Approval
+
+Worpen comes with a production refund workflow (`workflows/refund.yaml`) featuring a human approval gate:
 
 ```bash
-# 3. Your agent calls it as ONE MCP tool
-curl -X POST http://127.0.0.1:3000/mcp \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call",
-       "params":{"name":"refund_order","arguments":{"payload":{"order_id":"42"}}}}}'
-```
+# Start the runtime
+worpen serve &
 
-A 4-step job — SQL, branching math, external API, structured return — in **one tool call**.
+# 1. Register the workflow
+worpen workflow register --file workflows/refund.yaml
+
+# 2. Agent triggers the refund ($75.00) — automatically pauses at approval gate!
+worpen workflow run --name refund --payload '{"customer_id": "cust_99", "amount": 75.0, "reason": "Damaged goods"}'
+# => Status: WaitingForApproval | Run ID: 4f1a2b...
+
+# 3. List runs waiting for human operator review
+worpen workflow pending
+
+# 4. Human approves the run from CLI
+worpen workflow approve --run-id 4f1a2b... --approver "sarah_manager" --reason "Confirmed receipt of damaged item"
+# => Status: Completed | Result: {"refund_status": "approved_and_processed", "amount": 75.0}
+
+# 5. Provably verify the cryptographic audit trail
+worpen audit verify
+# => ✓ Cryptographic Audit Trail Valid: 3 entries verified. Genesis: 00000000...
+```
 
 ---
 
-## 🔌 𝐌𝐂𝐏 — 𝐆𝐈𝐕𝐄 𝐘𝐎𝐔𝐑 𝐀𝐆𝐄𝐍𝐓 𝐇𝐀𝐍𝐃𝐒
+## Architecture Overview
 
-| Transport | How | Use for |
-|:----------|:----|:--------|
-| **HTTP** | `POST /mcp` — JSON-RPC (`initialize`, `tools/list`, `tools/call`) | OpenAI-style clients, webhooks, `curl` |
-| **REST** | `GET /mcp/tools`, `GET /mcp` (info) | Debugging, discovery |
-| **STDIO** | `worpen mcp serve-stdio` | **Claude Desktop**, agent harnesses |
+```mermaid
+flowchart TD
+    Agent["AI Agent / LLM Client (Claude, Cursor, Script)"]
+    
+    subgraph Worpen["Worpen Action Plane Runtime"]
+        MCP["MCP Server (HTTP & STDIO)"]
+        Engine["Workflow Engine (Durable State Machine)"]
+        Gate["Human Approval Gate (SQLite Persisted)"]
+        Policy["Sandbox Policy Engine"]
+        Secrets["SecretStore (Late-Binding & Auto-Redaction)"]
+        Audit["Tamper-Evident Audit Chain (SHA-256)"]
+    end
+    
+    Database[("Enterprise Database")]
+    ExternalAPI["External APIs (Stripe, GitHub, Slack)"]
+    SIEM["Enterprise SIEM (CEF / OTel / JSONL)"]
+    Operator["Human Approver (CLI / Webhook)"]
 
-**Claude Desktop** (`claude_desktop_config.json`):
+    Agent -->|"1. JSON-RPC (tools/call)"| MCP
+    MCP --> Engine
+    Engine --> Policy
+    Engine -->|"Risky Step"| Gate
+    Operator -->|"Approve / Reject"| Gate
+    Policy -->|"Pre-resolved DNS & IP Pinning"| ExternalAPI
+    Policy -->|"Read-only & Table Allowlist"| Database
+    Secrets -.->|"Late Header Injection"| ExternalAPI
+    Engine --> Audit
+    Audit -->|"Export"| SIEM
+```
+
+---
+
+## Security Model & Sandboxing
+
+| Layer | Mechanism | Protection Guarantee |
+| :--- | :--- | :--- |
+| **Credentials** | `{{secret:name}}` Late-Binding | Secrets are never registered in symbol tables or memory visible to agents. Automatically redacted to `[REDACTED]` across all logs and outputs. |
+| **Network & SSRF** | Pre-Flight DNS & Socket IP Pinning | Denies private RFC 1918 IPs, loopback (`127.0.0.1`), cloud metadata (`169.254.169.254`), CGNAT, and IPv4-mapped IPv6. Outbound sockets are pinned to prevent DNS rebinding. |
+| **Database** | SQL AST & Table Allowlist | `read_only_sql` blocks all DDL/DML mutations (`DROP`, `ALTER`, `DELETE`, `UPDATE`, `INSERT`). Queries are constrained to `allowed_tables` with row caps. |
+| **Approvals** | Durable State Machine | Execution halts at `op: approval` steps. State survives application crashes and restarts in SQLite (`workflow_runs`). |
+| **Audit Log** | SHA-256 Hash Chaining | Every action links cryptographically to the previous entry hash: `SHA-256(index + timestamp + prev_hash + action + actor + details)`. Any tampering breaks the chain. |
+
+For detailed architectural analysis, read our formal [Threat Model (THREAT_MODEL.md)](THREAT_MODEL.md).
+
+---
+
+## Model Context Protocol (MCP) Setup
+
+Worpen provides native MCP support over both **HTTP** (`POST /mcp`) and **STDIO** (`worpen mcp serve-stdio`).
+
+### Claude Desktop Configuration
+Add Worpen to your `claude_desktop_config.json`:
+
 ```json
 {
   "mcpServers": {
     "worpen": {
-      "command": "/path/to/worpen",
+      "command": "worpen",
       "args": ["mcp", "serve-stdio"],
-      "env": { "DATA_DIR": "/path/to/backend/data" }
+      "env": {
+        "DATA_DIR": "./data",
+        "DATABASE_URL": "sqlite:worpen.db?mode=rwc"
+      }
     }
   }
 }
 ```
 
-Tool naming: routes keep their names (`refund_order`), pipelines are namespaced (`pipeline:nightly_reconcile`). Auth-gated routes (`auth_required: true` + `WORPEN_API_TOKEN`) are enforced on every transport — including MCP.
+### Cursor & VS Code
+Ready-to-use configurations are located in `clients/`:
+- `clients/claude_desktop_config.json`
+- `clients/cursor_mcp.json` (and `.cursor/mcp.json`)
+- `clients/vscode_mcp.json`
+
+### Tool Risk Annotations & Agent Error Envelopes
+Every exposed tool includes standard MCP hints (`readOnly`, `destructive`, `idempotent`). Errors return structured recovery guidance:
+
+```json
+{
+  "code": "APPROVAL_REQUIRED",
+  "message": "Action paused at approval gate for run '4f1a2b...': Approve refund of $75.00",
+  "hint": "A human operator must approve this run before execution can proceed. Use tool 'approve_run'",
+  "retryable": true,
+  "fields": {
+    "run_id": "4f1a2b..."
+  }
+}
+```
 
 ---
 
-## 🛡️ 𝐒𝐀𝐍𝐃𝐁𝐎𝐗 — 𝐋𝐄𝐓 𝐀𝐆𝐄𝐍𝐓𝐒 𝐓𝐎𝐔𝐂𝐇 𝐏𝐑𝐎𝐃 𝐒𝐀𝐅𝐄𝐋𝐘
+## Workflow Specification (`v1`)
+
+Workflows are written in human-readable, declarative YAML:
 
 ```yaml
-name: ai_generated_route
-sandbox:
-  allow_net: true
-  allowed_hosts: ["api.stripe.com"]  # nothing else reachable
-  allow_sql: false                    # no DB for this one
-  allow_scripts: false                # never arbitrary code
-  max_timeout_ms: 10000
-  max_loop_iterations: 500
-  max_variables: 500
+name: customer_refund
+version: "1.0.0"
+description: Issue refund with human gatekeeper
+input_schema:
+  type: object
+  properties:
+    customer_id: { type: string }
+    amount: { type: number }
+  required: [customer_id, amount]
+
+policy:
+  read_only_sql: false
+  allowed_tables: [refunds]
+  block_private_ips: true
+  allowed_hosts: [api.stripe.com]
+
+steps:
+  - id: check_amount
+    op: transform
+    expr: "{{amount}} * 1.0"
+    output_var: formatted_amount
+
+  - id: manager_gate
+    op: approval
+    summary: "Approve refund of ${{formatted_amount}} for customer {{customer_id}}"
+    timeout_seconds: 86400
+
+  - id: issue_stripe_refund
+    op: http
+    method: POST
+    url: "https://api.stripe.com/v1/refunds"
+    headers:
+      Authorization: "Bearer {{secret:STRIPE_SECRET_KEY}}"
+    body:
+      amount: "{{formatted_amount}}"
+    output_var: stripe_res
+
+  - id: record_database
+    op: sql
+    query: "INSERT INTO refunds (customer, amount, approved_by) VALUES ($1, $2, $3);"
+    args: ["{{customer_id}}", "{{formatted_amount}}", "{{__approved_by}}"]
+    output_var: db_res
+
+return:
+  status: 200
+  value:
+    refund_status: "completed"
+    stripe_id: "{{stripe_res.id}}"
+    approved_by: "{{__approved_by}}"
 ```
 
-Plus per-route **rate limits** (429 when exceeded) and a full **audit trail** (`GET /api/v1/dynamic-routes/audit`) — every agent action is recorded with timing and outcome. The UI's *Error Logs* page streams failures live from that trail.
+---
 
-Generate routes with `--locked` and the CLI applies the strict policy automatically:
+## Command Line Interface (CLI)
+
 ```bash
-worpen route add --file agent_task.yaml --locked
+# Project & Health
+worpen init [path]               # Scaffold a new project with starter templates
+worpen doctor                    # Run complete system & sandbox diagnostics
+worpen serve --port 3000         # Launch the action plane runtime
+
+# Workflow Management
+worpen workflow list             # List registered workflows
+worpen workflow register -f file # Register/update a workflow definition
+worpen workflow run --name wf    # Execute workflow (supports --dry-run)
+worpen workflow pending          # List runs waiting for human approval
+worpen workflow approve --run-id # Approve a paused run and resume execution
+worpen workflow reject --run-id  # Reject a pending run
+
+# Tamper-Evident Audit
+worpen audit verify              # Verify SHA-256 hash-chain integrity
+worpen audit export --format cef # Export audit trail in CEF, JSONL, or OTel
 ```
 
 ---
 
-## 🖥️ 𝐂𝐋𝐈 (fully headless)
+## Docker Deployment
+
+A hardened multi-stage Dockerfile is included:
 
 ```bash
-worpen setup                                  # interactive first-run wizard → writes .env
-worpen serve [--port 3000] [--no-ui]          # API + UI + MCP on one port
-worpen route list | add | exec | delete | audit
-worpen func list | add | delete
-worpen pipeline list | define | run | runs    # multi-stage jobs
-worpen mcp tools | call --tool <name>
-worpen doctor
+docker build -t worpen:latest .
+docker run -p 3000:3000 -v $(pwd)/data:/data -v $(pwd)/secrets:/secrets:ro worpen:latest
 ```
 
 ---
 
-## 🏗️ 𝐇𝐎𝐖 𝐈𝐓 𝐖𝐎𝐑𝐊𝐒
+## Verifiable Benchmarks
 
-Not a JSON parser — a **runtime compiler**:
+All benchmark figures in this repository are derived from reproducible Criterion harnesses located in `backend/crates/core/benches/`.
 
-1. **Lowering:** `{{user_price}}` becomes an integer index into a symbol table — `O(1)` access, no hashmaps on the hot path.
-2. **Inlining:** global functions are recursively flattened into the route at registration. Call overhead: zero.
-3. **VM execution:** a flat bytecode loop over direct array memory.
+```bash
+cd backend
+cargo bench --bench comprehensive_benchmark
+```
 
-| Op family | Examples |
-|:----------|:---------|
-| Memory / Logic | `set`, `get`, `if`, `switch`, `loop`, `while`, `try/catch`, `parallel` |
-| Data | `math_op`, `string_op`, `date_op`, `json_op`, `map`, `filter`, `aggregate` |
-| I/O | `sql_op` (parameterized), `redis_op` (pooled), `http_request` |
-| Meta | `comment` (zero-cost docs), `sleep`, `log` |
+*Worpen avoids publishing synthetic cross-language comparisons against unoptimized mock servers. Performance claims are backed strictly by in-repo benchmarks on standard hardware.*
 
 ---
 
-## 📚 𝐃𝐎𝐂𝐔𝐌𝐄𝐍𝐓𝐀𝐓𝐈𝐎𝐍
+## Contributing & Security
 
-- 📖 [Introduction](documentation/01-introduction.md) • [Variables & VM](documentation/03-variables-basics.md) • [Loops](documentation/05-loops.md) • [Functions](documentation/06-functions.md)
-- 🧩 [Custom Operations](documentation/CUSTOM_OPERATIONS_GUIDE.md) • 📦 [Schema Examples](documentation/SCHEMA_EXAMPLES.md) • 🚀 [Extensions Quickstart](documentation/EXTENSIONS_QUICKSTART.md)
-- 🔄 [JSON→YAML Migration](documentation/15-migration-guide.md) • ✨ [Best Practices](documentation/16-best-practices.md) • 📝 [Changelog](CHANGELOG.md)
-
-### Roadmap — toward the enterprise action plane
-- [ ] **Workflow Spec v1:** strict validation, immutable versions, dry-run mode
-- [ ] **Secret Isolation:** runtime references (`{{secret:name}}`), multi-source, automatic redaction
-- [ ] **SSRF & Sandbox:** pre-resolution DNS filtering, private IP blocking, parameterized/read-only SQL guards
-- [ ] **Approval Gates:** pause workflow run for human sign-off via CLI/webhook, durable SQLite state
-- [ ] **Tamper-Evident Audit:** cryptographically chained audit log (`worpen audit verify`)
-
----
-
-## 🤝 𝐂𝐎𝐍𝐓𝐑𝐈𝐁𝐔𝐓𝐈𝐍𝐆
-
-We welcome performance hackers, compiler nerds and agent-infra builders.
-
-1. **Fork** & **Clone**.
-2. `cargo test` (250+ tests guard the VM) • `cargo clippy --all-targets -- -D warnings` (must be clean).
-3. Submit a PR with benchmarks.
-
----
-
-## 👨‍💻 𝐀𝐔𝐓𝐇𝐎𝐑
-
-**Matin Sanei**
-- **GitHub:** [@matinsanei](https://github.com/matinsanei)
-- **Email:** saneimatin33@gmail.com
-
-*"The best code is the one you never compile."*
-
-**MIT Licensed** • Copyright © 2025 Worpen Engine
-
-</div>
+- **Vulnerability Disclosure:** Please review our [Security Policy (SECURITY.md)](SECURITY.md). Never open public issues for security vulnerabilities.
+- **Architecture Decisions:** Read our architectural decision log in [DECISIONS.md](DECISIONS.md).
+- **License:** [MIT](LICENSE) © Matin Sanei

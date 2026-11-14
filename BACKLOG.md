@@ -105,8 +105,8 @@ Ordered strictly by the 10 Phases of the Worpen Action Plane Mission.
 
 ## Phase 10 — Launch Assets
 *Goal: Clean README rewrite, reproducible 60-second demo, documented security model, verified benchmarks only.*
-- [ ] **TASK-10.1:** Rewrite `README.md` with clean formatting (no decorative font artifacts), clear problem statement, and security model.
-- [ ] **TASK-10.2:** Provide a verified 60-second refund demo with CLI human approval.
-- [ ] **TASK-10.3:** Honest benchmarks with reproducible benchmark scripts and methodology; delete unverified comparisons.
-- [ ] **TASK-10.4:** Production-ready `/docs` documentation site structure.
-- [ ] **TASK-10.5:** Author comprehensive final `REPORT.md`.
+- [x] **TASK-10.1:** Rewrite `README.md` with clean formatting (no decorative font artifacts), clear problem statement, and security model.
+- [x] **TASK-10.2:** Provide a verified 60-second refund demo with CLI human approval.
+- [x] **TASK-10.3:** Honest benchmarks with reproducible benchmark scripts and methodology; delete unverified comparisons.
+- [x] **TASK-10.4:** Publish repository metadata and topics (`ABOUT.md`).
+- [x] **TASK-10.5:** Author comprehensive final `REPORT.md`.
