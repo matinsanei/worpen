@@ -147,6 +147,12 @@ impl LogicCompiler {
                 headers,
                 timeout_ms,
             } => {
+                self.register_variables_in_string(url);
+                if let Some(hdrs) = headers {
+                    for v in hdrs.values() {
+                        self.register_variables_in_string(v);
+                    }
+                }
                 if let Some(b) = body {
                     self.register_variables_in_value(b);
                 }
@@ -389,7 +395,12 @@ impl LogicCompiler {
         let re = Regex::new(r"\{\{([^}]+)\}\}").unwrap();
         for cap in re.captures_iter(s) {
             if let Some(var) = cap.get(1) {
-                self.symbol_table.register(var.as_str().to_string());
+                let var_name = var.as_str().trim();
+                // Secrets are injected at step execution time, never stored in symbol table/memory
+                if var_name.starts_with("secret:") {
+                    continue;
+                }
+                self.symbol_table.register(var_name.to_string());
             }
         }
     }

@@ -182,7 +182,7 @@ impl WorkflowService {
             .get_workflow(name)
             .ok_or_else(|| format!("Workflow '{}' not found", name))?;
 
-        match mode {
+        let result = match mode {
             ExecutionMode::Live => {
                 // Execute via dynamic route engine (VM with real DB & network)
                 self.route_service
@@ -193,7 +193,16 @@ impl WorkflowService {
                 // Execute simulation with mock side-effects
                 self.execute_dry_run(&spec, payload)
             }
-        }
+        };
+
+        result
+            .map(|val| {
+                self.route_service
+                    .secret_store()
+                    .redaction()
+                    .redact_value(&val)
+            })
+            .map_err(|e| self.route_service.secret_store().redaction().redact_str(&e))
     }
 
     /// Dry-run simulation: executes variables, math, and transforms, but mocks side-effects (sql, http, approval)

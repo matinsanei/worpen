@@ -34,12 +34,12 @@ Ordered strictly by the 10 Phases of the Worpen Action Plane Mission.
 
 ---
 
-## Phase 3 — Secrets Isolation
+## Phase 3 — Secrets Isolation (COMPLETED)
 *Goal: References only (`{{secret:name}}`), injected at runtime into permitted steps, zero agent visibility, multi-source, automatic redaction.*
-- [ ] **TASK-3.1:** Secret provider abstraction (sources: environment variables, secret files, OS keychain / credential store).
-- [ ] **TASK-3.2:** Secret syntax parser (`{{secret:name}}`) in template & VM engine, with step-level permission enforcement.
-- [ ] **TASK-3.3:** Automatic redaction engine for logs, audit trails, error strings, and VM outputs.
-- [ ] **TASK-3.4:** Canary secrets test suite: inject canary secrets and assert zero leakage across all sinks.
+- [x] **TASK-3.1:** Secret provider abstraction (sources: environment variables, secret files, OS keychain / credential store, in-memory).
+- [x] **TASK-3.2:** Secret syntax parser (`{{secret:name}}`) in template & VM engine with late-binding step injection.
+- [x] **TASK-3.3:** Automatic redaction engine for logs, audit trails, error strings, and VM outputs.
+- [x] **TASK-3.4:** Canary secrets test suite: inject canary secrets across SQL, HTTP, errors, and assert zero leakage across all sinks.
 
 ---
 

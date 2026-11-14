@@ -13,6 +13,18 @@
 - Established `STATE.md` and `DECISIONS.md` (ADR-0001, ADR-0002, ADR-0003).
 - Cleaned `README.md`: Removed unverified comparison bar charts and fabricated performance claims; aligned roadmap with enterprise action plane.
 
+### 🔑 Secrets Isolation & Redaction (Phase 3)
+- **Secret Architecture (`worpen-core::secrets`):**
+  - References strictly use `{{secret:name}}` format, never exposed in agent prompts or accessible via runtime memory inspection.
+  - Multi-source `SecretStore` supporting environment variables (`WORPEN_SECRET_*`), files (e.g. Kubernetes/Docker secrets), in-memory vaults, and OS keychain lookups.
+  - Variable lowerer avoids registering `secret:*` tokens into symbol table or execution memory.
+- **Late-Binding Injection:**
+  - Injected at the final execution boundary into outbound HTTP request headers/URLs and parameterized SQL query arguments.
+- **Automated Redaction Engine:**
+  - `RedactionEngine` registers all resolved secret values and automatically sanitizes them to `[REDACTED]` across output values, error strings, and audit logs.
+- **Canary Secrets Test Suite:**
+  - Created `backend/crates/core/tests/canary_secrets_test.rs` asserting zero secret leakage across SQL, HTTP reflection, error responses, in-memory audit rings, and `audit.log` disk persistence.
+
 ### 📜 Workflow Spec v1 (Phase 2)
 - **Implemented WorkflowSpecV1:** Defined strict YAML specification with `version`, `name`, `description`, `input_schema` (JSON Schema), `policy`, `steps`, and structured `return`.
 - **Registration Validation:** Enforced strict variable scope checking (rejection of undefined variables), mandatory loop iteration bounds (`max_iterations > 0` and bounded by policy), and JSON Schema verification.

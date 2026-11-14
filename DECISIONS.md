@@ -34,3 +34,17 @@
 - **Context:** AI agents and human operators require deterministic multi-step workflow execution defined in clean, human-readable YAML with schema validation, bounded loop iterations, undefined variable rejection, dry-run simulation, and rollback protection.
 - **Decision:** Introduce `WorkflowSpecV1` (`name`, `description`, `input_schema`, `policy`, `steps`, `return`). Validate variable scopes strictly at registration to prevent runtime crashes from undefined variables. Enforce `max_iterations` caps on all loops. Provide simulation in `ExecutionMode::DryRun` where side-effects (`sql`, `http`, `approval`) are mocked with `_worpen_dry_run: true`. Store each registered version immutably in `<data_dir>/workflows/<name>/v<version>.yaml` and enable zero-downtime rollback. Automatically synchronize registered workflows into the integer-indexed VM and MCP server.
 - **Consequences:** Provides a production-grade action plane contract for AI agents. Prevents dangerous unbounded loops, catches syntax/variable errors before deployment, and enables risk-free dry runs.
+
+## ADR-0006: Secret Isolation, Late-Binding Injection, and Automatic Canary Redaction
+- **Date:** 2026-11-14
+- **Status:** Accepted
+- **Context:** To satisfy the North Star principle ("An agent never sees a credential"), agents must never receive plaintext API keys, database passwords, or auth tokens. If an agent could inspect runtime memory or variable tables, credentials would leak into prompt context. Furthermore, if external APIs or databases echo secrets in responses or error logs, credentials could leak into audit files or agent responses.
+- **Decision:**
+  1. Secret references strictly use syntax `{{secret:name}}`.
+  2. The compiler and lowerer never register `secret:*` references into agent variable memory or symbol tables.
+  3. Secrets are resolved at the last possible moment right before step execution (e.g. binding SQL query parameters, injecting HTTP request headers/URLs).
+  4. Pluggable `SecretSource` implementations support environment variables (`WORPEN_SECRET_*`), files (e.g. Docker/Kubernetes secrets), in-memory vaults, and OS keychain lookups.
+  5. `RedactionEngine` automatically tracks all resolved secret values and replaces them with `[REDACTED]` across all workflow output values, error strings, and audit logs (`audit.log` and in-memory ring).
+  6. Canary tests verify that even if an outbound HTTP server echoes the credential back, or a database error reflects the query, zero secret tokens leak to outputs or audit files.
+- **Consequences:** Agents are completely isolated from credentials while retaining the ability to execute privileged operations through policy-governed steps. Zero credential leakage across outputs, logs, and audit trails.
+

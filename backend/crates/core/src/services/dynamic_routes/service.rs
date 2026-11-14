@@ -1,6 +1,7 @@
 use super::cache::ExecutionPlan;
 use super::execution::execute_logic_extended;
 use crate::compiler::lowerer::LogicCompiler;
+use crate::secrets::SecretStore;
 use crate::vm::machine::VirtualMachine;
 use crate::vm::memory::ExecutionMemory;
 use crate::websocket::WebSocketManager;
@@ -52,6 +53,8 @@ pub struct DynamicRouteService {
     rate_windows: Arc<dashmap::DashMap<String, (std::time::Instant, u32)>>,
     // Bounded audit ring
     audit: Arc<std::sync::RwLock<VecDeque<AuditEntry>>>,
+    // Secret store for isolated credential resolution and automatic redaction
+    secret_store: Arc<SecretStore>,
 }
 
 impl Default for DynamicRouteService {
@@ -80,6 +83,7 @@ impl DynamicRouteService {
     }
 
     pub fn with_data_dir(data_dir: String) -> Self {
+        let secret_store = Arc::new(SecretStore::new());
         let service = Self {
             routes: Arc::new(std::sync::RwLock::new(HashMap::new())),
             global_functions: Arc::new(std::sync::RwLock::new(HashMap::new())),
@@ -90,10 +94,21 @@ impl DynamicRouteService {
             redis_pool: None,
             rate_windows: Arc::new(dashmap::DashMap::new()),
             audit: Arc::new(std::sync::RwLock::new(VecDeque::new())),
+            secret_store,
         };
         // Load persisted data
         let _ = service.load_persisted_data();
         service
+    }
+
+    /// Access the SecretStore
+    pub fn secret_store(&self) -> Arc<SecretStore> {
+        self.secret_store.clone()
+    }
+
+    /// Replace the SecretStore
+    pub fn set_secret_store(&mut self, store: Arc<SecretStore>) {
+        self.secret_store = store;
     }
 
     /// Get WebSocket manager
@@ -175,13 +190,15 @@ impl DynamicRouteService {
         execution_time_ms: u64,
         via: &str,
     ) {
+        let redacted_path = self.secret_store.redaction().redact_str(&path);
+        let redacted_error = error.map(|e| self.secret_store.redaction().redact_str(&e));
         let entry = AuditEntry {
             ts: chrono::Utc::now().to_rfc3339(),
             route_id: route_id.to_string(),
             route_name,
-            path,
+            path: redacted_path,
             success,
-            error,
+            error: redacted_error,
             execution_time_ms,
             via: via.to_string(),
         };
@@ -618,6 +635,7 @@ impl DynamicRouteService {
                     None,
                 );
                 vm.set_sandbox(route_sandbox.clone());
+                vm.set_secret_store(self.secret_store.clone());
 
                 // Bridge request data to VM memory
                 self.inject_request_data_into_vm(
@@ -647,18 +665,25 @@ impl DynamicRouteService {
         .await;
         let elapsed = exec_start.elapsed().as_millis() as u64;
         match &result {
-            Ok(_) => self.record_audit(route_id, meta_name, meta_path, true, None, elapsed, "api"),
-            Err(e) => self.record_audit(
-                route_id,
-                meta_name,
-                meta_path,
-                false,
-                Some(e.clone()),
-                elapsed,
-                "api",
-            ),
+            Ok(val) => {
+                let redacted = self.secret_store.redaction().redact_value(val);
+                self.record_audit(route_id, meta_name, meta_path, true, None, elapsed, "api");
+                Ok(redacted)
+            }
+            Err(e) => {
+                let redacted = self.secret_store.redaction().redact_str(e);
+                self.record_audit(
+                    route_id,
+                    meta_name,
+                    meta_path,
+                    false,
+                    Some(redacted.clone()),
+                    elapsed,
+                    "api",
+                );
+                Err(redacted)
+            }
         }
-        result
     }
 
     /// Legacy execute logic (now uses extended version)

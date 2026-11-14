@@ -1,4 +1,5 @@
 use crate::compiler::symbol_table::SymbolTable;
+use crate::secrets::SecretStore;
 use crate::vm::instructions::OptimizedOperation;
 use crate::vm::memory::ExecutionMemory;
 use crate::websocket::WebSocketManager;
@@ -7,6 +8,7 @@ use redis::AsyncCommands;
 use regex::Regex;
 use serde_json::Value;
 use sqlx::{Column, Row};
+use std::sync::Arc;
 
 pub struct VirtualMachine {
     pub memory: ExecutionMemory,
@@ -16,6 +18,7 @@ pub struct VirtualMachine {
     ws_manager: Option<WebSocketManager>,
     ws_connection_id: Option<String>,
     sandbox: Option<SandboxPolicy>,
+    secret_store: Option<Arc<SecretStore>>,
 }
 
 impl VirtualMachine {
@@ -28,6 +31,7 @@ impl VirtualMachine {
             ws_manager: None,
             ws_connection_id: None,
             sandbox: None,
+            secret_store: None,
         }
     }
 
@@ -38,6 +42,15 @@ impl VirtualMachine {
 
     pub fn set_sandbox(&mut self, policy: Option<SandboxPolicy>) {
         self.sandbox = policy;
+    }
+
+    pub fn with_secret_store(mut self, store: Arc<SecretStore>) -> Self {
+        self.secret_store = Some(store);
+        self
+    }
+
+    pub fn set_secret_store(&mut self, store: Arc<SecretStore>) {
+        self.secret_store = Some(store);
     }
 
     pub fn with_db_pool(
@@ -53,6 +66,7 @@ impl VirtualMachine {
             ws_manager: None,
             ws_connection_id: None,
             sandbox: None,
+            secret_store: None,
         }
     }
 
@@ -69,6 +83,7 @@ impl VirtualMachine {
             ws_manager: None,
             ws_connection_id: None,
             sandbox: None,
+            secret_store: None,
         }
     }
 
@@ -86,6 +101,7 @@ impl VirtualMachine {
             ws_manager: None,
             ws_connection_id: None,
             sandbox: None,
+            secret_store: None,
         }
     }
 
@@ -103,6 +119,7 @@ impl VirtualMachine {
             ws_manager: Some(ws_manager),
             ws_connection_id: Some(connection_id),
             sandbox: None,
+            secret_store: None,
         }
     }
 
@@ -122,6 +139,7 @@ impl VirtualMachine {
             ws_manager,
             ws_connection_id: connection_id,
             sandbox: None,
+            secret_store: None,
         }
     }
 
@@ -252,10 +270,24 @@ impl VirtualMachine {
                             return Err("sandbox: sql_op denied (allow_sql=false)".to_string());
                         }
                     }
-                    // Resolve all args from memory
+                    // Resolve all args from memory or secret store
                     let resolved_args: Vec<sqlx::Either<String, i64>> = arg_indices
                         .iter()
                         .map(|idx| {
+                            if let Some(var_name) = self.symbol_table.get_name(*idx) {
+                                let trimmed = var_name.trim();
+                                if let Some(secret_name) = trimmed.strip_prefix("secret:") {
+                                    if let Some(store) = &self.secret_store {
+                                        let val = store.resolve_secret(secret_name.trim())?;
+                                        return Ok(sqlx::Either::Left(val));
+                                    } else {
+                                        return Err(format!(
+                                            "Secret store not configured to resolve '{}'",
+                                            trimmed
+                                        ));
+                                    }
+                                }
+                            }
                             if let Some(val) = self.memory.get(*idx) {
                                 // Convert Value to sqlx compatible type
                                 match val {
@@ -268,7 +300,14 @@ impl VirtualMachine {
                                             Ok(sqlx::Either::Left(n.to_string()))
                                         }
                                     }
-                                    Value::String(s) => Ok(sqlx::Either::Left(s.clone())),
+                                    Value::String(s) => {
+                                        let resolved = if let Some(store) = &self.secret_store {
+                                            store.inject_secrets(s)?
+                                        } else {
+                                            s.clone()
+                                        };
+                                        Ok(sqlx::Either::Left(resolved))
+                                    }
                                     _ => Ok(sqlx::Either::Left(val.to_string())),
                                 }
                             } else {
@@ -277,9 +316,15 @@ impl VirtualMachine {
                         })
                         .collect::<Result<Vec<_>, String>>()?;
 
+                    let resolved_query = if let Some(store) = &self.secret_store {
+                        store.inject_secrets(query)?
+                    } else {
+                        query.clone()
+                    };
+
                     // Execute SQL query
                     if let Some(pool) = &self.db_pool {
-                        let mut query_builder = sqlx::query(query);
+                        let mut query_builder = sqlx::query(&resolved_query);
 
                         // Bind all arguments
                         for arg in resolved_args {
@@ -540,7 +585,11 @@ impl VirtualMachine {
                         .map_err(|e| format!("read body failed: {}", e))?;
                     let body_json: Value =
                         serde_json::from_str(&text).unwrap_or(Value::String(text));
-                    result = serde_json::json!({"status": status, "body": body_json, "url": resolved_url, "method": method});
+                    let res_val = serde_json::json!({"status": status, "body": body_json, "url": resolved_url, "method": method});
+                    if let Some(idx) = self.symbol_table.get_index("http_response") {
+                        self.memory.set(idx, res_val.clone());
+                    }
+                    result = res_val;
                 }
                 OptimizedOperation::Sleep { duration_ms } => {
                     if let Some(policy) = &self.sandbox {
@@ -718,6 +767,19 @@ impl VirtualMachine {
 
                 for cap in re.captures_iter(s) {
                     if let (Some(full_match), Some(var_match)) = (cap.get(0), cap.get(1)) {
+                        let raw_var = var_match.as_str().trim();
+                        if let Some(secret_name) = raw_var.strip_prefix("secret:") {
+                            let secret_val = if let Some(store) = &self.secret_store {
+                                store.resolve_secret(secret_name.trim())?
+                            } else {
+                                return Err(format!(
+                                    "Secret store not configured to resolve '{}'",
+                                    raw_var
+                                ));
+                            };
+                            result = result.replace(full_match.as_str(), &secret_val);
+                            continue;
+                        }
                         let var_name = var_match.as_str();
                         if let Some(index) = self.symbol_table.get_index(var_name) {
                             if let Some(val) = self.memory.get(index) {
@@ -761,6 +823,19 @@ impl VirtualMachine {
 
         for cap in re.captures_iter(s) {
             if let (Some(full_match), Some(var_match)) = (cap.get(0), cap.get(1)) {
+                let raw_var = var_match.as_str().trim();
+                if let Some(secret_name) = raw_var.strip_prefix("secret:") {
+                    let secret_val = if let Some(store) = &self.secret_store {
+                        store.resolve_secret(secret_name.trim())?
+                    } else {
+                        return Err(format!(
+                            "Secret store not configured to resolve '{}'",
+                            raw_var
+                        ));
+                    };
+                    result = result.replace(full_match.as_str(), &secret_val);
+                    continue;
+                }
                 let var_name = var_match.as_str();
                 if let Some(index) = self.symbol_table.get_index(var_name) {
                     if let Some(val) = self.memory.get(index) {
