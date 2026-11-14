@@ -8,21 +8,21 @@ pub enum InputFormat {
 }
 
 /// Detect format from content string
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```
 /// use worpen_core::parsers::detector::{detect_format, InputFormat};
-/// 
+///
 /// let json = r#"{"name": "test"}"#;
 /// assert_eq!(detect_format(json), InputFormat::Json);
-/// 
+///
 /// let yaml = "name: test";
 /// assert_eq!(detect_format(yaml), InputFormat::Yaml);
 /// ```
 pub fn detect_format(content: &str) -> InputFormat {
     let trimmed = content.trim_start();
-    
+
     // JSON objects start with { or arrays with [
     if trimmed.starts_with('{') || trimmed.starts_with('[') {
         InputFormat::Json

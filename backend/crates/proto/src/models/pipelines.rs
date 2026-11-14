@@ -1,6 +1,6 @@
+use super::routes::{LogicOperation, SandboxPolicy};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-use super::routes::{LogicOperation, SandboxPolicy};
 
 /// Kept for backward compatibility with old readers.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

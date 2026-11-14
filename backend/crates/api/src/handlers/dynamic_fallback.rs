@@ -1,13 +1,13 @@
-use axum::{
-    extract::{State, WebSocketUpgrade},
-    response::{IntoResponse, Response},
-    http::{StatusCode, Method, Request},
-    Json,
-    body::Body,
-};
 use crate::state::AppState;
-use serde_json::Value;
+use axum::{
+    body::Body,
+    extract::{State, WebSocketUpgrade},
+    http::{Method, Request, StatusCode},
+    response::{IntoResponse, Response},
+    Json,
+};
 use proto::models::RouteType;
+use serde_json::Value;
 
 /// Temporary constant to control dynamic fallback logging
 /// Set to false to disable logging, true to enable
@@ -23,16 +23,18 @@ pub async fn dynamic_route_fallback(
 ) -> Response {
     let path = req.uri().path().to_string();
     let method = req.method().clone();
-    
+
     if ENABLE_DYNAMIC_FALLBACK_LOGGING {
         tracing::info!("Dynamic fallback: {} {}", method, path);
     }
-    
+
     // پیدا کردن route با path و method
     match find_dynamic_route(&state, &path, &method).await {
         Some(route) => {
             // Enforce per-route auth BEFORE anything else (incl. WS upgrade)
-            if let Err((status, body)) = crate::auth::require_route_auth(req.headers(), route.auth_required) {
+            if let Err((status, body)) =
+                crate::auth::require_route_auth(req.headers(), route.auth_required)
+            {
                 return (status, body).into_response();
             }
             // ✅ CHECK ROUTE TYPE FIRST
@@ -49,8 +51,9 @@ pub async fn dynamic_route_fallback(
                             Json(serde_json::json!({
                                 "error": "WebSocket upgrade required",
                                 "message": "This route requires WebSocket protocol"
-                            }))
-                        ).into_response()
+                            })),
+                        )
+                            .into_response()
                     }
                 }
                 RouteType::Http => {
@@ -62,7 +65,10 @@ pub async fn dynamic_route_fallback(
                             // Rate-limit violations map to 429, everything else to 500
                             let status = if e.contains("rate limit") {
                                 StatusCode::TOO_MANY_REQUESTS
-                            } else if e.contains("auth") || e.contains("unauthorized") || e.contains("token") {
+                            } else if e.contains("auth")
+                                || e.contains("unauthorized")
+                                || e.contains("token")
+                            {
                                 StatusCode::UNAUTHORIZED
                             } else {
                                 StatusCode::INTERNAL_SERVER_ERROR
@@ -86,8 +92,9 @@ pub async fn dynamic_route_fallback(
                 Json(serde_json::json!({
                     "error": "Not Found",
                     "message": format!("No route found for {} {}", method, path)
-                }))
-            ).into_response()
+                })),
+            )
+                .into_response()
         }
     }
 }
@@ -99,7 +106,7 @@ async fn find_dynamic_route(
 ) -> Option<proto::models::RouteDefinition> {
     // لیست گرفتن همه route ها
     let routes = state.dynamic_route_service.list_routes().await.ok()?;
-    
+
     // پیدا کردن route با path و method مطابق
     routes.into_iter().find(|route| {
         let route_method = match &route.method {
@@ -109,9 +116,7 @@ async fn find_dynamic_route(
             proto::models::HttpMethod::DELETE => "DELETE",
             proto::models::HttpMethod::PATCH => "PATCH",
         };
-        route.path == path && 
-        route_method == method.as_str() &&
-        route.enabled
+        route.path == path && route_method == method.as_str() && route.enabled
     })
 }
 
@@ -122,19 +127,18 @@ async fn execute_dynamic_route(
 ) -> Result<Response, String> {
     // Extract request data
     let (parts, body) = req.into_parts();
-    
+
     // Parse body
     let body_bytes = axum::body::to_bytes(body, usize::MAX)
         .await
         .map_err(|e| format!("Failed to read body: {}", e))?;
-    
+
     let request_data: Value = if body_bytes.is_empty() {
         serde_json::json!({})
     } else {
-        serde_json::from_slice(&body_bytes)
-            .unwrap_or_else(|_| serde_json::json!({}))
+        serde_json::from_slice(&body_bytes).unwrap_or_else(|_| serde_json::json!({}))
     };
-    
+
     // Extract query parameters
     let query_params: std::collections::HashMap<String, String> = parts
         .uri
@@ -145,26 +149,24 @@ async fn execute_dynamic_route(
                 .collect()
         })
         .unwrap_or_default();
-    
+
     // Extract headers
     let headers: std::collections::HashMap<String, String> = parts
         .headers
         .iter()
-        .map(|(name, value)| {
-            (name.to_string(), value.to_str().unwrap_or("").to_string())
-        })
+        .map(|(name, value)| (name.to_string(), value.to_str().unwrap_or("").to_string()))
         .collect();
-    
+
     // Extract path parameters by parsing route path
     let path_params = extract_path_params(&route.path, parts.uri.path());
-    
+
     // Create request object for variable resolution
     let request_object = serde_json::json!({
         "payload": request_data,
         "headers": headers,
         "params": path_params
     });
-    
+
     // ساخت execution context
     let mut context = proto::models::DynamicRouteExecutionContext {
         route_id: route.id.clone(),
@@ -177,34 +179,30 @@ async fn execute_dynamic_route(
         error_context: None,
         sandbox: route.sandbox.clone(),
     };
-    
+
     // Inject request object into variables for template resolution
-    context.variables.insert("request".to_string(), request_object);
-    
+    context
+        .variables
+        .insert("request".to_string(), request_object);
+
     // اجرای logic
-    let result = state.dynamic_route_service
+    let result = state
+        .dynamic_route_service
         .execute_route_logic(&route.logic, &mut context)
         .await
         .map_err(|e| format!("Execution error: {}", e))?;
-    
+
     // Check if result contains enhanced return metadata (value, status, headers, raw)
     if let Some(obj) = result.as_object() {
         if obj.contains_key("value") {
             // Enhanced return with custom response fields
             let value = obj.get("value").unwrap_or(&Value::Null);
-            let status_code = obj.get("status")
-                .and_then(|s| s.as_u64())
-                .unwrap_or(200) as u16;
-            let headers = obj.get("headers")
-                .and_then(|h| h.as_object())
-                .cloned();
-            let is_raw = obj.get("raw")
-                .and_then(|r| r.as_bool())
-                .unwrap_or(false);
-            
-            let status = StatusCode::from_u16(status_code)
-                .unwrap_or(StatusCode::OK);
-            
+            let status_code = obj.get("status").and_then(|s| s.as_u64()).unwrap_or(200) as u16;
+            let headers = obj.get("headers").and_then(|h| h.as_object()).cloned();
+            let is_raw = obj.get("raw").and_then(|r| r.as_bool()).unwrap_or(false);
+
+            let status = StatusCode::from_u16(status_code).unwrap_or(StatusCode::OK);
+
             // If raw=true, send the value directly without wrapping
             if is_raw {
                 // Extract raw string content
@@ -212,14 +210,18 @@ async fn execute_dynamic_route(
                     Value::String(s) => s.clone(),
                     _ => value.to_string(),
                 };
-                
+
                 // Build response with custom headers
                 let mut response = (status, raw_content).into_response();
                 if let Some(header_map) = headers {
                     for (key, val) in header_map {
                         if let Value::String(header_value) = val {
-                            if let Ok(header_name) = axum::http::HeaderName::from_bytes(key.as_bytes()) {
-                                if let Ok(header_val) = axum::http::HeaderValue::from_str(&header_value) {
+                            if let Ok(header_name) =
+                                axum::http::HeaderName::from_bytes(key.as_bytes())
+                            {
+                                if let Ok(header_val) =
+                                    axum::http::HeaderValue::from_str(&header_value)
+                                {
                                     response.headers_mut().insert(header_name, header_val);
                                 }
                             }
@@ -233,8 +235,12 @@ async fn execute_dynamic_route(
                 if let Some(header_map) = headers {
                     for (key, val) in header_map {
                         if let Value::String(header_value) = val {
-                            if let Ok(header_name) = axum::http::HeaderName::from_bytes(key.as_bytes()) {
-                                if let Ok(header_val) = axum::http::HeaderValue::from_str(&header_value) {
+                            if let Ok(header_name) =
+                                axum::http::HeaderName::from_bytes(key.as_bytes())
+                            {
+                                if let Ok(header_val) =
+                                    axum::http::HeaderValue::from_str(&header_value)
+                                {
                                     response.headers_mut().insert(header_name, header_val);
                                 }
                             }
@@ -245,30 +251,33 @@ async fn execute_dynamic_route(
             }
         }
     }
-    
+
     // Legacy path: تبدیل نتیجه به response
-    let response_json = result.as_object()
+    let response_json = result
+        .as_object()
         .and_then(|obj| {
-            if obj.contains_key("status") || obj.contains_key("message") || obj.contains_key("data") {
+            if obj.contains_key("status") || obj.contains_key("message") || obj.contains_key("data")
+            {
                 Some(result.clone())
             } else {
                 None
             }
         })
-        .unwrap_or_else(|| serde_json::json!({
-            "status": 200,
-            "data": result
-        }));
-    
+        .unwrap_or_else(|| {
+            serde_json::json!({
+                "status": 200,
+                "data": result
+            })
+        });
+
     // Extract status code
     let status_code = response_json
         .get("status")
         .and_then(|s| s.as_u64())
         .unwrap_or(200) as u16;
-    
-    let status = StatusCode::from_u16(status_code)
-        .unwrap_or(StatusCode::OK);
-    
+
+    let status = StatusCode::from_u16(status_code).unwrap_or(StatusCode::OK);
+
     // اگه html field داره، به صورت HTML برگردون
     if let Some(html) = response_json.get("html").and_then(|h| h.as_str()) {
         use axum::response::Html;
@@ -279,30 +288,33 @@ async fn execute_dynamic_route(
 }
 
 /// Extract path parameters from route path and actual request path
-fn extract_path_params(route_path: &str, request_path: &str) -> std::collections::HashMap<String, String> {
+fn extract_path_params(
+    route_path: &str,
+    request_path: &str,
+) -> std::collections::HashMap<String, String> {
     let mut params = std::collections::HashMap::new();
-    
+
     // Split paths into segments
     let route_segments: Vec<&str> = route_path.trim_start_matches('/').split('/').collect();
     let request_segments: Vec<&str> = request_path.trim_start_matches('/').split('/').collect();
-    
+
     // If lengths don't match, return empty params
     if route_segments.len() != request_segments.len() {
         return params;
     }
-    
+
     // Compare segments
     for (route_seg, req_seg) in route_segments.iter().zip(request_segments.iter()) {
         if route_seg.starts_with('{') && route_seg.ends_with('}') {
             // This is a parameter
-            let param_name = &route_seg[1..route_seg.len()-1];
+            let param_name = &route_seg[1..route_seg.len() - 1];
             params.insert(param_name.to_string(), req_seg.to_string());
         } else if route_seg != req_seg {
             // Static segments don't match, return empty params
             return std::collections::HashMap::new();
         }
     }
-    
+
     params
 }
 
@@ -316,7 +328,7 @@ async fn handle_websocket_route(
     use futures::{sink::SinkExt, stream::StreamExt};
     use tokio::sync::mpsc;
     use uuid::Uuid;
-    
+
     ws.on_upgrade(move |socket| async move {
         let (mut sender, mut receiver) = socket.split();
         let connection_id = Uuid::new_v4().to_string();
@@ -349,14 +361,9 @@ async fn handle_websocket_route(
         // Execute on_connect hook if exists
         if let Some(ref hooks) = route.ws_hooks {
             if !hooks.on_connect.is_empty() {
-                let _ = execute_ws_logic(
-                    &hooks.on_connect,
-                    &state,
-                    &ws_manager,
-                    &connection_id,
-                    None,
-                )
-                .await;
+                let _ =
+                    execute_ws_logic(&hooks.on_connect, &state, &ws_manager, &connection_id, None)
+                        .await;
             }
         }
 
@@ -416,10 +423,10 @@ async fn execute_ws_logic(
     connection_id: &str,
     incoming_message: Option<String>,
 ) -> Result<Value, String> {
-    use worpen_core::vm::memory::ExecutionMemory;
-    use worpen_core::vm::machine::VirtualMachine;
     use worpen_core::compiler::lowerer::LogicCompiler;
-    
+    use worpen_core::vm::machine::VirtualMachine;
+    use worpen_core::vm::memory::ExecutionMemory;
+
     // Compile logic
     let mut compiler = LogicCompiler::new();
     let program = compiler.compile(logic);

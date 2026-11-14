@@ -1,7 +1,7 @@
-use uuid::Uuid;
 use chrono::Utc;
 use std::collections::hash_map::{DefaultHasher, RandomState};
-use std::hash::{Hash, Hasher, BuildHasher};
+use std::hash::{BuildHasher, Hash, Hasher};
+use uuid::Uuid;
 
 /// Generate a new UUID v4
 pub fn generate_uuid() -> String {
@@ -26,7 +26,7 @@ pub fn md5_hash(input: &str) -> String {
 pub fn random_int(min: i64, max: i64) -> i64 {
     let random_state = RandomState::new();
     let hash = random_state.hash_one(Utc::now().timestamp_nanos_opt().unwrap_or(0));
-    
+
     min + ((hash % ((max - min + 1) as u64)) as i64)
 }
 
@@ -40,14 +40,14 @@ pub fn random_float(min: f64, max: f64) -> f64 {
 fn random_float_01() -> f64 {
     let random_state = RandomState::new();
     let hash = random_state.hash_one(Utc::now().timestamp_nanos_opt().unwrap_or(0));
-    
+
     (hash as f64) / (u64::MAX as f64)
 }
 
 /// Generate a random string of given length
 pub fn random_string(length: usize) -> String {
     const CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    
+
     (0..length)
         .map(|_| {
             let idx = random_int(0, (CHARSET.len() - 1) as i64) as usize;

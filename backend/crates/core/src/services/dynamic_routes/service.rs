@@ -1,19 +1,19 @@
-use std::sync::Arc;
-use std::collections::{HashMap, VecDeque};
-use std::cmp::Reverse;
-use proto::models::{
-    RouteDefinition, LogicOperation, RouteTestRequest, RouteTestResponse,
-    DynamicRouteExecutionContext, LoopControl, FunctionDef, FunctionDefinition, SwitchCase,
-};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use regex;
-use super::execution::execute_logic_extended;
 use super::cache::ExecutionPlan;
+use super::execution::execute_logic_extended;
 use crate::compiler::lowerer::LogicCompiler;
 use crate::vm::machine::VirtualMachine;
 use crate::vm::memory::ExecutionMemory;
 use crate::websocket::WebSocketManager;
+use proto::models::{
+    DynamicRouteExecutionContext, FunctionDef, FunctionDefinition, LogicOperation, LoopControl,
+    RouteDefinition, RouteTestRequest, RouteTestResponse, SwitchCase,
+};
+use regex;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::cmp::Reverse;
+use std::collections::{HashMap, VecDeque};
+use std::sync::Arc;
 
 /// One execution record for the audit trail (in-memory ring + audit.log).
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,20 +63,19 @@ impl Default for DynamicRouteService {
 impl DynamicRouteService {
     pub fn new() -> Self {
         // Use DATA_DIR env var or auto-detect based on current directory
-        let data_dir = std::env::var("DATA_DIR")
-            .unwrap_or_else(|_| {
-                // Try to find the data directory intelligently
-                let current_dir = std::env::current_dir()
-                    .unwrap_or_else(|_| std::path::PathBuf::from("."));
-                
-                // Check if we're in the backend directory
-                if current_dir.ends_with("backend") || current_dir.join("crates").exists() {
-                    "data".to_string()
-                } else {
-                    // Assume we're in root, so use backend/data
-                    "backend/data".to_string()
-                }
-            });
+        let data_dir = std::env::var("DATA_DIR").unwrap_or_else(|_| {
+            // Try to find the data directory intelligently
+            let current_dir =
+                std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+
+            // Check if we're in the backend directory
+            if current_dir.ends_with("backend") || current_dir.join("crates").exists() {
+                "data".to_string()
+            } else {
+                // Assume we're in root, so use backend/data
+                "backend/data".to_string()
+            }
+        });
         Self::with_data_dir(data_dir)
     }
 
@@ -96,27 +95,27 @@ impl DynamicRouteService {
         let _ = service.load_persisted_data();
         service
     }
-    
+
     /// Get WebSocket manager
     pub fn get_ws_manager(&self) -> Option<WebSocketManager> {
         Some((*self.ws_manager).clone())
     }
-    
+
     /// Get database pool
     pub fn get_db_pool(&self) -> Option<sqlx::Pool<sqlx::Sqlite>> {
         self.db_pool.as_ref().map(|p| (**p).clone())
     }
-    
+
     /// Get Redis pool
     pub fn get_redis_pool(&self) -> Option<deadpool_redis::Pool> {
         self.redis_pool.as_ref().map(|p| (**p).clone())
     }
-    
+
     /// Set database pool
     pub fn set_db_pool(&mut self, pool: sqlx::Pool<sqlx::Sqlite>) {
         self.db_pool = Some(Arc::new(pool));
     }
-    
+
     /// Set Redis pool
     pub fn set_redis_pool(&mut self, pool: deadpool_redis::Pool) {
         self.redis_pool = Some(Arc::new(pool));
@@ -147,7 +146,10 @@ impl DynamicRouteService {
                     *count = 1;
                     Ok(())
                 } else if *count >= limit {
-                    Err(format!("rate limit exceeded: {} req/{}s", limit, RATE_WINDOW_SECS))
+                    Err(format!(
+                        "rate limit exceeded: {} req/{}s",
+                        limit, RATE_WINDOW_SECS
+                    ))
                 } else {
                     *count += 1;
                     Ok(())
@@ -194,7 +196,12 @@ impl DynamicRouteService {
         let log_path = format!("{}/audit.log", self.data_dir);
         tokio::spawn(async move {
             use tokio::io::AsyncWriteExt;
-            match tokio::fs::OpenOptions::new().create(true).append(true).open(&log_path).await {
+            match tokio::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&log_path)
+                .await
+            {
                 Ok(mut f) => {
                     let _ = f.write_all(format!("{}\n", line).as_bytes()).await;
                 }
@@ -217,42 +224,45 @@ impl DynamicRouteService {
         }
         // Validate route
         self.validate_route(&route)?;
-        
+
         // Generate ID if not provided
         if route.id.is_empty() {
             route.id = uuid::Uuid::new_v4().to_string();
         }
-        
+
         // Inline global function calls for zero-cost abstraction
         route.logic = self.inline_logic(&route.logic, 0)?;
-        
+
         // Set timestamps
         let now = chrono::Utc::now().to_rfc3339();
         route.created_at = now.clone();
         route.updated_at = now;
-        
+
         // Pre-compile execution plan for hot cache
         let execution_plan = self.compile_execution_plan(&route)?;
-        
+
         // Store route
         let mut routes = self.routes.write().unwrap();
         let route_id = route.id.clone();
         routes.insert(route_id.clone(), route.clone());
-        
+
         // Cache the execution plan
         let mut cache = self.hot_routes_cache.write().unwrap();
         cache.insert(route_id.clone(), Arc::new(execution_plan));
-        
+
         // Persist to disk asynchronously
         let route_clone = route.clone();
         let data_dir_clone = self.data_dir.clone();
         let route_id_for_log = route_id.clone();
         tokio::spawn(async move {
             if let Err(e) = Self::save_route_async(&route_clone, &data_dir_clone).await {
-                eprintln!("[ERROR] Failed to persist route {}: {}", route_id_for_log, e);
+                eprintln!(
+                    "[ERROR] Failed to persist route {}: {}",
+                    route_id_for_log, e
+                );
             }
         });
-        
+
         Ok(route_id)
     }
 
@@ -272,7 +282,7 @@ impl DynamicRouteService {
     fn compile_execution_plan(&self, route: &RouteDefinition) -> Result<ExecutionPlan, String> {
         // Compile to bytecode for VM execution
         let (bytecode, symbol_table) = self.compile_logic(&route.logic)?;
-        
+
         Ok(ExecutionPlan {
             logic: Arc::new(route.logic.clone()),
             enabled: route.enabled,
@@ -284,8 +294,8 @@ impl DynamicRouteService {
 
     /// Save a route to disk asynchronously
     async fn save_route_async(route: &RouteDefinition, data_dir: &str) -> Result<(), String> {
-        use tokio::fs;
         use std::path::Path;
+        use tokio::fs;
 
         let routes_dir = Path::new(data_dir).join("routes");
         fs::create_dir_all(&routes_dir)
@@ -293,7 +303,7 @@ impl DynamicRouteService {
             .map_err(|e| format!("Failed to create routes dir: {}", e))?;
 
         let file_path = routes_dir.join(format!("{}.json", route.id));
-        
+
         // Serialize in blocking task to avoid blocking async runtime
         let content = tokio::task::spawn_blocking({
             let route = route.clone();
@@ -302,7 +312,7 @@ impl DynamicRouteService {
         .await
         .map_err(|e| format!("Serialization task failed: {}", e))?
         .map_err(|e| format!("Failed to serialize route: {}", e))?;
-        
+
         fs::write(&file_path, content)
             .await
             .map_err(|e| format!("Failed to write route file {}: {}", file_path.display(), e))?;
@@ -312,49 +322,56 @@ impl DynamicRouteService {
 
     /// Delete a route file from disk asynchronously
     async fn delete_route_file_async(route_id: &str, data_dir: &str) -> Result<(), String> {
-        use tokio::fs;
         use std::path::Path;
+        use tokio::fs;
 
         let routes_dir = Path::new(data_dir).join("routes");
         let file_path = routes_dir.join(format!("{}.json", route_id));
-        
+
         // Check existence and remove using tokio::fs
         if tokio::fs::try_exists(&file_path).await.unwrap_or(false) {
-            fs::remove_file(&file_path)
-                .await
-                .map_err(|e| format!("Failed to delete route file {}: {}", file_path.display(), e))?;
+            fs::remove_file(&file_path).await.map_err(|e| {
+                format!("Failed to delete route file {}: {}", file_path.display(), e)
+            })?;
         }
 
         Ok(())
     }
 
     /// Update an existing route
-    pub async fn update_route(&self, route_id: &str, mut route: RouteDefinition) -> Result<(), String> {
+    pub async fn update_route(
+        &self,
+        route_id: &str,
+        mut route: RouteDefinition,
+    ) -> Result<(), String> {
         self.validate_route(&route)?;
-        
+
         let mut routes = self.routes.write().unwrap();
         if !routes.contains_key(route_id) {
             return Err("Route not found".to_string());
         }
-        
+
         route.updated_at = chrono::Utc::now().to_rfc3339();
         routes.insert(route_id.to_string(), route.clone());
-        
+
         // Pre-compile and cache the execution plan
         let execution_plan = self.compile_execution_plan(&route)?;
         let mut cache = self.hot_routes_cache.write().unwrap();
         cache.insert(route_id.to_string(), Arc::new(execution_plan));
-        
+
         // Persist to disk asynchronously
         let route_clone = route.clone();
         let data_dir_clone = self.data_dir.clone();
         let route_id_clone = route_id.to_string();
         tokio::spawn(async move {
             if let Err(e) = Self::save_route_async(&route_clone, &data_dir_clone).await {
-                eprintln!("[ERROR] Failed to persist route update {}: {}", route_id_clone, e);
+                eprintln!(
+                    "[ERROR] Failed to persist route update {}: {}",
+                    route_id_clone, e
+                );
             }
         });
-        
+
         Ok(())
     }
 
@@ -364,7 +381,7 @@ impl DynamicRouteService {
         if routes.remove(route_id).is_none() {
             return Err("Route not found".to_string());
         }
-        
+
         // Invalidate cache
         let mut cache = self.hot_routes_cache.write().unwrap();
         cache.remove(route_id);
@@ -374,10 +391,13 @@ impl DynamicRouteService {
         let data_dir_clone = self.data_dir.clone();
         tokio::spawn(async move {
             if let Err(e) = Self::delete_route_file_async(&route_id_clone, &data_dir_clone).await {
-                eprintln!("[ERROR] Failed to delete route file {}: {}", route_id_clone, e);
+                eprintln!(
+                    "[ERROR] Failed to delete route file {}: {}",
+                    route_id_clone, e
+                );
             }
         });
-        
+
         Ok(())
     }
 
@@ -385,24 +405,32 @@ impl DynamicRouteService {
     pub async fn test_route(&self, request: RouteTestRequest) -> Result<RouteTestResponse, String> {
         let start_time = std::time::Instant::now();
         let mut steps = Vec::new();
-        
+
         // Get route definition
         let route = {
             let routes = self.routes.read().unwrap();
-            routes.get(&request.route_id).cloned()
+            routes
+                .get(&request.route_id)
+                .cloned()
                 .ok_or_else(|| "Route not found".to_string())?
         };
-        
+
         steps.push(format!("Route found: {} ({})", route.name, route.path));
-        
-        let timeout_ms = route.sandbox.clone().map(|s| s.max_timeout_ms).unwrap_or(10_000);
+
+        let timeout_ms = route
+            .sandbox
+            .clone()
+            .map(|s| s.max_timeout_ms)
+            .unwrap_or(10_000);
         // Create execution context
         let context = DynamicRouteExecutionContext {
             route_id: request.route_id.clone(),
             variables: HashMap::new(),
             request_payload: request.test_payload,
             path_params: HashMap::new(),
-            query_params: request.test_params.iter()
+            query_params: request
+                .test_params
+                .iter()
                 .map(|(k, v)| (k.clone(), v.to_string()))
                 .collect(),
             functions: HashMap::new(),
@@ -410,19 +438,34 @@ impl DynamicRouteService {
             error_context: None,
             sandbox: route.sandbox.clone(),
         };
-        
+
         steps.push("Execution context created".to_string());
-        
+
         // Execute logic under sandbox timeout
         let logic = route.logic.clone();
         let exec_fut = self.execute_logic(&logic, context, &mut steps);
-        let exec_result = tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), exec_fut).await
-            .map_err(|_| format!("sandbox: execution exceeded max_timeout_ms {}ms", timeout_ms))?;
+        let exec_result =
+            tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), exec_fut)
+                .await
+                .map_err(|_| {
+                    format!(
+                        "sandbox: execution exceeded max_timeout_ms {}ms",
+                        timeout_ms
+                    )
+                })?;
         let (rname, rpath) = (route.name.clone(), route.path.clone());
         match exec_result {
             Ok(result) => {
                 let execution_time = start_time.elapsed().as_millis() as u64;
-                self.record_audit(&request.route_id, rname, rpath, true, None, execution_time, "test");
+                self.record_audit(
+                    &request.route_id,
+                    rname,
+                    rpath,
+                    true,
+                    None,
+                    execution_time,
+                    "test",
+                );
                 Ok(RouteTestResponse {
                     success: true,
                     result: Some(result),
@@ -430,10 +473,18 @@ impl DynamicRouteService {
                     execution_time_ms: execution_time,
                     steps_executed: steps,
                 })
-            },
+            }
             Err(e) => {
                 let execution_time = start_time.elapsed().as_millis() as u64;
-                self.record_audit(&request.route_id, rname, rpath, false, Some(e.clone()), execution_time, "test");
+                self.record_audit(
+                    &request.route_id,
+                    rname,
+                    rpath,
+                    false,
+                    Some(e.clone()),
+                    execution_time,
+                    "test",
+                );
                 Ok(RouteTestResponse {
                     success: false,
                     result: None,
@@ -458,13 +509,26 @@ impl DynamicRouteService {
         let (route_sandbox, meta_name, meta_path, meta_limit) = {
             let routes = self.routes.read().unwrap();
             match routes.get(route_id) {
-                Some(r) => (r.sandbox.clone(), r.name.clone(), r.path.clone(), r.rate_limit),
+                Some(r) => (
+                    r.sandbox.clone(),
+                    r.name.clone(),
+                    r.path.clone(),
+                    r.rate_limit,
+                ),
                 None => (None, route_id.to_string(), String::new(), None),
             }
         };
         // Enforce per-route rate limit BEFORE touching the hot path
         if let Err(e) = self.check_rate_limit(route_id, meta_limit) {
-            self.record_audit(route_id, meta_name, meta_path, false, Some(e.clone()), exec_start.elapsed().as_millis() as u64, "api");
+            self.record_audit(
+                route_id,
+                meta_name,
+                meta_path,
+                false,
+                Some(e.clone()),
+                exec_start.elapsed().as_millis() as u64,
+                "api",
+            );
             return Err(e);
         }
         // Fast path: Check hot cache first (should always be populated now)
@@ -479,15 +543,16 @@ impl DynamicRouteService {
                 // Fallback: Route not in cache (should not happen in normal operation)
                 // This maintains backward compatibility but should be rare
                 let routes = self.routes.read().unwrap();
-                let route = routes.get(route_id)
+                let route = routes
+                    .get(route_id)
                     .ok_or_else(|| "Route not found".to_string())?;
-                
+
                 // Critical Optimization: Flatten logic tree (inline functions) before caching
                 let optimized_logic = self.inline_logic(&route.logic, 0)?;
-                
+
                 // Compile to bytecode for VM execution
                 let (bytecode, symbol_table) = self.compile_logic(&optimized_logic)?;
-                    
+
                 Arc::new(ExecutionPlan {
                     logic: Arc::new(optimized_logic),
                     enabled: route.enabled,
@@ -497,36 +562,48 @@ impl DynamicRouteService {
                 })
             }
         };
-        
+
         if !plan.enabled {
             return Err("Route is disabled".to_string());
         }
-        
+
         // Execute using VM if bytecode is available, otherwise fallback to interpreter
-        let timeout_ms = route_sandbox.clone().map(|s| s.max_timeout_ms).unwrap_or(10_000);
+        let timeout_ms = route_sandbox
+            .clone()
+            .map(|s| s.max_timeout_ms)
+            .unwrap_or(10_000);
         // Interpreter fallback helper (used when VM hits an unimplemented op)
-        let run_interpreter = |payload: Option<Value>, path_params: HashMap<String, String>, query_params: HashMap<String, String>| {
-            let logic = (*plan.logic).clone();
-            let sandbox = route_sandbox.clone();
-            let route_id = route_id.to_string();
-            async move {
-                let mut context = DynamicRouteExecutionContext {
-                    route_id,
-                    variables: HashMap::new(),
-                    request_payload: payload,
-                    path_params,
-                    query_params,
-                    functions: HashMap::new(),
-                    loop_control: LoopControl::default(),
-                    error_context: None,
-                    sandbox,
-                };
-                let mut steps = Vec::new();
-                let exec_fut = execute_logic_extended(&logic, &mut context, &mut steps);
-                tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), exec_fut).await
-                    .map_err(|_| format!("sandbox: execution exceeded max_timeout_ms {}ms", timeout_ms))?
-            }
-        };
+        let run_interpreter =
+            |payload: Option<Value>,
+             path_params: HashMap<String, String>,
+             query_params: HashMap<String, String>| {
+                let logic = (*plan.logic).clone();
+                let sandbox = route_sandbox.clone();
+                let route_id = route_id.to_string();
+                async move {
+                    let mut context = DynamicRouteExecutionContext {
+                        route_id,
+                        variables: HashMap::new(),
+                        request_payload: payload,
+                        path_params,
+                        query_params,
+                        functions: HashMap::new(),
+                        loop_control: LoopControl::default(),
+                        error_context: None,
+                        sandbox,
+                    };
+                    let mut steps = Vec::new();
+                    let exec_fut = execute_logic_extended(&logic, &mut context, &mut steps);
+                    tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), exec_fut)
+                        .await
+                        .map_err(|_| {
+                            format!(
+                                "sandbox: execution exceeded max_timeout_ms {}ms",
+                                timeout_ms
+                            )
+                        })?
+                }
+            };
         let result: Result<Value, String> = async {
             if let (Some(bytecode), Some(symbol_table)) = (&plan.bytecode, &plan.symbol_table) {
                 // VM execution path (with pools + sandbox so SqlOp/RedisOp/Http work on hot path)
@@ -543,12 +620,25 @@ impl DynamicRouteService {
                 vm.set_sandbox(route_sandbox.clone());
 
                 // Bridge request data to VM memory
-                self.inject_request_data_into_vm(&mut vm, &payload, &path_params, &query_params, symbol_table)?;
+                self.inject_request_data_into_vm(
+                    &mut vm,
+                    &payload,
+                    &path_params,
+                    &query_params,
+                    symbol_table,
+                )?;
 
                 // Execute bytecode under timeout; on VM-side gaps fall back to interpreter
                 let exec_fut = vm.execute(bytecode);
-                let vm_res = tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), exec_fut).await
-                    .map_err(|_| format!("sandbox: execution exceeded max_timeout_ms {}ms", timeout_ms))?;
+                let vm_res =
+                    tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), exec_fut)
+                        .await
+                        .map_err(|_| {
+                            format!(
+                                "sandbox: execution exceeded max_timeout_ms {}ms",
+                                timeout_ms
+                            )
+                        })?;
                 match vm_res {
                     Ok(v) => Ok(v),
                     Err(_) => run_interpreter(payload, path_params, query_params).await,
@@ -556,11 +646,20 @@ impl DynamicRouteService {
             } else {
                 run_interpreter(payload, path_params, query_params).await
             }
-        }.await;
+        }
+        .await;
         let elapsed = exec_start.elapsed().as_millis() as u64;
         match &result {
             Ok(_) => self.record_audit(route_id, meta_name, meta_path, true, None, elapsed, "api"),
-            Err(e) => self.record_audit(route_id, meta_name, meta_path, false, Some(e.clone()), elapsed, "api"),
+            Err(e) => self.record_audit(
+                route_id,
+                meta_name,
+                meta_path,
+                false,
+                Some(e.clone()),
+                elapsed,
+                "api",
+            ),
         }
         result
     }
@@ -571,7 +670,8 @@ impl DynamicRouteService {
         operations: &'a [LogicOperation],
         mut context: DynamicRouteExecutionContext,
         steps: &'a mut Vec<String>,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Value, String>> + Send + 'a>> {
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Value, String>> + Send + 'a>>
+    {
         Box::pin(async move {
             let result = execute_logic_extended(operations, &mut context, steps).await?;
             Ok(result)
@@ -583,15 +683,15 @@ impl DynamicRouteService {
         if route.name.is_empty() {
             return Err("Route name is required".to_string());
         }
-        
+
         if route.path.is_empty() {
             return Err("Route path is required".to_string());
         }
-        
+
         if !route.path.starts_with('/') {
             return Err("Route path must start with '/'".to_string());
         }
-        
+
         if route.logic.is_empty() {
             return Err("Route logic cannot be empty".to_string());
         }
@@ -608,27 +708,25 @@ impl DynamicRouteService {
                 return Err("sandbox.max_loop_iterations must be 1..100000".to_string());
             }
         }
-        
+
         Ok(())
     }
-
-
 
     /// Export route as JSON
     pub async fn export_route(&self, route_id: &str) -> Result<String, String> {
         let routes = self.routes.read().unwrap();
-        let route = routes.get(route_id)
+        let route = routes
+            .get(route_id)
             .ok_or_else(|| "Route not found".to_string())?;
-        
-        serde_json::to_string_pretty(route)
-            .map_err(|e| format!("Failed to serialize route: {}", e))
+
+        serde_json::to_string_pretty(route).map_err(|e| format!("Failed to serialize route: {}", e))
     }
 
     /// Import route from JSON
     pub async fn import_route(&self, json: &str) -> Result<String, String> {
-        let route: RouteDefinition = serde_json::from_str(json)
-            .map_err(|e| format!("Failed to parse route JSON: {}", e))?;
-        
+        let route: RouteDefinition =
+            serde_json::from_str(json).map_err(|e| format!("Failed to parse route JSON: {}", e))?;
+
         self.register_route(route).await
     }
 
@@ -636,7 +734,7 @@ impl DynamicRouteService {
     pub async fn define_global_function(&self, func: FunctionDef) -> Result<(), String> {
         let mut functions = self.global_functions.write().unwrap();
         functions.insert(func.name.clone(), func.clone());
-        
+
         // Persist to disk asynchronously
         let func_clone = func.clone();
         let data_dir_clone = self.data_dir.clone();
@@ -646,7 +744,7 @@ impl DynamicRouteService {
                 eprintln!("[ERROR] Failed to persist function {}: {}", func_name, e);
             }
         });
-        
+
         Ok(())
     }
 
@@ -680,7 +778,11 @@ impl DynamicRouteService {
                 .join("functions")
                 .join(format!("{}.json", name_owned));
             if let Err(e) = tokio::fs::remove_file(&p).await {
-                eprintln!("[WARN] Failed to delete function file {}: {}", p.display(), e);
+                eprintln!(
+                    "[WARN] Failed to delete function file {}: {}",
+                    p.display(),
+                    e
+                );
             }
         });
         Ok(true)
@@ -689,10 +791,17 @@ impl DynamicRouteService {
     /// Inline global function calls in logic operations for zero-cost abstraction
     /// This function processes call_function operations BEFORE execution phase (during route creation/registration)
     /// The algorithm is recursive with depth limiting for security
-    pub fn inline_logic(&self, logic: &[LogicOperation], depth: usize) -> Result<Vec<LogicOperation>, String> {
+    pub fn inline_logic(
+        &self,
+        logic: &[LogicOperation],
+        depth: usize,
+    ) -> Result<Vec<LogicOperation>, String> {
         // Security Check: Prevent Stack Overflow
         if depth > 50 {
-            return Err("Maximum recursion depth exceeded (50) - possible circular function calls".to_string());
+            return Err(
+                "Maximum recursion depth exceeded (50) - possible circular function calls"
+                    .to_string(),
+            );
         }
 
         let mut result = Vec::new();
@@ -703,22 +812,29 @@ impl DynamicRouteService {
                 LogicOperation::DefineFunction { name, params, body } => {
                     // Register the function in the global registry
                     let mut functions = self.global_functions.write().unwrap();
-                    functions.insert(name.clone(), FunctionDef {
-                        name: name.clone(),
-                        params: params.clone(),
-                        logic: body.clone(),
-                    });
+                    functions.insert(
+                        name.clone(),
+                        FunctionDef {
+                            name: name.clone(),
+                            params: params.clone(),
+                            logic: body.clone(),
+                        },
+                    );
                     // Don't add to result - function definition is processed at registration time
-                },
-                LogicOperation::CallFunction { name, args, output_var } => {
+                }
+                LogicOperation::CallFunction {
+                    name,
+                    args,
+                    output_var,
+                } => {
                     // Look up the function logic from the global store
                     if let Some(func_def) = functions.get(name) {
                         // Extract variables from the function being called for proper scoping
                         let function_variables = self.extract_function_variables(func_def);
-                        
+
                         // Create unique variable scope for this function call
                         let scope_prefix = format!("_{}_", depth);
-                        
+
                         // Create Set operations to map args to scoped function parameters
                         for (i, param) in func_def.params.iter().enumerate() {
                             if let Some(arg) = args.get(i) {
@@ -731,8 +847,13 @@ impl DynamicRouteService {
                         }
 
                         // Recursively inline the function's logic with scoped variables
-                        let scoped_body = self.inline_scoped_logic(&func_def.logic, &scope_prefix, depth + 1, &function_variables)?;
-                        
+                        let scoped_body = self.inline_scoped_logic(
+                            &func_def.logic,
+                            &scope_prefix,
+                            depth + 1,
+                            &function_variables,
+                        )?;
+
                         // Inject the scoped body into the current operation list
                         result.extend(scoped_body);
 
@@ -745,9 +866,13 @@ impl DynamicRouteService {
                     } else {
                         return Err(format!("Function '{}' not found in global registry", name));
                     }
-                },
+                }
                 // Handle nested operations recursively
-                LogicOperation::If { condition, then, otherwise } => {
+                LogicOperation::If {
+                    condition,
+                    then,
+                    otherwise,
+                } => {
                     let flattened_then = self.inline_logic(then, depth + 1)?;
                     let flattened_otherwise = if let Some(otherwise_ops) = otherwise {
                         Some(self.inline_logic(otherwise_ops, depth + 1)?)
@@ -759,22 +884,33 @@ impl DynamicRouteService {
                         then: flattened_then,
                         otherwise: flattened_otherwise,
                     });
-                },
-                LogicOperation::Loop { collection, var, body } => {
+                }
+                LogicOperation::Loop {
+                    collection,
+                    var,
+                    body,
+                } => {
                     let flattened_body = self.inline_logic(body, depth + 1)?;
                     result.push(LogicOperation::Loop {
                         collection: collection.clone(),
                         var: var.clone(),
                         body: flattened_body,
                     });
-                },
-                LogicOperation::Switch { value, cases, default } => {
-                    let flattened_cases = cases.iter().map(|case| {
-                        Ok(SwitchCase {
-                            value: case.value.clone(),
-                            operations: self.inline_logic(&case.operations, depth + 1)?,
+                }
+                LogicOperation::Switch {
+                    value,
+                    cases,
+                    default,
+                } => {
+                    let flattened_cases = cases
+                        .iter()
+                        .map(|case| {
+                            Ok(SwitchCase {
+                                value: case.value.clone(),
+                                operations: self.inline_logic(&case.operations, depth + 1)?,
+                            })
                         })
-                    }).collect::<Result<Vec<_>, String>>()?;
+                        .collect::<Result<Vec<_>, String>>()?;
 
                     let flattened_default = if let Some(default_ops) = default {
                         Some(self.inline_logic(default_ops, depth + 1)?)
@@ -787,16 +923,24 @@ impl DynamicRouteService {
                         cases: flattened_cases,
                         default: flattened_default,
                     });
-                },
-                LogicOperation::While { condition, body, max_iterations } => {
+                }
+                LogicOperation::While {
+                    condition,
+                    body,
+                    max_iterations,
+                } => {
                     let flattened_body = self.inline_logic(body, depth + 1)?;
                     result.push(LogicOperation::While {
                         condition: condition.clone(),
                         body: flattened_body,
                         max_iterations: *max_iterations,
                     });
-                },
-                LogicOperation::Try { body, catch, finally } => {
+                }
+                LogicOperation::Try {
+                    body,
+                    catch,
+                    finally,
+                } => {
                     let flattened_body = self.inline_logic(body, depth + 1)?;
                     let flattened_catch = self.inline_logic(catch, depth + 1)?;
                     let flattened_finally = if let Some(finally_ops) = finally {
@@ -809,16 +953,20 @@ impl DynamicRouteService {
                         catch: flattened_catch,
                         finally: flattened_finally,
                     });
-                },
-                LogicOperation::Parallel { tasks, max_concurrent } => {
-                    let flattened_tasks = tasks.iter()
+                }
+                LogicOperation::Parallel {
+                    tasks,
+                    max_concurrent,
+                } => {
+                    let flattened_tasks = tasks
+                        .iter()
                         .map(|task| self.inline_logic(task, depth + 1))
                         .collect::<Result<Vec<_>, String>>()?;
                     result.push(LogicOperation::Parallel {
                         tasks: flattened_tasks,
                         max_concurrent: *max_concurrent,
                     });
-                },
+                }
                 // For all other operations, just push them as is
                 _ => result.push(operation.clone()),
             }
@@ -828,9 +976,18 @@ impl DynamicRouteService {
     }
 
     /// Helper method to inline logic with variable scoping
-    fn inline_scoped_logic(&self, logic: &[LogicOperation], scope_prefix: &str, depth: usize, variables: &[String]) -> Result<Vec<LogicOperation>, String> {
+    fn inline_scoped_logic(
+        &self,
+        logic: &[LogicOperation],
+        scope_prefix: &str,
+        depth: usize,
+        variables: &[String],
+    ) -> Result<Vec<LogicOperation>, String> {
         if depth > 50 {
-            return Err("Maximum recursion depth exceeded (50) - possible circular function calls".to_string());
+            return Err(
+                "Maximum recursion depth exceeded (50) - possible circular function calls"
+                    .to_string(),
+            );
         }
 
         let mut result = Vec::new();
@@ -841,13 +998,16 @@ impl DynamicRouteService {
                 LogicOperation::DefineFunction { name, params, body } => {
                     // Register the function in the global registry (even from within scoped logic)
                     let mut functions = self.global_functions.write().unwrap();
-                    functions.insert(name.clone(), FunctionDef {
-                        name: name.clone(),
-                        params: params.clone(),
-                        logic: body.clone(),
-                    });
+                    functions.insert(
+                        name.clone(),
+                        FunctionDef {
+                            name: name.clone(),
+                            params: params.clone(),
+                            logic: body.clone(),
+                        },
+                    );
                     // Don't add to result - function definition is processed at registration time
-                },
+                }
                 LogicOperation::Set { var, value } => {
                     // Scope the variable name
                     let scoped_var = format!("{}{}", scope_prefix, var);
@@ -856,21 +1016,26 @@ impl DynamicRouteService {
                         var: scoped_var,
                         value: scoped_value,
                     });
-                },
-                LogicOperation::CallFunction { name, args, output_var } => {
+                }
+                LogicOperation::CallFunction {
+                    name,
+                    args,
+                    output_var,
+                } => {
                     // Look up the function logic from the global store
                     if let Some(func_def) = functions.get(name) {
                         // Extract variables from the function being called
                         let function_variables = self.extract_function_variables(func_def);
-                        
+
                         // Create deeper scope for nested function call
                         let nested_prefix = format!("{}{}_", scope_prefix, depth);
-                        
+
                         // Create Set operations to map args to scoped function parameters
                         for (i, param) in func_def.params.iter().enumerate() {
                             if let Some(arg) = args.get(i) {
                                 let scoped_param = format!("{}{}", nested_prefix, param);
-                                let scoped_arg = self.scope_value_references(arg, scope_prefix, variables);
+                                let scoped_arg =
+                                    self.scope_value_references(arg, scope_prefix, variables);
                                 result.push(LogicOperation::Set {
                                     var: scoped_param,
                                     value: scoped_arg,
@@ -879,8 +1044,13 @@ impl DynamicRouteService {
                         }
 
                         // Recursively inline the function's logic with deeper scoping
-                        let scoped_body = self.inline_scoped_logic(&func_def.logic, &nested_prefix, depth + 1, &function_variables)?;
-                        
+                        let scoped_body = self.inline_scoped_logic(
+                            &func_def.logic,
+                            &nested_prefix,
+                            depth + 1,
+                            &function_variables,
+                        )?;
+
                         // Inject the scoped body
                         result.extend(scoped_body);
 
@@ -894,11 +1064,17 @@ impl DynamicRouteService {
                     } else {
                         return Err(format!("Function '{}' not found in global registry", name));
                     }
-                },
+                }
                 // For other operations, just scope any variable references in their expressions
-                LogicOperation::If { condition, then, otherwise } => {
-                    let scoped_condition = self.scope_string_references(condition, scope_prefix, variables);
-                    let scoped_then = self.inline_scoped_logic(then, scope_prefix, depth, variables)?;
+                LogicOperation::If {
+                    condition,
+                    then,
+                    otherwise,
+                } => {
+                    let scoped_condition =
+                        self.scope_string_references(condition, scope_prefix, variables);
+                    let scoped_then =
+                        self.inline_scoped_logic(then, scope_prefix, depth, variables)?;
                     let scoped_otherwise = if let Some(ops) = otherwise {
                         Some(self.inline_scoped_logic(ops, scope_prefix, depth, variables)?)
                     } else {
@@ -909,23 +1085,34 @@ impl DynamicRouteService {
                         then: scoped_then,
                         otherwise: scoped_otherwise,
                     });
-                },
+                }
                 LogicOperation::Return { value, .. } => {
                     let scoped_value = self.scope_value_references(value, scope_prefix, variables);
-                    result.push(LogicOperation::Return { value: scoped_value, status: None, headers: None, raw: None });
-                },
+                    result.push(LogicOperation::Return {
+                        value: scoped_value,
+                        status: None,
+                        headers: None,
+                        raw: None,
+                    });
+                }
                 LogicOperation::MathOp { operation, args } => {
-                    let scoped_args = args.iter()
+                    let scoped_args = args
+                        .iter()
                         .map(|arg| self.scope_value_references(arg, scope_prefix, variables))
                         .collect();
                     result.push(LogicOperation::MathOp {
                         operation: operation.clone(),
                         args: scoped_args,
                     });
-                },
-                LogicOperation::SqlOp { query, args, output_var } => {
+                }
+                LogicOperation::SqlOp {
+                    query,
+                    args,
+                    output_var,
+                } => {
                     // Scope all args
-                    let scoped_args = args.iter()
+                    let scoped_args = args
+                        .iter()
                         .map(|arg| self.scope_value_references(arg, scope_prefix, variables))
                         .collect();
                     // Scope output variable
@@ -935,16 +1122,24 @@ impl DynamicRouteService {
                         args: scoped_args,
                         output_var: scoped_output,
                     });
-                },
-                LogicOperation::RedisOp { command, key, value, ttl_seconds, output_var } => {
+                }
+                LogicOperation::RedisOp {
+                    command,
+                    key,
+                    value,
+                    ttl_seconds,
+                    output_var,
+                } => {
                     // Scope key and value strings
                     let scoped_key = self.scope_string_references(key, scope_prefix, variables);
-                    let scoped_value = value.as_ref()
+                    let scoped_value = value
+                        .as_ref()
                         .map(|v| self.scope_string_references(v, scope_prefix, variables));
                     // Scope output variable if provided
-                    let scoped_output = output_var.as_ref()
+                    let scoped_output = output_var
+                        .as_ref()
                         .map(|var| format!("{}{}", scope_prefix, var));
-                    
+
                     result.push(LogicOperation::RedisOp {
                         command: command.clone(),
                         key: scoped_key,
@@ -952,16 +1147,17 @@ impl DynamicRouteService {
                         ttl_seconds: *ttl_seconds,
                         output_var: scoped_output,
                     });
-                },
-                
+                }
+
                 // 🚀 GENERIC FALLBACK - Automatically handles ALL I/O operations
                 _ => {
                     // Serialize to JSON, scope variable references, deserialize back
                     if let Ok(mut json_value) = serde_json::to_value(operation) {
                         self.scope_json_tree_references(&mut json_value, scope_prefix, variables);
-                        
+
                         // Try to deserialize back to LogicOperation
-                        if let Ok(scoped_op) = serde_json::from_value::<LogicOperation>(json_value) {
+                        if let Ok(scoped_op) = serde_json::from_value::<LogicOperation>(json_value)
+                        {
                             result.push(scoped_op);
                         } else {
                             // If deserialization fails, pass through original
@@ -979,19 +1175,31 @@ impl DynamicRouteService {
     }
 
     /// Helper to scope variable references in a Value
-    fn scope_value_references(&self, value: &serde_json::Value, scope_prefix: &str, variables: &[String]) -> serde_json::Value {
+    fn scope_value_references(
+        &self,
+        value: &serde_json::Value,
+        scope_prefix: &str,
+        variables: &[String],
+    ) -> serde_json::Value {
         match value {
-            serde_json::Value::String(s) => serde_json::Value::String(self.scope_string_references(s, scope_prefix, variables)),
-            serde_json::Value::Array(arr) => {
-                serde_json::Value::Array(arr.iter().map(|v| self.scope_value_references(v, scope_prefix, variables)).collect())
-            },
+            serde_json::Value::String(s) => {
+                serde_json::Value::String(self.scope_string_references(s, scope_prefix, variables))
+            }
+            serde_json::Value::Array(arr) => serde_json::Value::Array(
+                arr.iter()
+                    .map(|v| self.scope_value_references(v, scope_prefix, variables))
+                    .collect(),
+            ),
             serde_json::Value::Object(obj) => {
                 let mut scoped_obj = serde_json::Map::new();
                 for (k, v) in obj {
-                    scoped_obj.insert(k.clone(), self.scope_value_references(v, scope_prefix, variables));
+                    scoped_obj.insert(
+                        k.clone(),
+                        self.scope_value_references(v, scope_prefix, variables),
+                    );
                 }
                 serde_json::Value::Object(scoped_obj)
-            },
+            }
             _ => value.clone(),
         }
     }
@@ -999,15 +1207,15 @@ impl DynamicRouteService {
     /// Helper to extract all variable names used within a function's scope
     fn extract_function_variables(&self, func_def: &FunctionDef) -> Vec<String> {
         let mut variables = std::collections::HashSet::new();
-        
+
         // Add function parameters
         for param in &func_def.params {
             variables.insert(param.clone());
         }
-        
+
         // Scan function logic for all variable references
         self.scan_logic_for_variables(&func_def.logic, &mut variables);
-        
+
         // Convert to sorted Vec for consistent ordering
         let mut result: Vec<String> = variables.into_iter().collect();
         result.sort();
@@ -1015,45 +1223,71 @@ impl DynamicRouteService {
     }
 
     /// Helper to recursively scan logic operations for variable references
-    fn scan_logic_for_variables(&self, logic: &[LogicOperation], variables: &mut std::collections::HashSet<String>) {
+    fn scan_logic_for_variables(
+        &self,
+        logic: &[LogicOperation],
+        variables: &mut std::collections::HashSet<String>,
+    ) {
         for operation in logic {
             match operation {
                 // ✅ EXPLICIT HANDLING FOR CONTROL FLOW & SCOPE CREATION
-                LogicOperation::DefineFunction { name: _, params, body } => {
+                LogicOperation::DefineFunction {
+                    name: _,
+                    params,
+                    body,
+                } => {
                     // Add parameters to variables
                     for param in params {
                         variables.insert(param.clone());
                     }
                     // Scan function body for variables
                     self.scan_logic_for_variables(body, variables);
-                },
+                }
                 LogicOperation::Set { var, value } => {
                     variables.insert(var.clone());
                     self.scan_value_for_variables(value, variables);
-                },
-                LogicOperation::CallFunction { name: _, args, output_var } => {
+                }
+                LogicOperation::CallFunction {
+                    name: _,
+                    args,
+                    output_var,
+                } => {
                     variables.insert(output_var.clone());
                     for arg in args {
                         self.scan_value_for_variables(arg, variables);
                     }
-                },
-                LogicOperation::If { condition, then, otherwise } => {
+                }
+                LogicOperation::If {
+                    condition,
+                    then,
+                    otherwise,
+                } => {
                     self.scan_string_for_variables(condition, variables);
                     self.scan_logic_for_variables(then, variables);
                     if let Some(otherwise_ops) = otherwise {
                         self.scan_logic_for_variables(otherwise_ops, variables);
                     }
-                },
-                LogicOperation::Loop { collection, var, body } => {
+                }
+                LogicOperation::Loop {
+                    collection,
+                    var,
+                    body,
+                } => {
                     variables.insert(var.clone());
                     self.scan_string_for_variables(collection, variables);
                     self.scan_logic_for_variables(body, variables);
-                },
-                LogicOperation::While { condition, body, .. } => {
+                }
+                LogicOperation::While {
+                    condition, body, ..
+                } => {
                     self.scan_string_for_variables(condition, variables);
                     self.scan_logic_for_variables(body, variables);
-                },
-                LogicOperation::Switch { value, cases, default } => {
+                }
+                LogicOperation::Switch {
+                    value,
+                    cases,
+                    default,
+                } => {
                     self.scan_string_for_variables(value, variables);
                     for case in cases {
                         self.scan_value_for_variables(&case.value, variables);
@@ -1062,23 +1296,27 @@ impl DynamicRouteService {
                     if let Some(default_ops) = default {
                         self.scan_logic_for_variables(default_ops, variables);
                     }
-                },
-                LogicOperation::Try { body, catch, finally } => {
+                }
+                LogicOperation::Try {
+                    body,
+                    catch,
+                    finally,
+                } => {
                     self.scan_logic_for_variables(body, variables);
                     self.scan_logic_for_variables(catch, variables);
                     if let Some(finally_ops) = finally {
                         self.scan_logic_for_variables(finally_ops, variables);
                     }
-                },
+                }
                 LogicOperation::Parallel { tasks, .. } => {
                     for task in tasks {
                         self.scan_logic_for_variables(task, variables);
                     }
-                },
+                }
                 LogicOperation::Return { value, .. } => {
                     self.scan_value_for_variables(value, variables);
-                },
-                
+                }
+
                 // 🚀 GENERIC FALLBACK - Automatically handles ALL I/O operations
                 _ => {
                     // Serialize operation to JSON
@@ -1089,18 +1327,22 @@ impl DynamicRouteService {
             }
         }
     }
-    
+
     /// 🚀 NEW: Generic JSON tree walker that finds {{...}} patterns anywhere
-    fn scan_json_tree_for_variables(&self, value: &serde_json::Value, variables: &mut std::collections::HashSet<String>) {
+    fn scan_json_tree_for_variables(
+        &self,
+        value: &serde_json::Value,
+        variables: &mut std::collections::HashSet<String>,
+    ) {
         match value {
             serde_json::Value::String(s) => {
                 self.scan_string_for_variables(s, variables);
-            },
+            }
             serde_json::Value::Array(arr) => {
                 for item in arr {
                     self.scan_json_tree_for_variables(item, variables);
                 }
-            },
+            }
             serde_json::Value::Object(obj) => {
                 for (key, val) in obj {
                     // Check for special keys that define variables (like "var", "output_var")
@@ -1112,35 +1354,43 @@ impl DynamicRouteService {
                     // Recursively scan all values
                     self.scan_json_tree_for_variables(val, variables);
                 }
-            },
+            }
             _ => {} // Numbers, bools, null don't contain variables
         }
     }
 
     /// Helper to scan a Value for variable references
-    fn scan_value_for_variables(&self, value: &serde_json::Value, variables: &mut std::collections::HashSet<String>) {
+    fn scan_value_for_variables(
+        &self,
+        value: &serde_json::Value,
+        variables: &mut std::collections::HashSet<String>,
+    ) {
         match value {
             serde_json::Value::String(s) => {
                 self.scan_string_for_variables(s, variables);
-            },
+            }
             serde_json::Value::Array(arr) => {
                 for v in arr {
                     self.scan_value_for_variables(v, variables);
                 }
-            },
+            }
             serde_json::Value::Object(obj) => {
                 for (_, v) in obj {
                     self.scan_value_for_variables(v, variables);
                 }
-            },
+            }
             _ => {}
         }
     }
 
     /// Helper to scan a string for variable references (like ${var_name})
-    fn scan_string_for_variables(&self, s: &str, variables: &mut std::collections::HashSet<String>) {
+    fn scan_string_for_variables(
+        &self,
+        s: &str,
+        variables: &mut std::collections::HashSet<String>,
+    ) {
         use regex::Regex;
-        
+
         // Pattern to match ${variable_name} expressions
         if let Ok(re) = Regex::new(r"\$\{([^}]+)\}") {
             for cap in re.captures_iter(s) {
@@ -1148,14 +1398,19 @@ impl DynamicRouteService {
                     let expr = var_expr.as_str();
                     // Extract variable names from the expression
                     // This is a simple approach - split by operators and extract word-like tokens
-                    let tokens: Vec<&str> = expr.split(|c: char| !c.is_alphanumeric() && c != '_')
+                    let tokens: Vec<&str> = expr
+                        .split(|c: char| !c.is_alphanumeric() && c != '_')
                         .filter(|s| !s.is_empty())
                         .collect();
                     for token in tokens {
                         // Only consider tokens that start with a letter or underscore (proper variable names)
-                        if !token.is_empty() && 
-                           token.chars().all(|c| c.is_alphanumeric() || c == '_') &&
-                           token.chars().next().is_some_and(|c| c.is_alphabetic() || c == '_') {
+                        if !token.is_empty()
+                            && token.chars().all(|c| c.is_alphanumeric() || c == '_')
+                            && token
+                                .chars()
+                                .next()
+                                .is_some_and(|c| c.is_alphabetic() || c == '_')
+                        {
                             variables.insert(token.to_string());
                         }
                     }
@@ -1179,11 +1434,11 @@ impl DynamicRouteService {
             // Pattern: match 'var' only if it's NOT preceded by another variable character or '${'
             // and NOT followed by another variable character.
             // Simplified: \b{var}\b (word boundary) works for most cases
-            
+
             // Fix for your specific case: "${product + 10}" -> "${_0_product + 10}"
             // We use standard word boundaries.
             let pattern = format!(r"\b{}\b", regex::escape(&var));
-            
+
             if let Ok(re) = Regex::new(&pattern) {
                 let replacement = format!("{}{}", scope_prefix, var);
                 result = re.replace_all(&result, replacement.as_str()).to_string();
@@ -1192,18 +1447,23 @@ impl DynamicRouteService {
 
         result
     }
-    
+
     /// 🚀 NEW: Generic JSON tree scoping that modifies variable references in-place
-    fn scope_json_tree_references(&self, value: &mut serde_json::Value, scope_prefix: &str, variables: &[String]) {
+    fn scope_json_tree_references(
+        &self,
+        value: &mut serde_json::Value,
+        scope_prefix: &str,
+        variables: &[String],
+    ) {
         match value {
             serde_json::Value::String(s) => {
                 *s = self.scope_string_references(s, scope_prefix, variables);
-            },
+            }
             serde_json::Value::Array(arr) => {
                 for item in arr {
                     self.scope_json_tree_references(item, scope_prefix, variables);
                 }
-            },
+            }
             serde_json::Value::Object(obj) => {
                 for (key, val) in obj {
                     // Special handling for variable definition keys
@@ -1216,7 +1476,7 @@ impl DynamicRouteService {
                         self.scope_json_tree_references(val, scope_prefix, variables);
                     }
                 }
-            },
+            }
             _ => {} // Numbers, bools, null don't need scoping
         }
     }
@@ -1231,27 +1491,65 @@ impl DynamicRouteService {
         let (meta_name, meta_path, meta_limit) = self.route_meta(&context.route_id);
         // Enforce per-route rate limit on the public-path entry point too
         if let Err(e) = self.check_rate_limit(&context.route_id, meta_limit) {
-            self.record_audit(&context.route_id, meta_name, meta_path, false, Some(e.clone()), exec_start.elapsed().as_millis() as u64, "fallback");
+            self.record_audit(
+                &context.route_id,
+                meta_name,
+                meta_path,
+                false,
+                Some(e.clone()),
+                exec_start.elapsed().as_millis() as u64,
+                "fallback",
+            );
             return Err(e);
         }
         // Inject global functions into context for execution
         let global_functions = self.global_functions.read().unwrap().clone();
         for (name, func_def) in global_functions.iter() {
-            context.functions.insert(name.clone(), FunctionDefinition {
-                params: func_def.params.clone(),
-                body: func_def.logic.clone(),
-            });
+            context.functions.insert(
+                name.clone(),
+                FunctionDefinition {
+                    params: func_def.params.clone(),
+                    body: func_def.logic.clone(),
+                },
+            );
         }
-        
-        let timeout_ms = context.sandbox.clone().map(|s| s.max_timeout_ms).unwrap_or(10_000);
+
+        let timeout_ms = context
+            .sandbox
+            .clone()
+            .map(|s| s.max_timeout_ms)
+            .unwrap_or(10_000);
         let mut steps = Vec::new();
         let exec_fut = execute_logic_extended(logic, context, &mut steps);
-        let result: Result<Value, String> = tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), exec_fut).await
-            .map_err(|_| format!("sandbox: execution exceeded max_timeout_ms {}ms", timeout_ms))?;
+        let result: Result<Value, String> =
+            tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), exec_fut)
+                .await
+                .map_err(|_| {
+                    format!(
+                        "sandbox: execution exceeded max_timeout_ms {}ms",
+                        timeout_ms
+                    )
+                })?;
         let elapsed = exec_start.elapsed().as_millis() as u64;
         match &result {
-            Ok(_) => self.record_audit(&context.route_id, meta_name, meta_path, true, None, elapsed, "fallback"),
-            Err(e) => self.record_audit(&context.route_id, meta_name, meta_path, false, Some(e.clone()), elapsed, "fallback"),
+            Ok(_) => self.record_audit(
+                &context.route_id,
+                meta_name,
+                meta_path,
+                true,
+                None,
+                elapsed,
+                "fallback",
+            ),
+            Err(e) => self.record_audit(
+                &context.route_id,
+                meta_name,
+                meta_path,
+                false,
+                Some(e.clone()),
+                elapsed,
+                "fallback",
+            ),
         }
         result
     }
@@ -1272,17 +1570,19 @@ impl DynamicRouteService {
                 let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
                 let path = entry.path();
                 if path.extension().and_then(|s| s.to_str()) == Some("json") {
-                    let content = fs::read_to_string(&path)
-                        .map_err(|e| format!("Failed to read route file {}: {}", path.display(), e))?;
-                    let route: RouteDefinition = serde_json::from_str(&content)
-                        .map_err(|e| format!("Failed to parse route from {}: {}", path.display(), e))?;
-                    
+                    let content = fs::read_to_string(&path).map_err(|e| {
+                        format!("Failed to read route file {}: {}", path.display(), e)
+                    })?;
+                    let route: RouteDefinition = serde_json::from_str(&content).map_err(|e| {
+                        format!("Failed to parse route from {}: {}", path.display(), e)
+                    })?;
+
                     // Pre-compile execution plan for hot cache
                     let execution_plan = self.compile_execution_plan(&route)?;
-                    
+
                     let mut routes = self.routes.write().unwrap();
                     routes.insert(route.id.clone(), route.clone());
-                    
+
                     // Cache the execution plan
                     let mut cache = self.hot_routes_cache.write().unwrap();
                     cache.insert(route.id.clone(), Arc::new(execution_plan));
@@ -1298,10 +1598,12 @@ impl DynamicRouteService {
                 let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
                 let path = entry.path();
                 if path.extension().and_then(|s| s.to_str()) == Some("json") {
-                    let content = fs::read_to_string(&path)
-                        .map_err(|e| format!("Failed to read function file {}: {}", path.display(), e))?;
-                    let func: FunctionDef = serde_json::from_str(&content)
-                        .map_err(|e| format!("Failed to parse function from {}: {}", path.display(), e))?;
+                    let content = fs::read_to_string(&path).map_err(|e| {
+                        format!("Failed to read function file {}: {}", path.display(), e)
+                    })?;
+                    let func: FunctionDef = serde_json::from_str(&content).map_err(|e| {
+                        format!("Failed to parse function from {}: {}", path.display(), e)
+                    })?;
                     let mut functions = self.global_functions.write().unwrap();
                     functions.insert(func.name.clone(), func);
                 }
@@ -1313,24 +1615,39 @@ impl DynamicRouteService {
 
     /// Save a function to disk asynchronously
     async fn save_function_async(func: &FunctionDef, data_dir: &str) -> Result<(), String> {
-        use tokio::fs;
         use std::path::Path;
+        use tokio::fs;
 
         let functions_dir = Path::new(data_dir).join("functions");
-        fs::create_dir_all(&functions_dir).await
+        fs::create_dir_all(&functions_dir)
+            .await
             .map_err(|e| format!("Failed to create functions dir: {}", e))?;
 
         let file_path = functions_dir.join(format!("{}.json", func.name));
         let content = serde_json::to_string_pretty(func)
             .map_err(|e| format!("Failed to serialize function: {}", e))?;
-        fs::write(&file_path, content).await
-            .map_err(|e| format!("Failed to write function file {}: {}", file_path.display(), e))?;
+        fs::write(&file_path, content).await.map_err(|e| {
+            format!(
+                "Failed to write function file {}: {}",
+                file_path.display(),
+                e
+            )
+        })?;
 
         Ok(())
     }
 
     /// Compile logic operations to VM bytecode
-    fn compile_logic(&self, logic: &[LogicOperation]) -> Result<(Option<Vec<crate::vm::instructions::OptimizedOperation>>, Option<crate::compiler::symbol_table::SymbolTable>), String> {
+    fn compile_logic(
+        &self,
+        logic: &[LogicOperation],
+    ) -> Result<
+        (
+            Option<Vec<crate::vm::instructions::OptimizedOperation>>,
+            Option<crate::compiler::symbol_table::SymbolTable>,
+        ),
+        String,
+    > {
         let mut compiler = LogicCompiler::new();
         let bytecode = compiler.compile(logic);
         if bytecode.is_empty() {
@@ -1362,8 +1679,8 @@ impl DynamicRouteService {
         for (key, value_str) in path_params {
             if let Some(index) = symbol_table.get_index(key) {
                 // Try to parse as JSON, otherwise keep as string
-                let value = serde_json::from_str(value_str)
-                    .unwrap_or(Value::String(value_str.clone()));
+                let value =
+                    serde_json::from_str(value_str).unwrap_or(Value::String(value_str.clone()));
                 vm.memory.set(index, value);
             }
         }
@@ -1372,8 +1689,8 @@ impl DynamicRouteService {
         for (key, value_str) in query_params {
             if let Some(index) = symbol_table.get_index(key) {
                 // Try to parse as JSON, otherwise keep as JSON string
-                let value = serde_json::from_str(value_str)
-                    .unwrap_or(Value::String(value_str.clone()));
+                let value =
+                    serde_json::from_str(value_str).unwrap_or(Value::String(value_str.clone()));
                 vm.memory.set(index, value);
             }
         }
@@ -1395,12 +1712,10 @@ mod tests {
         FunctionDef {
             name: "add_numbers".to_string(),
             params: vec!["a".to_string(), "b".to_string()],
-            logic: vec![
-                LogicOperation::Set {
-                    var: "result".to_string(),
-                    value: Value::String("${a + b}".to_string()),
-                }
-            ],
+            logic: vec![LogicOperation::Set {
+                var: "result".to_string(),
+                value: Value::String("${a + b}".to_string()),
+            }],
         }
     }
 
@@ -1411,13 +1726,16 @@ mod tests {
             logic: vec![
                 LogicOperation::CallFunction {
                     name: "add_numbers".to_string(),
-                    args: vec![Value::String("${x * y}".to_string()), Value::String("${z}".to_string())],
+                    args: vec![
+                        Value::String("${x * y}".to_string()),
+                        Value::String("${z}".to_string()),
+                    ],
                     output_var: "temp".to_string(),
                 },
                 LogicOperation::Set {
                     var: "result".to_string(),
                     value: Value::String("${temp * 2}".to_string()),
-                }
+                },
             ],
         }
     }
@@ -1425,26 +1743,28 @@ mod tests {
     #[test]
     fn test_inline_logic_basic_function_call() {
         let service = create_test_service();
-        
+
         // Define a simple function
         let func = create_simple_function();
-        service.global_functions.write().unwrap().insert(func.name.clone(), func);
+        service
+            .global_functions
+            .write()
+            .unwrap()
+            .insert(func.name.clone(), func);
 
         // Create logic that calls the function
-        let logic = vec![
-            LogicOperation::CallFunction {
-                name: "add_numbers".to_string(),
-                args: vec![Value::Number(5.into()), Value::Number(3.into())],
-                output_var: "sum".to_string(),
-            }
-        ];
+        let logic = vec![LogicOperation::CallFunction {
+            name: "add_numbers".to_string(),
+            args: vec![Value::Number(5.into()), Value::Number(3.into())],
+            output_var: "sum".to_string(),
+        }];
 
         // Inline the logic
         let result = service.inline_logic(&logic, 0).unwrap();
 
         // Should have parameter bindings, function body, and result mapping
         assert_eq!(result.len(), 4);
-        
+
         // First operation should be setting scoped parameter '_0_a'
         match &result[0] {
             LogicOperation::Set { var, value } => {
@@ -1496,7 +1816,7 @@ mod tests {
                 status: None,
                 headers: None,
                 raw: None,
-            }
+            },
         ];
 
         let result = service.inline_logic(&logic, 0).unwrap();
@@ -1510,32 +1830,36 @@ mod tests {
     #[test]
     fn test_inline_logic_nested_operations() {
         let service = create_test_service();
-        
+
         // Define a function
         let func = create_simple_function();
-        service.global_functions.write().unwrap().insert(func.name.clone(), func);
+        service
+            .global_functions
+            .write()
+            .unwrap()
+            .insert(func.name.clone(), func);
 
         // Create logic with function call inside an if statement
-        let logic = vec![
-            LogicOperation::If {
-                condition: "${x > 0}".to_string(),
-                then: vec![
-                    LogicOperation::CallFunction {
-                        name: "add_numbers".to_string(),
-                        args: vec![Value::String("${x}".to_string()), Value::Number(1.into())],
-                        output_var: "result".to_string(),
-                    }
-                ],
-                otherwise: None,
-            }
-        ];
+        let logic = vec![LogicOperation::If {
+            condition: "${x > 0}".to_string(),
+            then: vec![LogicOperation::CallFunction {
+                name: "add_numbers".to_string(),
+                args: vec![Value::String("${x}".to_string()), Value::Number(1.into())],
+                output_var: "result".to_string(),
+            }],
+            otherwise: None,
+        }];
 
         let result = service.inline_logic(&logic, 0).unwrap();
 
         // Should have one If operation
         assert_eq!(result.len(), 1);
         match &result[0] {
-            LogicOperation::If { condition, then, otherwise } => {
+            LogicOperation::If {
+                condition,
+                then,
+                otherwise,
+            } => {
                 assert_eq!(condition, "${x > 0}");
                 assert!(otherwise.is_none());
                 // The 'then' branch should contain the inlined function logic
@@ -1548,30 +1872,43 @@ mod tests {
     #[test]
     fn test_inline_logic_recursive_function_calls() {
         let service = create_test_service();
-        
+
         // Define both functions
         let simple_func = create_simple_function();
         let nested_func = create_nested_function();
-        
-        service.global_functions.write().unwrap().insert(simple_func.name.clone(), simple_func);
-        service.global_functions.write().unwrap().insert(nested_func.name.clone(), nested_func);
+
+        service
+            .global_functions
+            .write()
+            .unwrap()
+            .insert(simple_func.name.clone(), simple_func);
+        service
+            .global_functions
+            .write()
+            .unwrap()
+            .insert(nested_func.name.clone(), nested_func);
 
         // Create logic that calls the nested function
-        let logic = vec![
-            LogicOperation::CallFunction {
-                name: "multiply_and_add".to_string(),
-                args: vec![Value::Number(2.into()), Value::Number(3.into()), Value::Number(4.into())],
-                output_var: "final_result".to_string(),
-            }
-        ];
+        let logic = vec![LogicOperation::CallFunction {
+            name: "multiply_and_add".to_string(),
+            args: vec![
+                Value::Number(2.into()),
+                Value::Number(3.into()),
+                Value::Number(4.into()),
+            ],
+            output_var: "final_result".to_string(),
+        }];
 
         let result = service.inline_logic(&logic, 0).unwrap();
 
         // Should have parameter bindings for multiply_and_add, then inlined add_numbers call, then result mapping
         assert!(result.len() > 3); // At least: 3 param sets + 2 param sets for inner call + 1 result set + 1 final result set
-        
+
         // Check that we have multiple Set operations for parameters
-        let set_operations: Vec<_> = result.iter().filter(|op| matches!(op, LogicOperation::Set { .. })).collect();
+        let set_operations: Vec<_> = result
+            .iter()
+            .filter(|op| matches!(op, LogicOperation::Set { .. }))
+            .collect();
         assert!(set_operations.len() >= 5); // x, y, z for outer function, a, b for inner function
     }
 
@@ -1583,42 +1920,42 @@ mod tests {
         let recursive_func = FunctionDef {
             name: "recursive".to_string(),
             params: vec!["n".to_string()],
-            logic: vec![
-                LogicOperation::CallFunction {
-                    name: "recursive".to_string(),
-                    args: vec![Value::String("${n - 1}".to_string())],
-                    output_var: "result".to_string(),
-                }
-            ],
+            logic: vec![LogicOperation::CallFunction {
+                name: "recursive".to_string(),
+                args: vec![Value::String("${n - 1}".to_string())],
+                output_var: "result".to_string(),
+            }],
         };
 
-        service.global_functions.write().unwrap().insert(recursive_func.name.clone(), recursive_func);
+        service
+            .global_functions
+            .write()
+            .unwrap()
+            .insert(recursive_func.name.clone(), recursive_func);
 
-        let logic = vec![
-            LogicOperation::CallFunction {
-                name: "recursive".to_string(),
-                args: vec![Value::Number(1.into())],
-                output_var: "output".to_string(),
-            }
-        ];
+        let logic = vec![LogicOperation::CallFunction {
+            name: "recursive".to_string(),
+            args: vec![Value::Number(1.into())],
+            output_var: "output".to_string(),
+        }];
 
         // Should fail with depth error
         let result = service.inline_logic(&logic, 49); // Start close to limit
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Maximum recursion depth exceeded"));
+        assert!(result
+            .unwrap_err()
+            .contains("Maximum recursion depth exceeded"));
     }
 
     #[test]
     fn test_inline_logic_function_not_found() {
         let service = create_test_service();
 
-        let logic = vec![
-            LogicOperation::CallFunction {
-                name: "nonexistent_function".to_string(),
-                args: vec![Value::Number(1.into())],
-                output_var: "result".to_string(),
-            }
-        ];
+        let logic = vec![LogicOperation::CallFunction {
+            name: "nonexistent_function".to_string(),
+            args: vec![Value::Number(1.into())],
+            output_var: "result".to_string(),
+        }];
 
         let result = service.inline_logic(&logic, 0);
         assert!(result.is_err());
@@ -1628,10 +1965,14 @@ mod tests {
     #[test]
     fn test_inline_logic_complex_nested_structure() {
         let service = create_test_service();
-        
+
         // Define a function
         let func = create_simple_function();
-        service.global_functions.write().unwrap().insert(func.name.clone(), func);
+        service
+            .global_functions
+            .write()
+            .unwrap()
+            .insert(func.name.clone(), func);
 
         // Create complex nested logic with function calls in multiple places
         let logic = vec![
@@ -1644,13 +1985,16 @@ mod tests {
                 body: vec![
                     LogicOperation::CallFunction {
                         name: "add_numbers".to_string(),
-                        args: vec![Value::String("${counter}".to_string()), Value::Number(1.into())],
+                        args: vec![
+                            Value::String("${counter}".to_string()),
+                            Value::Number(1.into()),
+                        ],
                         output_var: "temp".to_string(),
                     },
                     LogicOperation::Set {
                         var: "counter".to_string(),
                         value: Value::String("${temp}".to_string()),
-                    }
+                    },
                 ],
                 max_iterations: Some(10),
             },
@@ -1659,14 +2003,14 @@ mod tests {
                 status: None,
                 headers: None,
                 raw: None,
-            }
+            },
         ];
 
         let result = service.inline_logic(&logic, 0).unwrap();
 
         // Should preserve the overall structure but inline the function call
         assert_eq!(result.len(), 3); // Set + While + Return
-        
+
         // First operation should still be the counter initialization
         match &result[0] {
             LogicOperation::Set { var, .. } => assert_eq!(var, "counter"),
@@ -1686,20 +2030,24 @@ mod tests {
     #[test]
     fn test_inline_logic_empty_logic() {
         let service = create_test_service();
-        
+
         let logic = vec![];
         let result = service.inline_logic(&logic, 0).unwrap();
-        
+
         assert_eq!(result.len(), 0);
     }
 
     #[test]
     fn test_inline_logic_mixed_operations() {
         let service = create_test_service();
-        
+
         // Define a function
         let func = create_simple_function();
-        service.global_functions.write().unwrap().insert(func.name.clone(), func);
+        service
+            .global_functions
+            .write()
+            .unwrap()
+            .insert(func.name.clone(), func);
 
         let logic = vec![
             LogicOperation::Set {
@@ -1716,14 +2064,14 @@ mod tests {
                 status: None,
                 headers: None,
                 raw: None,
-            }
+            },
         ];
 
         let result = service.inline_logic(&logic, 0).unwrap();
 
         // Should have: Set(start), Set(a), Set(b), Set(result), Set(calculation), Return
         assert_eq!(result.len(), 6);
-        
+
         // Check that the first and last operations are preserved
         match &result[0] {
             LogicOperation::Set { var, value } => {

@@ -1,6 +1,6 @@
-use std::sync::Arc;
-use proto::models::Incident;
 use crate::ports::repository::IncidentRepository;
+use proto::models::Incident;
+use std::sync::Arc;
 
 pub struct IncidentService {
     repo: Arc<dyn IncidentRepository>,
@@ -15,7 +15,12 @@ impl IncidentService {
         self.repo.find_all().await
     }
 
-    pub async fn resolve_incident(&self, id: String, method: String, notes: String) -> Result<(), String> {
+    pub async fn resolve_incident(
+        &self,
+        id: String,
+        method: String,
+        notes: String,
+    ) -> Result<(), String> {
         self.repo.resolve(id, method, notes).await
     }
 }

@@ -1,13 +1,13 @@
-use axum::{
-    extract::{State, Path},
-    Json,
-    http::StatusCode,
-};
 use crate::state::AppState;
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    Json,
+};
 use proto::models::Agent as ProtoAgent;
 use serde_json::Value;
-use uuid::Uuid;
 use sqlx::types::chrono::Utc;
+use uuid::Uuid;
 
 #[utoipa::path(
     get,
@@ -20,21 +20,24 @@ pub async fn list_agents(State(state): State<AppState>) -> Json<Vec<ProtoAgent>>
     match state.agent_service.list_agents().await {
         Ok(agents) => {
             // Convert domain Agent to Proto Agent
-            let proto_agents = agents.into_iter().map(|a| ProtoAgent {
-                id: a.id.to_string(),
-                name: a.hostname.clone(),
-                ip: a.ip_address.clone().unwrap_or_default(),
-                os: "Linux".to_string(), // Mock for now
-                version: a.version.clone(),
-                status: proto::models::AgentStatus::ONLINE, // Mock
-                cpu_load: 45,
-                memory_load: 60,
-                last_seen: a.last_heartbeat.to_rfc3339(),
-                uptime: "24h".to_string(),
-                peers: 3,
-            }).collect();
+            let proto_agents = agents
+                .into_iter()
+                .map(|a| ProtoAgent {
+                    id: a.id.to_string(),
+                    name: a.hostname.clone(),
+                    ip: a.ip_address.clone().unwrap_or_default(),
+                    os: "Linux".to_string(), // Mock for now
+                    version: a.version.clone(),
+                    status: proto::models::AgentStatus::ONLINE, // Mock
+                    cpu_load: 45,
+                    memory_load: 60,
+                    last_seen: a.last_heartbeat.to_rfc3339(),
+                    uptime: "24h".to_string(),
+                    peers: 3,
+                })
+                .collect();
             Json(proto_agents)
-        },
+        }
         Err(_) => Json(vec![]),
     }
 }
@@ -52,7 +55,7 @@ pub async fn get_agent(
     Path(id): Path<String>,
 ) -> Result<Json<ProtoAgent>, StatusCode> {
     let agent_id = Uuid::parse_str(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
-    
+
     match state.agent_service.get_agent(agent_id).await {
         Ok(Some(a)) => Ok(Json(ProtoAgent {
             id: a.id.to_string(),
@@ -98,7 +101,7 @@ pub async fn agent_heartbeat(
     Json(payload): Json<Value>,
 ) -> Json<Value> {
     let agent_id_str = payload["id"].as_str().unwrap_or("");
-    
+
     if let Ok(agent_id) = Uuid::parse_str(agent_id_str) {
         match state.agent_service.process_heartbeat(agent_id).await {
             Ok(_) => Json(serde_json::json!({"status": "OK"})),

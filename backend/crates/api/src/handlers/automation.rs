@@ -1,9 +1,9 @@
-use axum::{
-    extract::{State, Path},
-    Json,
-    http::StatusCode,
-};
 use crate::state::AppState;
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    Json,
+};
 use proto::models::AutomationRule;
 use serde_json::Value;
 
@@ -82,10 +82,7 @@ pub async fn update_rule(
         (status = 200, description = "Dry run result", body = Value)
     )
 )]
-pub async fn dry_run(
-    State(_state): State<AppState>,
-    Json(payload): Json<Value>,
-) -> Json<Value> {
+pub async fn dry_run(State(_state): State<AppState>, Json(payload): Json<Value>) -> Json<Value> {
     let script = payload["script"].as_str().unwrap_or("");
     Json(serde_json::json!({
         "status": "SUCCESS",

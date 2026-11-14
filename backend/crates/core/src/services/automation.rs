@@ -1,6 +1,6 @@
-use std::sync::Arc;
-use proto::models::AutomationRule;
 use crate::ports::repository::AutomationRepository;
+use proto::models::AutomationRule;
+use std::sync::Arc;
 
 pub struct AutomationService {
     repo: Arc<dyn AutomationRepository>,

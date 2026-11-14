@@ -17,15 +17,13 @@ pub fn now_unix_ms() -> i64 {
 
 /// Format a Unix timestamp to ISO 8601 string with custom format
 pub fn format_timestamp(iso_string: &str, format: &str) -> Result<String, String> {
-    let dt = DateTime::parse_from_rfc3339(iso_string)
-        .map_err(|e| format!("Parse error: {}", e))?;
+    let dt = DateTime::parse_from_rfc3339(iso_string).map_err(|e| format!("Parse error: {}", e))?;
     Ok(dt.format(format).to_string())
 }
 
 /// Parse ISO 8601 string to Unix timestamp
 pub fn parse_iso_timestamp(iso_string: &str) -> Result<i64, String> {
-    let dt = DateTime::parse_from_rfc3339(iso_string)
-        .map_err(|e| format!("Parse error: {}", e))?;
+    let dt = DateTime::parse_from_rfc3339(iso_string).map_err(|e| format!("Parse error: {}", e))?;
     Ok(dt.timestamp())
 }
 
@@ -42,9 +40,8 @@ pub fn now_time() -> String {
 /// Add days to a timestamp
 pub fn add_days(iso_string: &str, days: i32) -> Result<String, String> {
     use chrono::Duration;
-    
-    let dt = DateTime::parse_from_rfc3339(iso_string)
-        .map_err(|e| format!("Parse error: {}", e))?;
+
+    let dt = DateTime::parse_from_rfc3339(iso_string).map_err(|e| format!("Parse error: {}", e))?;
     let future = dt + Duration::days(days as i64);
     Ok(future.to_rfc3339())
 }
@@ -52,9 +49,8 @@ pub fn add_days(iso_string: &str, days: i32) -> Result<String, String> {
 /// Add hours to a timestamp
 pub fn add_hours(iso_string: &str, hours: i32) -> Result<String, String> {
     use chrono::Duration;
-    
-    let dt = DateTime::parse_from_rfc3339(iso_string)
-        .map_err(|e| format!("Parse error: {}", e))?;
+
+    let dt = DateTime::parse_from_rfc3339(iso_string).map_err(|e| format!("Parse error: {}", e))?;
     let future = dt + Duration::hours(hours as i64);
     Ok(future.to_rfc3339())
 }

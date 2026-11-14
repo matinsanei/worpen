@@ -1,12 +1,12 @@
 // Expression evaluator - evaluates AST to produce values
 // Phase 2 Day 7-8: Full implementation
 
-use crate::expression::ast::{Expr, BinaryOp, UnaryOp, PipeFilter};
+use crate::expression::ast::{BinaryOp, Expr, PipeFilter, UnaryOp};
 use crate::expression::filters;
 
-use serde_json::{Value, Number};
-use std::collections::HashMap;
+use serde_json::{Number, Value};
 use std::borrow::Cow;
+use std::collections::HashMap;
 
 use crate::expression::functions::EvaluatorFunction;
 
@@ -24,61 +24,59 @@ impl<'a> Evaluator<'a> {
         evaluator.register_builtin_functions();
         evaluator
     }
-    
+
     pub fn with_variables(variables: HashMap<String, Value>) -> Self {
         let mut evaluator = Self::new();
         evaluator.variables = Cow::Owned(variables);
         evaluator
     }
-    
+
     pub fn with_borrowed_variables(variables: &'a HashMap<String, Value>) -> Self {
         let mut evaluator = Self::new();
         evaluator.variables = Cow::Borrowed(variables);
         evaluator
     }
-    
+
     // Support evaluatingExpr with any lifetime
     pub fn evaluate<'b>(&self, expr: &Expr<'b>) -> Result<Value, String> {
         match expr {
-            Expr::Number(n) => Ok(Value::Number(
-                Number::from_f64(*n).ok_or("Invalid number")?
-            )),
-            
+            Expr::Number(n) => Ok(Value::Number(Number::from_f64(*n).ok_or("Invalid number")?)),
+
             Expr::String(s) => Ok(Value::String(s.to_string())),
-            
+
             Expr::Boolean(b) => Ok(Value::Bool(*b)),
-            
+
             Expr::Null => Ok(Value::Null),
-            
-            Expr::Variable(name) => {
-                self.variables.get(name.as_ref())
-                    .cloned()
-                    .ok_or_else(|| format!("Undefined variable: {}", name))
-            }
-            
+
+            Expr::Variable(name) => self
+                .variables
+                .get(name.as_ref())
+                .cloned()
+                .ok_or_else(|| format!("Undefined variable: {}", name)),
+
             Expr::Binary { left, op, right } => {
                 let left_val = self.evaluate(left)?;
                 let right_val = self.evaluate(right)?;
                 self.eval_binary_op(&left_val, op.clone(), &right_val)
             }
-            
+
             Expr::Unary { op, expr } => {
                 let val = self.evaluate(expr)?;
                 self.eval_unary_op(op.clone(), &val)
             }
-            
+
             Expr::Call { name, args } => {
-                let evaluated_args: Result<Vec<Value>, String> = args
-                    .iter()
-                    .map(|arg| self.evaluate(arg))
-                    .collect();
+                let evaluated_args: Result<Vec<Value>, String> =
+                    args.iter().map(|arg| self.evaluate(arg)).collect();
                 let evaluated_args = evaluated_args?;
-                
-                self.functions.get(name.as_ref())
-                    .ok_or_else(|| format!("Undefined function: {}", name))?
-                    (evaluated_args)
+
+                self.functions
+                    .get(name.as_ref())
+                    .ok_or_else(|| format!("Undefined function: {}", name))?(
+                    evaluated_args
+                )
             }
-            
+
             Expr::Pipe { expr, filters } => {
                 let mut value = self.evaluate(expr)?;
                 for filter in filters {
@@ -86,8 +84,12 @@ impl<'a> Evaluator<'a> {
                 }
                 Ok(value)
             }
-            
-            Expr::Ternary { condition, true_expr, false_expr } => {
+
+            Expr::Ternary {
+                condition,
+                true_expr,
+                false_expr,
+            } => {
                 let cond_val = self.evaluate(condition)?;
                 if self.is_truthy(&cond_val) {
                     self.evaluate(true_expr)
@@ -95,15 +97,13 @@ impl<'a> Evaluator<'a> {
                     self.evaluate(false_expr)
                 }
             }
-            
+
             Expr::Array(items) => {
-                let evaluated: Result<Vec<Value>, String> = items
-                    .iter()
-                    .map(|item| self.evaluate(item))
-                    .collect();
+                let evaluated: Result<Vec<Value>, String> =
+                    items.iter().map(|item| self.evaluate(item)).collect();
                 Ok(Value::Array(evaluated?))
             }
-            
+
             Expr::Object(pairs) => {
                 let mut map = serde_json::Map::new();
                 for (key, value_expr) in pairs {
@@ -114,30 +114,26 @@ impl<'a> Evaluator<'a> {
             }
         }
     }
-    
+
     fn eval_binary_op(&self, left: &Value, op: BinaryOp, right: &Value) -> Result<Value, String> {
         match op {
             BinaryOp::Add | BinaryOp::Concat => self.add(left, right),
             BinaryOp::Sub => self.numeric_op(left, right, |a, b| a - b),
             BinaryOp::Mul => self.numeric_op(left, right, |a, b| a * b),
-            BinaryOp::Div => self.numeric_op(left, right, |a, b| {
-                if b == 0.0 {
-                    f64::NAN
-                } else {
-                    a / b
-                }
-            }),
+            BinaryOp::Div => {
+                self.numeric_op(left, right, |a, b| if b == 0.0 { f64::NAN } else { a / b })
+            }
             BinaryOp::Mod => self.numeric_op(left, right, |a, b| a % b),
             BinaryOp::Pow => self.numeric_op(left, right, |a, b| a.powf(b)),
-            
+
             BinaryOp::Eq => Ok(Value::Bool(left == right)),
             BinaryOp::Ne => Ok(Value::Bool(left != right)),
-            
+
             BinaryOp::Lt => self.comparison_op(left, right, |a, b| a < b),
             BinaryOp::Le => self.comparison_op(left, right, |a, b| a <= b),
             BinaryOp::Gt => self.comparison_op(left, right, |a, b| a > b),
             BinaryOp::Ge => self.comparison_op(left, right, |a, b| a >= b),
-            
+
             BinaryOp::And => {
                 if !self.is_truthy(left) {
                     Ok(left.clone())
@@ -145,7 +141,7 @@ impl<'a> Evaluator<'a> {
                     Ok(right.clone())
                 }
             }
-            
+
             BinaryOp::Or => {
                 if self.is_truthy(left) {
                     Ok(left.clone())
@@ -155,7 +151,7 @@ impl<'a> Evaluator<'a> {
             }
         }
     }
-    
+
     fn eval_unary_op(&self, op: UnaryOp, val: &Value) -> Result<Value, String> {
         match op {
             UnaryOp::Neg => {
@@ -168,46 +164,58 @@ impl<'a> Evaluator<'a> {
             UnaryOp::Not => Ok(Value::Bool(!self.is_truthy(val))),
         }
     }
-    
+
     fn add(&self, left: &Value, right: &Value) -> Result<Value, String> {
         // Number + Number
         if let (Some(a), Some(b)) = (left.as_f64(), right.as_f64()) {
-            return Ok(Value::Number(Number::from_f64(a + b).ok_or("Invalid number")?));
+            return Ok(Value::Number(
+                Number::from_f64(a + b).ok_or("Invalid number")?,
+            ));
         }
-        
+
         // String + String (concatenation)
         if let (Some(a), Some(b)) = (left.as_str(), right.as_str()) {
             return Ok(Value::String(format!("{}{}", a, b)));
         }
-        
+
         // Array + Array (concatenation)
         if let (Some(a), Some(b)) = (left.as_array(), right.as_array()) {
             let mut result = a.clone();
             result.extend(b.clone());
             return Ok(Value::Array(result));
         }
-        
+
         Err(format!("Cannot add {:?} and {:?}", left, right))
     }
-    
+
     fn numeric_op<F>(&self, left: &Value, right: &Value, op: F) -> Result<Value, String>
     where
         F: Fn(f64, f64) -> f64,
     {
-        let a = left.as_f64().ok_or_else(|| format!("Left operand is not a number: {:?}", left))?;
-        let b = right.as_f64().ok_or_else(|| format!("Right operand is not a number: {:?}", right))?;
-        Ok(Value::Number(Number::from_f64(op(a, b)).ok_or("Invalid number")?))
+        let a = left
+            .as_f64()
+            .ok_or_else(|| format!("Left operand is not a number: {:?}", left))?;
+        let b = right
+            .as_f64()
+            .ok_or_else(|| format!("Right operand is not a number: {:?}", right))?;
+        Ok(Value::Number(
+            Number::from_f64(op(a, b)).ok_or("Invalid number")?,
+        ))
     }
-    
+
     fn comparison_op<F>(&self, left: &Value, right: &Value, op: F) -> Result<Value, String>
     where
         F: Fn(f64, f64) -> bool,
     {
-        let a = left.as_f64().ok_or_else(|| format!("Left operand is not a number: {:?}", left))?;
-        let b = right.as_f64().ok_or_else(|| format!("Right operand is not a number: {:?}", right))?;
+        let a = left
+            .as_f64()
+            .ok_or_else(|| format!("Left operand is not a number: {:?}", left))?;
+        let b = right
+            .as_f64()
+            .ok_or_else(|| format!("Right operand is not a number: {:?}", right))?;
         Ok(Value::Bool(op(a, b)))
     }
-    
+
     fn is_truthy(&self, val: &Value) -> bool {
         match val {
             Value::Null => false,
@@ -218,35 +226,33 @@ impl<'a> Evaluator<'a> {
             Value::Object(o) => !o.is_empty(),
         }
     }
-    
+
     fn apply_filter<'b>(&self, value: &Value, filter: &PipeFilter<'b>) -> Result<Value, String> {
         // Evaluate filter arguments
-        let args: Result<Vec<Value>, String> = filter.args
-            .iter()
-            .map(|arg| self.evaluate(arg))
-            .collect();
+        let args: Result<Vec<Value>, String> =
+            filter.args.iter().map(|arg| self.evaluate(arg)).collect();
         let args = args?;
-        
+
         // Use the filters module for all filter operations
         filters::apply_filter(value, &filter.name, &args)
     }
-    
+
     fn register_builtin_functions(&mut self) {
         let builtins = crate::expression::functions::get_builtin_functions();
         for (name, func) in builtins {
             self.register_function(&name, func);
         }
     }
-    
+
     fn register_function(&mut self, name: &str, func: EvaluatorFunction) {
         self.functions.insert(name.to_string(), func);
     }
-    
+
     pub fn set_variable(&mut self, name: String, value: Value) {
         if let Cow::Owned(ref mut map) = self.variables {
             map.insert(name, value);
         } else {
-             // Convert Borrowed to Owned
+            // Convert Borrowed to Owned
             let mut map = self.variables.clone().into_owned();
             map.insert(name, value);
             self.variables = Cow::Owned(map);
@@ -263,9 +269,8 @@ impl<'a> Default for Evaluator<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::expression::{Tokenizer, Parser};
+    use crate::expression::{Parser, Tokenizer};
 
-    
     #[allow(unused)]
     fn eval(input: &str) -> Result<Value, String> {
         let mut tokenizer = Tokenizer::new(input);
@@ -275,7 +280,7 @@ mod tests {
         let evaluator = Evaluator::new();
         evaluator.evaluate(&expr)
     }
-    
+
     #[allow(unused)]
     fn eval_with_vars(input: &str, vars: HashMap<String, Value>) -> Result<Value, String> {
         let mut tokenizer = Tokenizer::new(input);
@@ -285,30 +290,30 @@ mod tests {
         let evaluator = Evaluator::with_variables(vars);
         evaluator.evaluate(&expr)
     }
-    
+
     #[test]
     fn test_eval_number() {
         let result = eval("42").unwrap();
         assert_eq!(result.as_f64().unwrap(), 42.0);
     }
-    
+
     #[test]
     fn test_eval_string() {
         let result = eval(r#""hello""#).unwrap();
         assert_eq!(result, Value::String("hello".to_string()));
     }
-    
+
     #[test]
     fn test_eval_boolean() {
         assert_eq!(eval("true").unwrap(), Value::Bool(true));
         assert_eq!(eval("false").unwrap(), Value::Bool(false));
     }
-    
+
     #[test]
     fn test_eval_null() {
         assert_eq!(eval("null").unwrap(), Value::Null);
     }
-    
+
     #[test]
     fn test_eval_arithmetic() {
         assert_eq!(eval("2 + 3").unwrap().as_f64().unwrap(), 5.0);
@@ -317,19 +322,19 @@ mod tests {
         assert_eq!(eval("15 / 3").unwrap().as_f64().unwrap(), 5.0);
         assert_eq!(eval("10 % 3").unwrap().as_f64().unwrap(), 1.0);
     }
-    
+
     #[test]
     fn test_eval_power() {
         let result = eval("2 ** 3").unwrap();
         assert_eq!(result.as_f64().unwrap(), 8.0);
     }
-    
+
     #[test]
     fn test_eval_precedence() {
         assert_eq!(eval("2 + 3 * 4").unwrap().as_f64().unwrap(), 14.0);
         assert_eq!(eval("(2 + 3) * 4").unwrap().as_f64().unwrap(), 20.0);
     }
-    
+
     #[test]
     fn test_eval_comparison() {
         assert_eq!(eval("5 > 3").unwrap(), Value::Bool(true));
@@ -337,14 +342,14 @@ mod tests {
         assert_eq!(eval("5 >= 5").unwrap(), Value::Bool(true));
         assert_eq!(eval("5 <= 4").unwrap(), Value::Bool(false));
     }
-    
+
     #[test]
     fn test_eval_equality() {
         assert_eq!(eval("5 == 5").unwrap(), Value::Bool(true));
         assert_eq!(eval("5 == 3").unwrap(), Value::Bool(false));
         assert_eq!(eval("5 != 3").unwrap(), Value::Bool(true));
     }
-    
+
     #[test]
     fn test_eval_logical() {
         assert_eq!(eval("true && true").unwrap(), Value::Bool(true));
@@ -352,36 +357,36 @@ mod tests {
         assert_eq!(eval("false || true").unwrap(), Value::Bool(true));
         assert_eq!(eval("false || false").unwrap(), Value::Bool(false));
     }
-    
+
     #[test]
     fn test_eval_unary() {
         assert_eq!(eval("-5").unwrap().as_f64().unwrap(), -5.0);
         assert_eq!(eval("!true").unwrap(), Value::Bool(false));
         assert_eq!(eval("!false").unwrap(), Value::Bool(true));
     }
-    
+
     #[test]
     fn test_eval_variable() {
         let mut vars = HashMap::new();
         vars.insert("x".to_string(), Value::Number(Number::from(42)));
-        
+
         let result = eval_with_vars("x", vars).unwrap();
         assert_eq!(result.as_f64().unwrap(), 42.0);
     }
-    
+
     #[test]
     fn test_eval_undefined_variable() {
         let result = eval("undefined_var");
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Undefined variable"));
     }
-    
+
     #[test]
     fn test_eval_string_concatenation() {
         let result = eval(r#""hello" + " " + "world""#).unwrap();
         assert_eq!(result, Value::String("hello world".to_string()));
     }
-    
+
     #[test]
     fn test_eval_array() {
         let result = eval("[1, 2, 3]").unwrap();
@@ -390,7 +395,7 @@ mod tests {
         assert_eq!(arr.len(), 3);
         assert_eq!(arr[0].as_f64().unwrap(), 1.0);
     }
-    
+
     #[test]
     fn test_eval_object() {
         let result = eval(r#"{name: "John", age: 30}"#).unwrap();
@@ -399,73 +404,82 @@ mod tests {
         assert_eq!(obj.get("name").unwrap(), &Value::String("John".to_string()));
         assert_eq!(obj.get("age").unwrap().as_f64().unwrap(), 30.0);
     }
-    
+
     #[test]
     fn test_eval_ternary() {
         assert_eq!(eval("true ? 1 : 2").unwrap().as_f64().unwrap(), 1.0);
         assert_eq!(eval("false ? 1 : 2").unwrap().as_f64().unwrap(), 2.0);
         assert_eq!(eval("5 > 3 ? 10 : 20").unwrap().as_f64().unwrap(), 10.0);
     }
-    
+
     #[test]
     fn test_eval_function_abs() {
         assert_eq!(eval("abs(-5)").unwrap().as_f64().unwrap(), 5.0);
         assert_eq!(eval("abs(3)").unwrap().as_f64().unwrap(), 3.0);
     }
-    
+
     #[test]
     fn test_eval_function_max() {
         assert_eq!(eval("max(1, 5, 3)").unwrap().as_f64().unwrap(), 5.0);
         assert_eq!(eval("max(10, 20)").unwrap().as_f64().unwrap(), 20.0);
     }
-    
+
     #[test]
     fn test_eval_function_min() {
         assert_eq!(eval("min(1, 5, 3)").unwrap().as_f64().unwrap(), 1.0);
         assert_eq!(eval("min(10, 20)").unwrap().as_f64().unwrap(), 10.0);
     }
-    
+
     #[test]
     fn test_eval_function_len() {
-        assert_eq!(eval(r#"len("hello")"#).unwrap(), Value::Number(Number::from(5)));
-        assert_eq!(eval("len([1, 2, 3])").unwrap(), Value::Number(Number::from(3)));
+        assert_eq!(
+            eval(r#"len("hello")"#).unwrap(),
+            Value::Number(Number::from(5))
+        );
+        assert_eq!(
+            eval("len([1, 2, 3])").unwrap(),
+            Value::Number(Number::from(3))
+        );
     }
-    
+
     #[test]
     fn test_eval_pipe_upper() {
         let result = eval(r#""hello" | upper"#).unwrap();
         assert_eq!(result, Value::String("HELLO".to_string()));
     }
-    
+
     #[test]
     fn test_eval_pipe_lower() {
         let result = eval(r#""WORLD" | lower"#).unwrap();
         assert_eq!(result, Value::String("world".to_string()));
     }
-    
+
     #[test]
     fn test_eval_pipe_trim() {
         let result = eval(r#""  hello  " | trim"#).unwrap();
         assert_eq!(result, Value::String("hello".to_string()));
     }
-    
+
     #[test]
     fn test_eval_pipe_chain() {
         let result = eval(r#""  HELLO  " | trim | lower"#).unwrap();
         assert_eq!(result, Value::String("hello".to_string()));
     }
-    
+
     #[test]
     fn test_eval_complex_expression() {
         let mut vars = HashMap::new();
         vars.insert("price".to_string(), Value::Number(Number::from(100)));
         vars.insert("quantity".to_string(), Value::Number(Number::from(3)));
-        vars.insert("discount".to_string(), Value::Number(Number::from_f64(0.1).unwrap()));
-        
+        vars.insert(
+            "discount".to_string(),
+            Value::Number(Number::from_f64(0.1).unwrap()),
+        );
+
         let result = eval_with_vars("price * quantity * (1 - discount)", vars).unwrap();
         assert_eq!(result.as_f64().unwrap(), 270.0);
     }
-    
+
     #[test]
     fn test_eval_truthy_values() {
         let evaluator = Evaluator::new();
@@ -477,85 +491,88 @@ mod tests {
         assert!(!evaluator.is_truthy(&Value::String("".to_string())));
         assert!(evaluator.is_truthy(&Value::String("hello".to_string())));
     }
-    
+
     // Advanced filter integration tests
     #[test]
     fn test_eval_pipe_replace() {
         let result = eval(r#""hello world" | replace("world", "rust")"#).unwrap();
         assert_eq!(result, Value::String("hello rust".to_string()));
     }
-    
+
     #[test]
     fn test_eval_pipe_split() {
         let result = eval(r#""a,b,c" | split(",")"#).unwrap();
         assert_eq!(result.as_array().unwrap().len(), 3);
     }
-    
+
     #[test]
     fn test_eval_pipe_capitalize() {
         let result = eval(r#""hello" | capitalize"#).unwrap();
         assert_eq!(result, Value::String("Hello".to_string()));
     }
-    
+
     #[test]
     fn test_eval_pipe_array_operations() {
         let result = eval(r#"[3, 1, 2] | sort | first"#).unwrap();
         assert_eq!(result.as_f64().unwrap(), 1.0);
-        
+
         let result = eval(r#"[1, 2, 3] | last"#).unwrap();
         assert_eq!(result.as_f64().unwrap(), 3.0);
     }
-    
+
     #[test]
     fn test_eval_pipe_join() {
         let result = eval(r#"["a", "b", "c"] | join("-")"#).unwrap();
         assert_eq!(result, Value::String("a-b-c".to_string()));
     }
-    
+
     #[test]
     fn test_eval_pipe_keys_values() {
         let result = eval(r#"{a: 1, b: 2} | keys | length"#).unwrap();
         assert_eq!(result.as_u64().unwrap(), 2);
-        
+
         let result = eval(r#"{a: 1, b: 2} | values | first"#).unwrap();
         assert!(result.is_number());
     }
-    
+
     #[test]
     fn test_eval_pipe_math_filters() {
         let result = eval(r#"-5.7 | abs | round"#).unwrap();
         assert_eq!(result.as_f64().unwrap(), 6.0);
-        
+
         let result = eval(r#"3.2 | floor"#).unwrap();
         assert_eq!(result.as_f64().unwrap(), 3.0);
-        
+
         let result = eval(r#"3.2 | ceil"#).unwrap();
         assert_eq!(result.as_f64().unwrap(), 4.0);
     }
-    
+
     #[test]
     fn test_eval_pipe_type_conversion() {
         let result = eval(r#"42 | string | length"#).unwrap();
         assert_eq!(result.as_u64().unwrap(), 2);
-        
+
         let result = eval(r#""123" | number"#).unwrap();
         assert_eq!(result.as_f64().unwrap(), 123.0);
-        
+
         let result = eval(r#""" | bool"#).unwrap();
         assert_eq!(result, Value::Bool(false));
     }
-    
+
     #[test]
     fn test_eval_complex_pipe_chain() {
         let result = eval(r#""  HELLO WORLD  " | trim | lower | split(" ") | join("-")"#).unwrap();
         assert_eq!(result, Value::String("hello-world".to_string()));
     }
-    
+
     #[test]
     fn test_eval_pipe_with_variables() {
         let mut vars = HashMap::new();
-        vars.insert("email".to_string(), Value::String("  USER@EXAMPLE.COM  ".to_string()));
-        
+        vars.insert(
+            "email".to_string(),
+            Value::String("  USER@EXAMPLE.COM  ".to_string()),
+        );
+
         let result = eval_with_vars("email | trim | lower", vars).unwrap();
         assert_eq!(result, Value::String("user@example.com".to_string()));
     }

@@ -2,28 +2,22 @@ use serde_json::Value;
 
 /// Convert JSON string to Value
 pub fn json_parse(json_string: &str) -> Result<Value, String> {
-    serde_json::from_str(json_string)
-        .map_err(|e| format!("JSON parse error: {}", e))
+    serde_json::from_str(json_string).map_err(|e| format!("JSON parse error: {}", e))
 }
 
 /// Convert Value to JSON string
 pub fn json_stringify(value: &Value) -> Result<String, String> {
-    serde_json::to_string(value)
-        .map_err(|e| format!("JSON stringify error: {}", e))
+    serde_json::to_string(value).map_err(|e| format!("JSON stringify error: {}", e))
 }
 
 /// Pretty print JSON with indentation
 pub fn json_pretty(value: &Value) -> Result<String, String> {
-    serde_json::to_string_pretty(value)
-        .map_err(|e| format!("JSON pretty error: {}", e))
+    serde_json::to_string_pretty(value).map_err(|e| format!("JSON pretty error: {}", e))
 }
 
 /// Extract domain from email
 pub fn email_domain(email: &str) -> Option<String> {
-    email
-        .split('@')
-        .nth(1)
-        .map(|s| s.to_string())
+    email.split('@').nth(1).map(|s| s.to_string())
 }
 
 /// Extract username from email
@@ -44,10 +38,10 @@ pub fn is_email(input: &str) -> bool {
     if parts.len() != 2 {
         return false;
     }
-    
+
     let username = parts[0];
     let domain = parts[1];
-    
+
     !username.is_empty() && !domain.is_empty() && domain.contains('.')
 }
 
@@ -63,7 +57,10 @@ pub fn truncate(input: &str, max_length: usize) -> String {
     } else if max_length <= 3 {
         input.chars().take(max_length).collect()
     } else {
-        format!("{}...", input.chars().take(max_length - 3).collect::<String>())
+        format!(
+            "{}...",
+            input.chars().take(max_length - 3).collect::<String>()
+        )
     }
 }
 
@@ -86,7 +83,7 @@ pub fn format_number(num: f64, decimals: usize) -> String {
     let parts: Vec<&str> = formatted.split('.').collect();
     let integer = parts[0];
     let decimal = if parts.len() > 1 { parts[1] } else { "" };
-    
+
     let formatted_integer: String = integer
         .chars()
         .rev()
@@ -102,7 +99,7 @@ pub fn format_number(num: f64, decimals: usize) -> String {
         .into_iter()
         .rev()
         .collect();
-    
+
     if decimal.is_empty() {
         formatted_integer
     } else {
@@ -113,18 +110,18 @@ pub fn format_number(num: f64, decimals: usize) -> String {
 /// Format bytes to human readable size
 pub fn format_bytes(bytes: u64) -> String {
     const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
-    
+
     if bytes < 1024 {
         return format!("{} B", bytes);
     }
-    
+
     let mut size = bytes as f64;
     let mut unit_index = 0;
-    
+
     while size >= 1024.0 && unit_index < UNITS.len() - 1 {
         size /= 1024.0;
         unit_index += 1;
     }
-    
+
     format!("{:.2} {}", size, UNITS[unit_index])
 }

@@ -5,15 +5,15 @@ use axum::{
     },
     response::IntoResponse,
 };
-use worpen_core::websocket::WebSocketManager;
-use worpen_core::vm::memory::ExecutionMemory;
-use worpen_core::vm::machine::VirtualMachine;
-use worpen_core::compiler::lowerer::LogicCompiler;
 use futures::{sink::SinkExt, stream::StreamExt};
 use proto::models::RouteType;
 use serde_json::Value;
 use tokio::sync::mpsc;
 use uuid::Uuid;
+use worpen_core::compiler::lowerer::LogicCompiler;
+use worpen_core::vm::machine::VirtualMachine;
+use worpen_core::vm::memory::ExecutionMemory;
+use worpen_core::websocket::WebSocketManager;
 
 use crate::state::AppState;
 
@@ -35,13 +35,13 @@ pub async fn dynamic_ws_handler(
             });
         }
     };
-    
+
     // Find matching WebSocket route
     let mut found_route: Option<proto::models::RouteDefinition> = None;
     for route in routes {
-        if route.route_type == RouteType::WebSocket 
-            && route.enabled 
-            && path.starts_with(route.path.trim_start_matches("/api/")) 
+        if route.route_type == RouteType::WebSocket
+            && route.enabled
+            && path.starts_with(route.path.trim_start_matches("/api/"))
         {
             found_route = Some(route);
             break;
@@ -98,14 +98,8 @@ async fn handle_websocket(
     // Execute on_connect hook if exists
     if let Some(ref hooks) = route.ws_hooks {
         if !hooks.on_connect.is_empty() {
-            let _ = execute_ws_logic(
-                &hooks.on_connect,
-                &state,
-                &ws_manager,
-                &connection_id,
-                None,
-            )
-            .await;
+            let _ = execute_ws_logic(&hooks.on_connect, &state, &ws_manager, &connection_id, None)
+                .await;
         }
     }
 

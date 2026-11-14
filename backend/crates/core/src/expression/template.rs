@@ -1,17 +1,16 @@
-use crate::expression::{Tokenizer, Parser, Evaluator, ast::Expr};
+use crate::expression::{ast::Expr, Evaluator, Parser, Tokenizer};
+use once_cell::sync::Lazy;
+use regex::Regex;
 use serde_json::Value;
 use std::collections::HashMap;
-use regex::Regex;
-use once_cell::sync::Lazy;
 use std::sync::RwLock;
 
 // Global cache for parsed expressions to avoid re-parsing overhead
 // This is critical for high-throughput scenarios
 // Global cache for parsed expressions to avoid re-parsing overhead
 // This is critical for high-throughput scenarios
-static EXPRESSION_CACHE: Lazy<RwLock<HashMap<String, Expr<'static>>>> = Lazy::new(|| {
-    RwLock::new(HashMap::new())
-});
+static EXPRESSION_CACHE: Lazy<RwLock<HashMap<String, Expr<'static>>>> =
+    Lazy::new(|| RwLock::new(HashMap::new()));
 
 /// Resolve all expression templates in a JSON value
 /// Templates: {{variable}}, {{expr}}, {{expr | filter}}
@@ -19,10 +18,8 @@ pub fn resolve_templates(value: &Value, context: &HashMap<String, Value>) -> Res
     match value {
         Value::String(s) => resolve_string_template(s, context),
         Value::Array(arr) => {
-            let resolved: Result<Vec<Value>, String> = arr
-                .iter()
-                .map(|v| resolve_templates(v, context))
-                .collect();
+            let resolved: Result<Vec<Value>, String> =
+                arr.iter().map(|v| resolve_templates(v, context)).collect();
             Ok(Value::Array(resolved?))
         }
         Value::Object(obj) => {
@@ -41,71 +38,80 @@ pub fn resolve_templates(value: &Value, context: &HashMap<String, Value>) -> Res
 ///   "Hello {{name}}" → "Hello John"
 ///   "Total: {{price * quantity}}" → "Total: 150"
 ///   "Email: {{email | lower | trim}}" → "Email: user@example.com"
-fn resolve_string_template(template: &str, context: &HashMap<String, Value>) -> Result<Value, String> {
+fn resolve_string_template(
+    template: &str,
+    context: &HashMap<String, Value>,
+) -> Result<Value, String> {
     // Check if entire string is a single expression
-    if template.starts_with("{{") && template.ends_with("}}") && template.matches("{{").count() == 1 {
+    if template.starts_with("{{") && template.ends_with("}}") && template.matches("{{").count() == 1
+    {
         // Pure expression: return evaluated value (not string)
-        let expr_content = &template[2..template.len()-2].trim();
+        let expr_content = &template[2..template.len() - 2].trim();
         return evaluate_expression(expr_content, context);
     }
-    
+
     // Mixed template: replace all {{...}} with evaluated strings
-    // Optimization: compile regex once (Lazy) or use the one from utils if possible, 
-    // but here we are in a different module. 
+    // Optimization: compile regex once (Lazy) or use the one from utils if possible,
+    // but here we are in a different module.
     // Ideally we should move template resolution to a shared place or use static regex here too.
     static TEMPLATE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\{\{(.+?)\}\}").unwrap());
-    
+
     if !TEMPLATE_RE.is_match(template) {
         return Ok(Value::String(template.to_string()));
     }
-    
+
     let mut result = template.to_string();
     for cap in TEMPLATE_RE.captures_iter(template) {
         let full_match = cap.get(0).unwrap().as_str();
         let expr_content = cap.get(1).unwrap().as_str().trim();
-        
+
         let value = evaluate_expression(expr_content, context)?;
         let replacement = value_to_string(&value);
-        
+
         result = result.replace(full_match, &replacement);
     }
-    
+
     Ok(Value::String(result))
 }
 
 /// Evaluate an expression with context
-pub fn evaluate_expression(expr_str: &str, context: &HashMap<String, Value>) -> Result<Value, String> {
+pub fn evaluate_expression(
+    expr_str: &str,
+    context: &HashMap<String, Value>,
+) -> Result<Value, String> {
     // 1. Check Cache
     {
         let cache = EXPRESSION_CACHE.read().unwrap();
         if let Some(expr) = cache.get(expr_str) {
             let evaluator = Evaluator::with_borrowed_variables(context);
-            return evaluator.evaluate(expr).map_err(|e| format!("Evaluation error: {}", e));
+            return evaluator
+                .evaluate(expr)
+                .map_err(|e| format!("Evaluation error: {}", e));
         }
     }
 
     // 2. Parse if not in cache
     // Tokenize
     let mut tokenizer = Tokenizer::new(expr_str);
-    let tokens = tokenizer.tokenize()
+    let tokens = tokenizer
+        .tokenize()
         .map_err(|e| format!("Tokenization error: {}", e))?;
-    
+
     // Parse
     let mut parser = Parser::new(tokens);
-    let expr = parser.parse()
-        .map_err(|e| format!("Parse error: {}", e))?;
-    
+    let expr = parser.parse().map_err(|e| format!("Parse error: {}", e))?;
+
     // 3. Update Cache
     // We must clone the expression into an owned version (Expr<'static>) for the cache
     let owned_expr = expr.clone().into_owned(); // clone() works on Expr<'a> but produces Expr<'a>. into_owned converts.
-    // Wait, clone() is cheap if references. But we need to keep `expr` for evaluation below?
-    // Actually, `expr` is borrowed from `expr_str`.
-    // Once we call `into_owned()`, we have a completely new owned structure.
-    // We can cache `owned_expr`.
-    // But for evaluation, we can use either `expr` (borrowed) or `owned_expr` (owned).
-    // Using `expr` is faster if we don't need to clone it for evaluation?
-    // `evaluate` takes `&Expr`. So references work fine.
-    
+                                                // Wait, clone() is cheap if references. But we need to keep `expr` for evaluation below?
+                                                // Actually, `expr` is borrowed from `expr_str`.
+                                                // Once we call `into_owned()`, we have a completely new owned structure.
+                                                // We can cache `owned_expr`.
+                                                // But for evaluation, we can use either `expr` (borrowed) or `owned_expr` (owned).
+                                                // Using `expr` is faster if we don't need to clone it for evaluation?
+                                                // `evaluate` takes `&Expr`. So references work fine.
+
     {
         let mut cache = EXPRESSION_CACHE.write().unwrap();
         // Check again in case another thread inserted it
@@ -113,13 +119,14 @@ pub fn evaluate_expression(expr_str: &str, context: &HashMap<String, Value>) -> 
             cache.insert(expr_str.to_string(), owned_expr);
         }
     }
-    
+
     // 4. Evaluate
     // We can evaluate the borrowed expression directly to avoid using the cache lock or owned copy if possible,
     // but using the owned copy is fine too.
     // However, `expr` is still valid here.
     let evaluator = Evaluator::with_borrowed_variables(context);
-    evaluator.evaluate(&expr)
+    evaluator
+        .evaluate(&expr)
         .map_err(|e| format!("Evaluation error: {}", e))
 }
 
@@ -145,9 +152,7 @@ fn value_to_string(value: &Value) -> String {
         }
         Value::Bool(b) => b.to_string(),
         Value::Null => "null".to_string(),
-        Value::Array(_) | Value::Object(_) => {
-            serde_json::to_string(value).unwrap_or_default()
-        }
+        Value::Array(_) | Value::Object(_) => serde_json::to_string(value).unwrap_or_default(),
     }
 }
 
@@ -155,78 +160,78 @@ fn value_to_string(value: &Value) -> String {
 mod tests {
     use super::*;
     use serde_json::json;
-    
+
     #[test]
     fn test_resolve_simple_variable() {
         let mut context = HashMap::new();
         context.insert("name".to_string(), json!("John"));
-        
+
         let result = resolve_string_template("Hello {{name}}", &context).unwrap();
         assert_eq!(result, json!("Hello John"));
     }
-    
+
     #[test]
     fn test_resolve_pure_expression() {
         let mut context = HashMap::new();
         context.insert("price".to_string(), json!(10));
         context.insert("quantity".to_string(), json!(5));
-        
+
         // Pure expression returns number, not string
         let result = resolve_string_template("{{price * quantity}}", &context).unwrap();
         assert_eq!(result.as_f64().unwrap(), 50.0);
     }
-    
+
     #[test]
     fn test_resolve_mixed_template() {
         let mut context = HashMap::new();
         context.insert("name".to_string(), json!("John"));
         context.insert("age".to_string(), json!(30));
-        
+
         let result = resolve_string_template("{{name}} is {{age}} years old", &context).unwrap();
         assert_eq!(result, json!("John is 30 years old"));
     }
-    
+
     #[test]
     fn test_resolve_pipe_expression() {
         let mut context = HashMap::new();
         context.insert("email".to_string(), json!("  USER@EXAMPLE.COM  "));
-        
+
         let result = resolve_string_template("{{email | trim | lower}}", &context).unwrap();
         assert_eq!(result, json!("user@example.com"));
     }
-    
+
     #[test]
     fn test_resolve_arithmetic() {
         let mut context = HashMap::new();
         context.insert("a".to_string(), json!(10));
         context.insert("b".to_string(), json!(20));
-        
+
         let result = resolve_string_template("Sum: {{a + b}}", &context).unwrap();
         assert_eq!(result, json!("Sum: 30"));
     }
-    
+
     #[test]
     fn test_resolve_array() {
         let mut context = HashMap::new();
         context.insert("items".to_string(), json!([1, 2, 3]));
-        
+
         let input = json!({
             "count": "{{items | length}}",
             "first": "{{items | first}}"
         });
-        
+
         let result = resolve_templates(&input, &context).unwrap();
         assert_eq!(result["count"].as_f64().unwrap(), 3.0);
         assert_eq!(result["first"].as_f64().unwrap(), 1.0);
     }
-    
+
     #[test]
     fn test_resolve_nested_object() {
         let mut context = HashMap::new();
         context.insert("name".to_string(), json!("John"));
         context.insert("price".to_string(), json!(100));
         context.insert("qty".to_string(), json!(2));
-        
+
         let input = json!({
             "user": "{{name}}",
             "order": {
@@ -234,54 +239,56 @@ mod tests {
                 "message": "Total for {{name}}: {{price * qty}}"
             }
         });
-        
+
         let result = resolve_templates(&input, &context).unwrap();
         assert_eq!(result["user"], json!("John"));
         assert_eq!(result["order"]["total"].as_f64().unwrap(), 200.0);
         assert_eq!(result["order"]["message"], json!("Total for John: 200"));
     }
-    
+
     #[test]
     fn test_resolve_with_functions() {
         let mut context = HashMap::new();
         context.insert("nums".to_string(), json!([1, 5, 3]));
-        
+
         let result = resolve_string_template("Max: {{max(1, 5, 3)}}", &context).unwrap();
         assert_eq!(result, json!("Max: 5"));
     }
-    
+
     #[test]
     fn test_resolve_ternary() {
         let mut context = HashMap::new();
         context.insert("age".to_string(), json!(20));
-        
-        let result = resolve_string_template("{{age >= 18 ? \"adult\" : \"minor\"}}", &context).unwrap();
+
+        let result =
+            resolve_string_template("{{age >= 18 ? \"adult\" : \"minor\"}}", &context).unwrap();
         assert_eq!(result, json!("adult"));
     }
-    
+
     #[test]
     fn test_resolve_complex_chain() {
         let mut context = HashMap::new();
         context.insert("text".to_string(), json!("  hello WORLD  "));
-        
-        let result = resolve_string_template("{{text | trim | lower | capitalize}}", &context).unwrap();
+
+        let result =
+            resolve_string_template("{{text | trim | lower | capitalize}}", &context).unwrap();
         assert_eq!(result, json!("Hello world"));
     }
-    
+
     #[test]
     fn test_undefined_variable_error() {
         let context = HashMap::new();
-        
+
         let result = resolve_string_template("{{undefined_var}}", &context);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Undefined variable"));
     }
-    
+
     #[test]
     fn test_resolve_array_value() {
         let mut context = HashMap::new();
         context.insert("data".to_string(), json!("a,b,c"));
-        
+
         let result = resolve_string_template("{{data | split(\",\")}}", &context).unwrap();
         assert!(result.is_array());
         assert_eq!(result.as_array().unwrap().len(), 3);

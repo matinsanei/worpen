@@ -22,4 +22,3 @@ pub struct TelemetryRequest {
     #[schema(example = 8192000)]
     pub total_memory: u64,
 }
-

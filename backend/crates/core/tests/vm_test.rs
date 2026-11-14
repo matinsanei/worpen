@@ -1,7 +1,7 @@
-use worpen_core::compiler::symbol_table::SymbolTable;
-use worpen_core::vm::memory::ExecutionMemory;
-use worpen_core::vm::instructions::OptimizedOperation;
 use serde_json::Value;
+use worpen_core::compiler::symbol_table::SymbolTable;
+use worpen_core::vm::instructions::OptimizedOperation;
+use worpen_core::vm::memory::ExecutionMemory;
 
 #[test]
 fn test_symbol_table_and_memory() {
@@ -39,7 +39,10 @@ fn test_symbol_table_and_memory() {
 
     // Retrieve values and assert correctness
     assert_eq!(memory.get(x_index), Some(&Value::Number(42.into())));
-    assert_eq!(memory.get(y_index), Some(&Value::String("hello".to_string())));
+    assert_eq!(
+        memory.get(y_index),
+        Some(&Value::String("hello".to_string()))
+    );
 
     // Check non-existent index
     assert_eq!(memory.get(2), None);
@@ -47,17 +50,29 @@ fn test_symbol_table_and_memory() {
 
 #[test]
 fn test_logic_compiler() {
-    use worpen_core::compiler::lowerer::LogicCompiler;
     use proto::models::LogicOperation;
     use serde_json::Value;
+    use worpen_core::compiler::lowerer::LogicCompiler;
 
     let mut compiler = LogicCompiler::new();
 
     // Sample logic: Set x=10, Set y=20, MathOp add x and y
     let logic = vec![
-        LogicOperation::Set { var: "x".to_string(), value: Value::Number(10.into()) },
-        LogicOperation::Set { var: "y".to_string(), value: Value::Number(20.into()) },
-        LogicOperation::MathOp { operation: "add".to_string(), args: vec![Value::String("{{x}}".to_string()), Value::String("{{y}}".to_string())] },
+        LogicOperation::Set {
+            var: "x".to_string(),
+            value: Value::Number(10.into()),
+        },
+        LogicOperation::Set {
+            var: "y".to_string(),
+            value: Value::Number(20.into()),
+        },
+        LogicOperation::MathOp {
+            operation: "add".to_string(),
+            args: vec![
+                Value::String("{{x}}".to_string()),
+                Value::String("{{y}}".to_string()),
+            ],
+        },
     ];
 
     let optimized = compiler.compile(&logic);
@@ -96,17 +111,28 @@ fn test_logic_compiler() {
 
 #[test]
 fn test_vm_execution() {
-    use worpen_core::compiler::lowerer::LogicCompiler;
-    use worpen_core::vm::machine::VirtualMachine;
     use proto::models::LogicOperation;
     use serde_json::Value;
     use tokio::runtime::Runtime;
+    use worpen_core::compiler::lowerer::LogicCompiler;
+    use worpen_core::vm::machine::VirtualMachine;
 
     // Create logic: Set a=5, Set b=10, Return "{{a}}"
     let logic = vec![
-        LogicOperation::Set { var: "a".to_string(), value: Value::Number(5.into()) },
-        LogicOperation::Set { var: "b".to_string(), value: Value::Number(10.into()) },
-        LogicOperation::Return { value: Value::String("{{a}}".to_string()), status: None, headers: None, raw: None },
+        LogicOperation::Set {
+            var: "a".to_string(),
+            value: Value::Number(5.into()),
+        },
+        LogicOperation::Set {
+            var: "b".to_string(),
+            value: Value::Number(10.into()),
+        },
+        LogicOperation::Return {
+            value: Value::String("{{a}}".to_string()),
+            status: None,
+            headers: None,
+            raw: None,
+        },
     ];
 
     // Compile

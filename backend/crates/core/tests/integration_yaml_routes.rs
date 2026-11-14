@@ -17,7 +17,7 @@ auth_required: false
 
     let format = detect_format(yaml);
     assert!(matches!(format, InputFormat::Yaml));
-    
+
     // This will fail on logic deserialization, but that's OK for now
     // We're testing basic field parsing
     let result = parse_route(yaml);
@@ -31,7 +31,7 @@ auth_required: false
 fn test_yaml_detection() {
     let yaml = "name: test\npath: /api";
     assert!(matches!(detect_format(yaml), InputFormat::Yaml));
-    
+
     let json = r#"{"name": "test"}"#;
     assert!(matches!(detect_format(json), InputFormat::Json));
 }
@@ -183,7 +183,7 @@ fn test_format_detection_edge_cases() {
     // Array JSON
     let json_array = "[{\"name\": \"test\"}]";
     assert!(matches!(detect_format(json_array), InputFormat::Json));
-    
+
     // YAML with dash
     let yaml_dash = "- name: test";
     assert!(matches!(detect_format(yaml_dash), InputFormat::Yaml));

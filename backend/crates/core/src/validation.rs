@@ -7,20 +7,20 @@ use jsonschema::{Draft, JSONSchema};
 use serde_json::Value;
 
 /// Validate input data against a JSON Schema
-/// 
+///
 /// # Arguments
 /// * `data` - The input data to validate
 /// * `schema` - The JSON Schema definition
-/// 
+///
 /// # Returns
 /// * `Ok(())` - Validation passed
 /// * `Err(String)` - Validation failed with error messages
-/// 
+///
 /// # Example
 /// ```
 /// use serde_json::json;
 /// use worpen_core::validation::validate_input;
-/// 
+///
 /// let schema = json!({
 ///     "type": "object",
 ///     "properties": {
@@ -35,12 +35,12 @@ use serde_json::Value;
 ///     },
 ///     "required": ["email"]
 /// });
-/// 
+///
 /// let data = json!({
 ///     "email": "user@example.com",
 ///     "age": 25
 /// });
-/// 
+///
 /// assert!(validate_input(&data, &schema).is_ok());
 /// ```
 pub fn validate_input(data: &Value, schema: &Value) -> Result<(), String> {
@@ -49,24 +49,27 @@ pub fn validate_input(data: &Value, schema: &Value) -> Result<(), String> {
         .with_draft(Draft::Draft7)
         .compile(schema)
         .map_err(|e| format!("Invalid schema: {}", e))?;
-    
+
     // Validate data and collect errors
     let validation_result = compiled.validate(data);
-    
+
     match validation_result {
         Ok(_) => Ok(()),
         Err(errors) => {
             let error_messages: Vec<String> = errors
                 .map(|e| format!("{} at {}", e, e.instance_path))
                 .collect();
-            
-            Err(format!("Validation failed:\n- {}", error_messages.join("\n- ")))
+
+            Err(format!(
+                "Validation failed:\n- {}",
+                error_messages.join("\n- ")
+            ))
         }
     }
 }
 
 /// Validate input data and return detailed validation results
-/// 
+///
 /// Similar to `validate_input` but returns structured error information
 pub fn validate_with_details(data: &Value, schema: &Value) -> ValidationResult {
     let compiled = match JSONSchema::options()
@@ -85,9 +88,9 @@ pub fn validate_with_details(data: &Value, schema: &Value) -> ValidationResult {
             };
         }
     };
-    
+
     let validation_result = compiled.validate(data);
-    
+
     match validation_result {
         Ok(_) => ValidationResult {
             valid: true,

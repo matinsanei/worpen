@@ -1,7 +1,7 @@
-use std::sync::Arc;
-use proto::models::LogicOperation;
-use crate::vm::instructions::OptimizedOperation;
 use crate::compiler::symbol_table::SymbolTable;
+use crate::vm::instructions::OptimizedOperation;
+use proto::models::LogicOperation;
+use std::sync::Arc;
 
 /// A cached execution plan for a dynamic route.
 /// This structure holds a pre-processed, cheap-to-clone version of the route's logic.

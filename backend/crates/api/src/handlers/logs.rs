@@ -1,8 +1,5 @@
-use axum::{
-    extract::State,
-    Json,
-};
 use crate::state::AppState;
+use axum::{extract::State, Json};
 use proto::models::{LogEntry, LogLevel};
 
 #[utoipa::path(
@@ -44,6 +41,6 @@ pub async fn get_logs(State(_state): State<AppState>) -> Json<Vec<LogEntry>> {
             message: "Service recovered automatically".to_string(),
         },
     ];
-    
+
     Json(logs)
 }

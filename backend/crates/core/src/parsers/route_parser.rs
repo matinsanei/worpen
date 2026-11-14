@@ -1,29 +1,29 @@
 //! Route parser with support for both JSON and YAML formats
 
-use proto::models::RegisterRouteRequest;
 use crate::parsers::detector::{detect_format, InputFormat};
 use crate::parsers::yaml_normalizer::yaml_to_json;
+use proto::models::RegisterRouteRequest;
 
 /// Parse route definition from JSON or YAML string
-/// 
+///
 /// Automatically detects format and parses accordingly.
 /// For YAML, it normalizes the structure to be JSON-compatible
 /// before deserialization to handle enum variants properly.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `content` - Raw JSON or YAML string
-/// 
+///
 /// # Returns
-/// 
+///
 /// * `Ok(RegisterRouteRequest)` - Successfully parsed route
 /// * `Err(String)` - Parse error with detailed message
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```
 /// use worpen_core::parsers::route_parser::parse_route;
-/// 
+///
 /// let json = r#"{"name":"test","path":"/test","method":"GET","logic":[]}"#;
 /// let route = parse_route(json).unwrap();
 /// assert_eq!(route.name, "test");
@@ -34,21 +34,19 @@ pub fn parse_route(content: &str) -> Result<RegisterRouteRequest, String> {
 }
 
 /// Parse route definition with explicit format
-/// 
+///
 /// Use this when you know the format in advance (e.g., from Content-Type header)
 pub fn parse_route_with_format(
     content: &str,
     format: InputFormat,
 ) -> Result<RegisterRouteRequest, String> {
     match format {
-        InputFormat::Json => {
-            serde_json::from_str::<RegisterRouteRequest>(content)
-                .map_err(|e| format!("JSON parse error: {}", e))
-        }
+        InputFormat::Json => serde_json::from_str::<RegisterRouteRequest>(content)
+            .map_err(|e| format!("JSON parse error: {}", e)),
         InputFormat::Yaml => {
             // Convert YAML to JSON first to handle enum variants properly
             let json_str = yaml_to_json(content)?;
-            
+
             // Now parse as JSON
             serde_json::from_str::<RegisterRouteRequest>(&json_str)
                 .map_err(|e| format!("YAML structure error: {}", e))
@@ -72,7 +70,7 @@ mod tests {
             "enabled": true,
             "version": "1.0.0"
         }"#;
-        
+
         let route = parse_route(json).unwrap();
         assert_eq!(route.name, "test_route");
         assert_eq!(route.path, "/api/test");
@@ -90,7 +88,7 @@ parameters: []
 enabled: true
 version: "1.0.0"
 "#;
-        
+
         let route = parse_route(yaml).unwrap();
         assert_eq!(route.name, "test_route");
         assert_eq!(route.path, "/api/test");
@@ -109,7 +107,7 @@ parameters: []
 enabled: true
 version: "1.0.0"
 "#;
-        
+
         let route = parse_route(yaml).unwrap();
         assert_eq!(route.name, "echo_api");
         assert_eq!(route.description, "Returns your input");
@@ -136,7 +134,7 @@ version: "1.0.0"
     #[test]
     fn test_parse_with_explicit_format() {
         let json = r#"{"name":"test","path":"/test","method":"GET","logic":[],"parameters":[],"enabled":true,"version":"1.0.0"}"#;
-        
+
         let route = parse_route_with_format(json, InputFormat::Json).unwrap();
         assert_eq!(route.name, "test");
     }
@@ -156,7 +154,7 @@ parameters: []
 enabled: true
 version: "1.0.0"
 "#;
-        
+
         let route = parse_route(yaml).unwrap();
         assert_eq!(route.name, "multi_line_test");
         assert!(route.description.contains("multi-line"));
@@ -169,7 +167,7 @@ version: "1.0.0"
             // This is a comment
             "name": "test"
         }"#;
-        
+
         let result = parse_route(json_with_comment);
         assert!(result.is_err());
     }
@@ -187,7 +185,7 @@ parameters: []
 enabled: true
 version: "1.0.0"
 "#;
-        
+
         let route = parse_route(yaml).unwrap();
         assert_eq!(route.name, "test_with_comment");
     }

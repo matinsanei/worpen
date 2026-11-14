@@ -8,16 +8,16 @@
 //!   remaining stages are recorded as `Skipped`.
 //! - Every run is audited (`via="pipeline"`) and kept in a bounded history ring.
 
-use std::collections::{HashMap, VecDeque};
-use std::sync::Arc;
+use super::dynamic_routes::execute_logic_extended;
+use super::dynamic_routes::service::DynamicRouteService;
 use proto::models::{
     DynamicRouteExecutionContext, FunctionDefinition, LoopControl, PipelineDefinition,
     PipelineListItem, PipelineRunResult, PipelineStageResult, PipelineStageView,
     RegisterPipelineRequest, SandboxPolicy, StageRunStatus,
 };
 use serde_json::Value;
-use super::dynamic_routes::execute_logic_extended;
-use super::dynamic_routes::service::DynamicRouteService;
+use std::collections::{HashMap, VecDeque};
+use std::sync::Arc;
 
 pub const PIPELINE_RUN_HISTORY_CAP: usize = 50;
 
@@ -37,7 +37,8 @@ impl Default for PipelineService {
 impl PipelineService {
     pub fn new() -> Self {
         let data_dir = std::env::var("DATA_DIR").unwrap_or_else(|_| {
-            let current_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+            let current_dir =
+                std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
             if current_dir.ends_with("backend") || current_dir.join("crates").exists() {
                 "data".to_string()
             } else {
@@ -69,7 +70,10 @@ impl PipelineService {
 
     pub async fn define_pipeline(&self, req: RegisterPipelineRequest) -> Result<String, String> {
         self.validate(&req)?;
-        let executor = self.executor.clone().ok_or_else(|| "pipeline executor not configured".to_string())?;
+        let executor = self
+            .executor
+            .clone()
+            .ok_or_else(|| "pipeline executor not configured".to_string())?;
 
         let now = chrono::Utc::now().to_rfc3339();
         let mut stages = Vec::with_capacity(req.stages.len());
@@ -132,7 +136,10 @@ impl PipelineService {
             }
             if let Some(policy) = &stage.sandbox {
                 if policy.max_timeout_ms == 0 || policy.max_timeout_ms > 300_000 {
-                    return Err(format!("Stage '{}': sandbox.max_timeout_ms must be 1..300000", stage.name));
+                    return Err(format!(
+                        "Stage '{}': sandbox.max_timeout_ms must be 1..300000",
+                        stage.name
+                    ));
                 }
             }
         }
@@ -189,13 +196,20 @@ impl PipelineService {
     }
 
     pub async fn find_by_name(&self, name: &str) -> Option<PipelineDefinition> {
-        self.pipelines.read().unwrap().values().find(|d| d.name == name).cloned()
+        self.pipelines
+            .read()
+            .unwrap()
+            .values()
+            .find(|d| d.name == name)
+            .cloned()
     }
 
     pub async fn delete_pipeline(&self, id: &str) -> bool {
         let removed = self.pipelines.write().unwrap().remove(id).is_some();
         if removed {
-            let path = std::path::Path::new(&self.data_dir).join("pipelines").join(format!("{}.json", id));
+            let path = std::path::Path::new(&self.data_dir)
+                .join("pipelines")
+                .join(format!("{}.json", id));
             let _ = tokio::fs::remove_file(&path).await;
         }
         removed
@@ -218,14 +232,20 @@ impl PipelineService {
         if !def.enabled {
             return Err("Pipeline is disabled".to_string());
         }
-        let executor = self.executor.clone().ok_or_else(|| "pipeline executor not configured".to_string())?;
+        let executor = self
+            .executor
+            .clone()
+            .ok_or_else(|| "pipeline executor not configured".to_string())?;
 
         let run_id = uuid::Uuid::new_v4().to_string();
         let total_start = std::time::Instant::now();
 
         // Shared scope across stages.
         let mut variables: HashMap<String, Value> = HashMap::new();
-        variables.insert("payload".to_string(), payload.clone().unwrap_or(Value::Null));
+        variables.insert(
+            "payload".to_string(),
+            payload.clone().unwrap_or(Value::Null),
+        );
         if let Some(Value::Object(obj)) = &payload {
             for (k, v) in obj {
                 variables.entry(k.clone()).or_insert_with(|| v.clone());
@@ -234,7 +254,13 @@ impl PipelineService {
         // Global functions available to every stage.
         let mut functions: HashMap<String, FunctionDefinition> = HashMap::new();
         for (name, f) in executor.get_global_functions().await {
-            functions.insert(name, FunctionDefinition { params: f.params, body: f.logic });
+            functions.insert(
+                name,
+                FunctionDefinition {
+                    params: f.params,
+                    body: f.logic,
+                },
+            );
         }
 
         let mut stage_results = Vec::with_capacity(def.stages.len());
@@ -273,12 +299,17 @@ impl PipelineService {
             let outcome: Result<Value, String> =
                 tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), exec_fut)
                     .await
-                    .map_err(|_| format!("stage '{}' exceeded timeout {}ms", stage.name, timeout_ms))?;
+                    .map_err(|_| {
+                        format!("stage '{}' exceeded timeout {}ms", stage.name, timeout_ms)
+                    })?;
             let elapsed = stage_start.elapsed().as_millis() as u64;
 
             // Memory guard across the shared scope.
             if context.variables.len() > policy.max_variables {
-                let err = format!("sandbox: variable count exceeds max_variables {}", policy.max_variables);
+                let err = format!(
+                    "sandbox: variable count exceeds max_variables {}",
+                    policy.max_variables
+                );
                 stage_results.push(PipelineStageResult {
                     name: stage.name.clone(),
                     status: StageRunStatus::Failed,
@@ -293,7 +324,9 @@ impl PipelineService {
             match outcome {
                 Ok(value) => {
                     context.variables.insert("last".to_string(), value.clone());
-                    context.variables.insert(format!("stages.{}", stage.name), value.clone());
+                    context
+                        .variables
+                        .insert(format!("stages.{}", stage.name), value.clone());
                     variables = std::mem::take(&mut context.variables);
                     stage_results.push(PipelineStageResult {
                         name: stage.name.clone(),
@@ -304,7 +337,9 @@ impl PipelineService {
                     });
                 }
                 Err(e) => {
-                    context.variables.insert("error".to_string(), Value::String(e.clone()));
+                    context
+                        .variables
+                        .insert("error".to_string(), Value::String(e.clone()));
                     variables = std::mem::take(&mut context.variables);
                     if stage.allow_failure {
                         stage_results.push(PipelineStageResult {
@@ -353,14 +388,22 @@ impl PipelineService {
             def.name.clone(),
             format!("pipeline:{}", def.name),
             success,
-            if success { None } else { Some("one or more stages failed".to_string()) },
+            if success {
+                None
+            } else {
+                Some("one or more stages failed".to_string())
+            },
             total_time_ms,
             "pipeline",
         );
         Ok(run)
     }
 
-    pub async fn run_history(&self, pipeline_id: Option<&str>, limit: usize) -> Vec<PipelineRunResult> {
+    pub async fn run_history(
+        &self,
+        pipeline_id: Option<&str>,
+        limit: usize,
+    ) -> Vec<PipelineRunResult> {
         let runs = self.runs.read().unwrap();
         runs.iter()
             .rev()
@@ -375,7 +418,9 @@ impl PipelineService {
     async fn save_async(def: &PipelineDefinition, data_dir: &str) -> Result<(), String> {
         use std::path::Path;
         let dir = Path::new(data_dir).join("pipelines");
-        tokio::fs::create_dir_all(&dir).await.map_err(|e| format!("mkdir pipelines: {}", e))?;
+        tokio::fs::create_dir_all(&dir)
+            .await
+            .map_err(|e| format!("mkdir pipelines: {}", e))?;
         let content = serde_json::to_string_pretty(def).map_err(|e| format!("serialize: {}", e))?;
         tokio::fs::write(dir.join(format!("{}.json", def.id)), content)
             .await
@@ -396,7 +441,8 @@ impl PipelineService {
             if path.extension().and_then(|s| s.to_str()) != Some("json") {
                 continue;
             }
-            let content = std::fs::read_to_string(&path).map_err(|e| format!("read {}: {}", path.display(), e))?;
+            let content = std::fs::read_to_string(&path)
+                .map_err(|e| format!("read {}: {}", path.display(), e))?;
             match serde_json::from_str::<PipelineDefinition>(&content) {
                 Ok(def) => {
                     self.pipelines.write().unwrap().insert(def.id.clone(), def);

@@ -1,19 +1,19 @@
 //! Enhanced dynamic routes handlers with YAML support
 
-use axum::{
-    extract::State,
-    Json,
-    http::{StatusCode, HeaderMap},
-    body::Bytes,
-};
-use crate::state::AppState;
 use crate::auth::require_token;
+use crate::state::AppState;
+use axum::{
+    body::Bytes,
+    extract::State,
+    http::{HeaderMap, StatusCode},
+    Json,
+};
 use proto::models::RouteDefinition;
 use serde_json::Value;
-use worpen_core::parsers::{parse_route, detect_format, InputFormat};
+use worpen_core::parsers::{detect_format, parse_route, InputFormat};
 
 /// Register a new dynamic route (YAML/JSON auto-detect)
-/// 
+///
 /// Accepts both JSON and YAML formats with automatic format detection.
 /// Format can also be explicitly specified via Content-Type header:
 /// - application/json → Force JSON parsing
@@ -35,14 +35,15 @@ pub async fn register_route_raw(
 ) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
     require_token(&headers)?;
     // Convert body to string
-    let content = String::from_utf8(body.to_vec())
-        .map_err(|e| (
+    let content = String::from_utf8(body.to_vec()).map_err(|e| {
+        (
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({
                 "error": "Invalid UTF-8 in request body",
                 "details": e.to_string()
-            }))
-        ))?;
+            })),
+        )
+    })?;
 
     // Detect or use explicit format from Content-Type header
     let format = if let Some(content_type) = headers.get("content-type") {
@@ -59,15 +60,16 @@ pub async fn register_route_raw(
     };
 
     // Parse route
-    let req = parse_route(&content)
-        .map_err(|e| (
+    let req = parse_route(&content).map_err(|e| {
+        (
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({
                 "error": "Parse error",
                 "details": e,
                 "detected_format": format!("{:?}", format)
-            }))
-        ))?;
+            })),
+        )
+    })?;
 
     // Convert RegisterRouteRequest to RouteDefinition
     let route = RouteDefinition {
@@ -85,8 +87,8 @@ pub async fn register_route_raw(
         rate_limit: req.rate_limit,
         enabled: req.enabled,
         version: req.version.clone(),
-        created_at: String::new(), // Will be set by service
-        updated_at: String::new(), // Will be set by service
+        created_at: String::new(),        // Will be set by service
+        updated_at: String::new(),        // Will be set by service
         created_by: "system".to_string(), // Default creator
         sandbox: req.sandbox.clone(),
     };
@@ -100,14 +102,14 @@ pub async fn register_route_raw(
                 "route_name": req.name,
                 "format": format!("{:?}", format),
                 "message": "Route registered successfully"
-            }))
+            })),
         )),
         Err(e) => Err((
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({
                 "error": e
-            }))
-        ))
+            })),
+        )),
     }
 }
 
@@ -119,13 +121,11 @@ pub async fn register_route_raw(
         (status = 200, description = "Format usage statistics", body = Value)
     )
 )]
-pub async fn get_format_stats(
-    State(state): State<AppState>,
-) -> Json<Value> {
+pub async fn get_format_stats(State(state): State<AppState>) -> Json<Value> {
     match state.dynamic_route_service.list_routes().await {
         Ok(routes) => {
             let total = routes.len();
-            
+
             Json(serde_json::json!({
                 "total_routes": total,
                 "supported_formats": ["JSON", "YAML"],
@@ -136,7 +136,7 @@ pub async fn get_format_stats(
                     "yaml_multiline": true
                 }
             }))
-        },
+        }
         Err(_) => Json(serde_json::json!({
             "total_routes": 0,
             "supported_formats": ["JSON", "YAML"]

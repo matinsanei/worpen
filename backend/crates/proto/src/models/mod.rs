@@ -1,17 +1,17 @@
 pub mod agent;
-pub mod incident;
-pub mod docker;
 pub mod automation;
+pub mod docker;
+pub mod incident;
 pub mod logs;
 pub mod pipelines;
-pub mod terminal;
 pub mod routes;
+pub mod terminal;
 
 pub use agent::*;
-pub use incident::*;
-pub use docker::*;
 pub use automation::*;
+pub use docker::*;
+pub use incident::*;
 pub use logs::*;
 pub use pipelines::*;
-pub use terminal::*;
 pub use routes::*;
+pub use terminal::*;

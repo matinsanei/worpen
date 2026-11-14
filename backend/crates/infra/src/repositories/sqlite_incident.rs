@@ -1,8 +1,8 @@
-use std::pin::Pin;
-use std::future::Future;
-use sqlx::SqlitePool;
-use worpen_core::ports::repository::IncidentRepository;
 use proto::models::{Incident, IncidentStatus};
+use sqlx::SqlitePool;
+use std::future::Future;
+use std::pin::Pin;
+use worpen_core::ports::repository::IncidentRepository;
 
 pub struct SqliteIncidentRepository {
     pool: SqlitePool,
@@ -37,40 +37,51 @@ impl IncidentRepository for SqliteIncidentRepository {
     fn find_all(&self) -> Pin<Box<dyn Future<Output = Result<Vec<Incident>, String>> + Send>> {
         let pool = self.pool.clone();
         Box::pin(async move {
-            let rows = sqlx::query_as::<_, (String, String, String, String, String, String, String)>("SELECT id, service, node, issue, action, status, time FROM incidents")
+            let rows =
+                sqlx::query_as::<_, (String, String, String, String, String, String, String)>(
+                    "SELECT id, service, node, issue, action, status, time FROM incidents",
+                )
                 .fetch_all(&pool)
                 .await
                 .map_err(|e| e.to_string())?;
 
-            let incidents = rows.into_iter().map(|row| {
-                let status = match row.5.as_str() {
-                    "PENDING" => IncidentStatus::PENDING,
-                    "RESOLVED" => IncidentStatus::RESOLVED,
-                    _ => IncidentStatus::FAILED,
-                };
-                Incident {
-                    id: row.0,
-                    service: row.1,
-                    node: row.2,
-                    issue: row.3,
-                    action: row.4,
-                    status,
-                    time: row.6,
-                }
-            }).collect();
+            let incidents = rows
+                .into_iter()
+                .map(|row| {
+                    let status = match row.5.as_str() {
+                        "PENDING" => IncidentStatus::PENDING,
+                        "RESOLVED" => IncidentStatus::RESOLVED,
+                        _ => IncidentStatus::FAILED,
+                    };
+                    Incident {
+                        id: row.0,
+                        service: row.1,
+                        node: row.2,
+                        issue: row.3,
+                        action: row.4,
+                        status,
+                        time: row.6,
+                    }
+                })
+                .collect();
             Ok(incidents)
         })
     }
 
-    fn resolve(&self, id: String, _method: String, _notes: String) -> Pin<Box<dyn Future<Output = Result<(), String>> + Send>> {
+    fn resolve(
+        &self,
+        id: String,
+        _method: String,
+        _notes: String,
+    ) -> Pin<Box<dyn Future<Output = Result<(), String>> + Send>> {
         let pool = self.pool.clone();
         Box::pin(async move {
-             sqlx::query("UPDATE incidents SET status = 'RESOLVED' WHERE id = ?")
-                 .bind(id)
-                 .execute(&pool)
-                 .await
-                 .map_err(|e| e.to_string())?;
-             Ok(())
+            sqlx::query("UPDATE incidents SET status = 'RESOLVED' WHERE id = ?")
+                .bind(id)
+                .execute(&pool)
+                .await
+                .map_err(|e| e.to_string())?;
+            Ok(())
         })
     }
 }

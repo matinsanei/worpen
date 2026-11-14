@@ -1,10 +1,10 @@
-use axum::{
-    extract::{Path, Query, State},
-    Json,
-    http::{HeaderMap, StatusCode},
-};
 use crate::auth::require_token;
 use crate::state::AppState;
+use axum::{
+    extract::{Path, Query, State},
+    http::{HeaderMap, StatusCode},
+    Json,
+};
 use proto::models::{PipelineListItem, PipelineRunResult, RegisterPipelineRequest};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -38,8 +38,14 @@ pub async fn define_pipeline(
 ) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
     require_token(&headers)?;
     match state.pipeline_service.define_pipeline(req).await {
-        Ok(id) => Ok((StatusCode::CREATED, Json(serde_json::json!({"status": "DEFINED", "pipeline_id": id})))),
-        Err(e) => Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": e})))),
+        Ok(id) => Ok((
+            StatusCode::CREATED,
+            Json(serde_json::json!({"status": "DEFINED", "pipeline_id": id})),
+        )),
+        Err(e) => Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": e})),
+        )),
     }
 }
 
@@ -64,7 +70,9 @@ pub async fn delete_pipeline(
         return Err(StatusCode::UNAUTHORIZED);
     }
     if state.pipeline_service.delete_pipeline(&id).await {
-        Ok(Json(serde_json::json!({"status": "DELETED", "pipeline_id": id})))
+        Ok(Json(
+            serde_json::json!({"status": "DELETED", "pipeline_id": id}),
+        ))
     } else {
         Err(StatusCode::NOT_FOUND)
     }
@@ -94,7 +102,10 @@ pub async fn trigger_pipeline(
         .unwrap_or("")
         .to_string();
     if id_or_name.is_empty() {
-        return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "pipelineId (or name) is required"}))));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": "pipelineId (or name) is required"})),
+        ));
     }
     // Auth-gated pipelines require a token when one is configured.
     let auth_required = match state.pipeline_service.get_definition(&id_or_name).await {
@@ -110,11 +121,22 @@ pub async fn trigger_pipeline(
         require_token(&headers)?;
     }
     let run_payload = payload.get("payload").cloned();
-    match state.pipeline_service.run_pipeline(&id_or_name, run_payload).await {
+    match state
+        .pipeline_service
+        .run_pipeline(&id_or_name, run_payload)
+        .await
+    {
         Ok(run) => Ok(Json(run)),
-        Err(e) if e.contains("not found") => Err((StatusCode::NOT_FOUND, Json(serde_json::json!({"error": e})))),
-        Err(e) if e.contains("disabled") => Err((StatusCode::FORBIDDEN, Json(serde_json::json!({"error": e})))),
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e})))),
+        Err(e) if e.contains("not found") => {
+            Err((StatusCode::NOT_FOUND, Json(serde_json::json!({"error": e}))))
+        }
+        Err(e) if e.contains("disabled") => {
+            Err((StatusCode::FORBIDDEN, Json(serde_json::json!({"error": e}))))
+        }
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e})),
+        )),
     }
 }
 
@@ -123,7 +145,11 @@ pub async fn pipeline_runs(
     State(state): State<AppState>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Json<Value> {
-    let limit: usize = params.get("limit").and_then(|v| v.parse().ok()).unwrap_or(20).clamp(1, 100);
+    let limit: usize = params
+        .get("limit")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(20)
+        .clamp(1, 100);
     let runs = state
         .pipeline_service
         .run_history(params.get("pipeline_id").map(|s| s.as_str()), limit)
@@ -137,7 +163,11 @@ pub async fn pipeline_runs_by_id(
     Path(id): Path<String>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Json<Value> {
-    let limit: usize = params.get("limit").and_then(|v| v.parse().ok()).unwrap_or(20).clamp(1, 100);
+    let limit: usize = params
+        .get("limit")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(20)
+        .clamp(1, 100);
     let runs = state.pipeline_service.run_history(Some(&id), limit).await;
     Json(serde_json::json!({"count": runs.len(), "runs": runs}))
 }

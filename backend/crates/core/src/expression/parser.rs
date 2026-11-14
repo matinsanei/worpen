@@ -1,8 +1,8 @@
 // Recursive descent parser for expressions
 // Builds AST from tokens
 
+use crate::expression::ast::{BinaryOp, Expr, PipeFilter, UnaryOp};
 use crate::expression::tokenizer::{Token, TokenType};
-use crate::expression::ast::{Expr, BinaryOp, UnaryOp, PipeFilter};
 use std::borrow::Cow;
 
 pub struct Parser<'a> {
@@ -12,47 +12,44 @@ pub struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     pub fn new(tokens: Vec<Token<'a>>) -> Self {
-        Self {
-            tokens,
-            current: 0,
-        }
+        Self { tokens, current: 0 }
     }
-    
+
     pub fn parse(&mut self) -> Result<Expr<'a>, String> {
         self.expression()
     }
-    
+
     // expression → ternary
     fn expression(&mut self) -> Result<Expr<'a>, String> {
         self.ternary()
     }
-    
+
     // ternary → pipe ( "?" expression ":" expression )?
     fn ternary(&mut self) -> Result<Expr<'a>, String> {
         let mut expr = self.pipe()?;
-        
+
         if self.match_token(&TokenType::Question) {
             let true_expr = Box::new(self.expression()?);
             self.consume(&TokenType::Colon, "Expected ':' after ternary true branch")?;
             let false_expr = Box::new(self.expression()?);
-            
+
             expr = Expr::Ternary {
                 condition: Box::new(expr),
                 true_expr,
                 false_expr,
             };
         }
-        
+
         Ok(expr)
     }
-    
+
     // pipe → logical_or ( "|" IDENTIFIER ( "(" arguments? ")" )? )*
     fn pipe(&mut self) -> Result<Expr<'a>, String> {
         let mut expr = self.logical_or()?;
-        
+
         if self.check(&TokenType::Pipe) {
             let mut filters = Vec::new();
-            
+
             while self.match_token(&TokenType::Pipe) {
                 let name = match &self.peek().token_type {
                     TokenType::Identifier(n) => {
@@ -62,7 +59,7 @@ impl<'a> Parser<'a> {
                     }
                     _ => return Err("Expected filter name after '|'".to_string()),
                 };
-                
+
                 let args = if self.match_token(&TokenType::LParen) {
                     let args = if !self.check(&TokenType::RParen) {
                         self.arguments()?
@@ -74,23 +71,23 @@ impl<'a> Parser<'a> {
                 } else {
                     Vec::new()
                 };
-                
+
                 filters.push(PipeFilter { name, args });
             }
-            
+
             expr = Expr::Pipe {
                 expr: Box::new(expr),
                 filters,
             };
         }
-        
+
         Ok(expr)
     }
-    
+
     // logical_or → logical_and ( "||" logical_and )*
     fn logical_or(&mut self) -> Result<Expr<'a>, String> {
         let mut left = self.logical_and()?;
-        
+
         while self.match_token(&TokenType::PipePipe) {
             let right = self.logical_and()?;
             left = Expr::Binary {
@@ -99,14 +96,14 @@ impl<'a> Parser<'a> {
                 right: Box::new(right),
             };
         }
-        
+
         Ok(left)
     }
-    
+
     // logical_and → equality ( "&&" equality )*
     fn logical_and(&mut self) -> Result<Expr<'a>, String> {
         let mut left = self.equality()?;
-        
+
         while self.match_token(&TokenType::AmpAmp) {
             let right = self.equality()?;
             left = Expr::Binary {
@@ -115,14 +112,14 @@ impl<'a> Parser<'a> {
                 right: Box::new(right),
             };
         }
-        
+
         Ok(left)
     }
-    
+
     // equality → comparison ( ( "==" | "!=" ) comparison )*
     fn equality(&mut self) -> Result<Expr<'a>, String> {
         let mut left = self.comparison()?;
-        
+
         while let Some(op) = self.match_any(&[TokenType::EqEq, TokenType::BangEq]) {
             let binary_op = match op {
                 TokenType::EqEq => BinaryOp::Eq,
@@ -136,15 +133,20 @@ impl<'a> Parser<'a> {
                 right: Box::new(right),
             };
         }
-        
+
         Ok(left)
     }
-    
+
     // comparison → addition ( ( "<" | "<=" | ">" | ">=" ) addition )*
     fn comparison(&mut self) -> Result<Expr<'a>, String> {
         let mut left = self.addition()?;
-        
-        while let Some(op) = self.match_any(&[TokenType::Lt, TokenType::LtEq, TokenType::Gt, TokenType::GtEq]) {
+
+        while let Some(op) = self.match_any(&[
+            TokenType::Lt,
+            TokenType::LtEq,
+            TokenType::Gt,
+            TokenType::GtEq,
+        ]) {
             let binary_op = match op {
                 TokenType::Lt => BinaryOp::Lt,
                 TokenType::LtEq => BinaryOp::Le,
@@ -159,14 +161,14 @@ impl<'a> Parser<'a> {
                 right: Box::new(right),
             };
         }
-        
+
         Ok(left)
     }
-    
+
     // addition → multiplication ( ( "+" | "-" ) multiplication )*
     fn addition(&mut self) -> Result<Expr<'a>, String> {
         let mut left = self.multiplication()?;
-        
+
         while let Some(op) = self.match_any(&[TokenType::Plus, TokenType::Minus]) {
             let binary_op = match op {
                 TokenType::Plus => BinaryOp::Add,
@@ -180,15 +182,17 @@ impl<'a> Parser<'a> {
                 right: Box::new(right),
             };
         }
-        
+
         Ok(left)
     }
-    
+
     // multiplication → power ( ( "*" | "/" | "%" ) power )*
     fn multiplication(&mut self) -> Result<Expr<'a>, String> {
         let mut left = self.power()?;
-        
-        while let Some(op) = self.match_any(&[TokenType::Star, TokenType::Slash, TokenType::Percent]) {
+
+        while let Some(op) =
+            self.match_any(&[TokenType::Star, TokenType::Slash, TokenType::Percent])
+        {
             let binary_op = match op {
                 TokenType::Star => BinaryOp::Mul,
                 TokenType::Slash => BinaryOp::Div,
@@ -202,14 +206,14 @@ impl<'a> Parser<'a> {
                 right: Box::new(right),
             };
         }
-        
+
         Ok(left)
     }
-    
+
     // power → unary ( "**" unary )*
     fn power(&mut self) -> Result<Expr<'a>, String> {
         let mut left = self.unary()?;
-        
+
         while self.match_token(&TokenType::StarStar) {
             let right = self.unary()?;
             left = Expr::Binary {
@@ -218,10 +222,10 @@ impl<'a> Parser<'a> {
                 right: Box::new(right),
             };
         }
-        
+
         Ok(left)
     }
-    
+
     // unary → ( "!" | "-" ) unary | call
     fn unary(&mut self) -> Result<Expr<'a>, String> {
         if let Some(op) = self.match_any(&[TokenType::Bang, TokenType::Minus]) {
@@ -236,14 +240,14 @@ impl<'a> Parser<'a> {
                 expr: Box::new(expr),
             });
         }
-        
+
         self.call()
     }
-    
+
     // call → primary ( "(" arguments? ")" )*
     fn call(&mut self) -> Result<Expr<'a>, String> {
         let mut expr = self.primary()?;
-        
+
         while self.match_token(&TokenType::LParen) {
             if let Expr::Variable(name) = expr {
                 let args = if !self.check(&TokenType::RParen) {
@@ -252,32 +256,32 @@ impl<'a> Parser<'a> {
                     Vec::new()
                 };
                 self.consume(&TokenType::RParen, "Expected ')' after arguments")?;
-                
+
                 expr = Expr::Call { name, args };
             } else {
                 return Err("Only identifiers can be called as functions".to_string());
             }
         }
-        
+
         Ok(expr)
     }
-    
+
     // arguments → expression ( "," expression )*
     fn arguments(&mut self) -> Result<Vec<Expr<'a>>, String> {
         let mut args = vec![self.expression()?];
-        
+
         while self.match_token(&TokenType::Comma) {
             args.push(self.expression()?);
         }
-        
+
         Ok(args)
     }
-    
+
     // primary → NUMBER | STRING | "true" | "false" | "null"
     //         | IDENTIFIER | "(" expression ")" | "[" array "]" | "{" object "}"
     fn primary(&mut self) -> Result<Expr<'a>, String> {
         let token = self.peek().clone();
-        
+
         match &token.token_type {
             TokenType::Number(n) => {
                 self.advance();
@@ -332,20 +336,20 @@ impl<'a> Parser<'a> {
             _ => Err(format!("Unexpected token: {:?}", token.token_type)),
         }
     }
-    
+
     fn array_items(&mut self) -> Result<Vec<Expr<'a>>, String> {
         let mut items = vec![self.expression()?];
-        
+
         while self.match_token(&TokenType::Comma) {
             items.push(self.expression()?);
         }
-        
+
         Ok(items)
     }
-    
+
     fn object_pairs(&mut self) -> Result<Vec<(Cow<'a, str>, Expr<'a>)>, String> {
         let mut pairs = Vec::new();
-        
+
         loop {
             let key = match &self.peek().token_type {
                 TokenType::Identifier(k) => {
@@ -360,19 +364,19 @@ impl<'a> Parser<'a> {
                 }
                 _ => return Err("Expected object key (identifier or string)".to_string()),
             };
-            
+
             self.consume(&TokenType::Colon, "Expected ':' after object key")?;
             let value = self.expression()?;
             pairs.push((key, value));
-            
+
             if !self.match_token(&TokenType::Comma) {
                 break;
             }
         }
-        
+
         Ok(pairs)
     }
-    
+
     // Helper methods
     fn match_token(&mut self, token_type: &TokenType) -> bool {
         if self.check_type(token_type) {
@@ -382,7 +386,7 @@ impl<'a> Parser<'a> {
             false
         }
     }
-    
+
     fn match_any(&mut self, types: &[TokenType]) -> Option<TokenType<'a>> {
         for t in types {
             if self.check_type(t) {
@@ -393,34 +397,34 @@ impl<'a> Parser<'a> {
         }
         None
     }
-    
+
     fn check(&self, token_type: &TokenType) -> bool {
         self.check_type(token_type)
     }
-    
+
     fn check_type(&self, token_type: &TokenType) -> bool {
         if self.is_at_end() {
             return false;
         }
-        
+
         let current = &self.peek().token_type;
         std::mem::discriminant(current) == std::mem::discriminant(token_type)
     }
-    
+
     fn advance(&mut self) {
         if !self.is_at_end() {
             self.current += 1;
         }
     }
-    
+
     fn is_at_end(&self) -> bool {
         matches!(self.peek().token_type, TokenType::Eof)
     }
-    
+
     fn peek(&self) -> &Token<'a> {
         &self.tokens[self.current]
     }
-    
+
     fn consume(&mut self, token_type: &TokenType, message: &str) -> Result<(), String> {
         if self.check_type(token_type) {
             self.advance();
@@ -435,20 +439,20 @@ impl<'a> Parser<'a> {
 mod tests {
     use super::*;
     use crate::expression::tokenizer::Tokenizer;
-    
+
     fn parse(input: &str) -> Result<Expr<'_>, String> {
         let mut tokenizer = Tokenizer::new(input);
         let tokens = tokenizer.tokenize()?;
         let mut parser = Parser::new(tokens);
         parser.parse()
     }
-    
+
     #[test]
     fn test_parse_number() {
         let expr = parse("42").unwrap();
         assert!(matches!(expr, Expr::Number(42.0)));
     }
-    
+
     #[test]
     fn test_parse_string() {
         let expr = parse(r#""hello""#).unwrap();
@@ -457,7 +461,7 @@ mod tests {
             _ => panic!("Expected string"),
         }
     }
-    
+
     #[test]
     fn test_parse_variable() {
         let expr = parse("foo").unwrap();
@@ -466,7 +470,7 @@ mod tests {
             _ => panic!("Expected variable"),
         }
     }
-    
+
     #[test]
     fn test_parse_binary() {
         let expr = parse("1 + 2").unwrap();
@@ -479,15 +483,23 @@ mod tests {
             _ => panic!("Expected binary expression"),
         }
     }
-    
+
     #[test]
     fn test_parse_precedence() {
         let expr = parse("1 + 2 * 3").unwrap();
         match expr {
-            Expr::Binary { left, op: BinaryOp::Add, right } => {
+            Expr::Binary {
+                left,
+                op: BinaryOp::Add,
+                right,
+            } => {
                 assert!(matches!(*left, Expr::Number(1.0)));
                 match *right {
-                    Expr::Binary { left, op: BinaryOp::Mul, right } => {
+                    Expr::Binary {
+                        left,
+                        op: BinaryOp::Mul,
+                        right,
+                    } => {
                         assert!(matches!(*left, Expr::Number(2.0)));
                         assert!(matches!(*right, Expr::Number(3.0)));
                     }
@@ -497,7 +509,7 @@ mod tests {
             _ => panic!("Expected addition"),
         }
     }
-    
+
     #[test]
     fn test_parse_function_call() {
         let expr = parse("foo(1, 2)").unwrap();
@@ -509,7 +521,7 @@ mod tests {
             _ => panic!("Expected function call"),
         }
     }
-    
+
     #[test]
     fn test_parse_pipe() {
         let expr = parse("x | upper | trim").unwrap();
@@ -523,12 +535,16 @@ mod tests {
             _ => panic!("Expected pipe expression"),
         }
     }
-    
+
     #[test]
     fn test_parse_ternary() {
         let expr = parse("x > 0 ? 1 : -1").unwrap();
         match expr {
-            Expr::Ternary { condition, true_expr, false_expr } => {
+            Expr::Ternary {
+                condition,
+                true_expr,
+                false_expr,
+            } => {
                 assert!(matches!(*condition, Expr::Binary { .. }));
                 assert!(matches!(*true_expr, Expr::Number(1.0)));
                 assert!(matches!(*false_expr, Expr::Unary { .. }));

@@ -1,6 +1,6 @@
-use std::sync::Arc;
 use crate::domain::AgentStatus;
 use crate::ports::repository::{AgentRepository, IncidentRepository};
+use std::sync::Arc;
 
 pub struct DashboardService {
     agent_repo: Arc<dyn AgentRepository>,
@@ -8,14 +8,23 @@ pub struct DashboardService {
 }
 
 impl DashboardService {
-    pub fn new(agent_repo: Arc<dyn AgentRepository>, incident_repo: Arc<dyn IncidentRepository>) -> Self {
-        Self { agent_repo, incident_repo }
+    pub fn new(
+        agent_repo: Arc<dyn AgentRepository>,
+        incident_repo: Arc<dyn IncidentRepository>,
+    ) -> Self {
+        Self {
+            agent_repo,
+            incident_repo,
+        }
     }
 
     pub async fn get_stats(&self) -> Result<serde_json::Value, String> {
         let agents = self.agent_repo.find_all().await?;
-        let active_nodes = agents.iter().filter(|a| matches!(a.status, AgentStatus::Online)).count();
-        
+        let active_nodes = agents
+            .iter()
+            .filter(|a| matches!(a.status, AgentStatus::Online))
+            .count();
+
         let incidents = self.incident_repo.find_all().await?;
         let security_score = if incidents.is_empty() { 98 } else { 85 };
 

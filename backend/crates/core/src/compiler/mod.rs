@@ -1,2 +1,2 @@
-pub mod symbol_table;
 pub mod lowerer;
+pub mod symbol_table;

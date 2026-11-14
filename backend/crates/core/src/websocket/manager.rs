@@ -1,6 +1,6 @@
 use dashmap::DashMap;
-use tokio::sync::mpsc;
 use std::sync::Arc;
+use tokio::sync::mpsc;
 
 /// Message to be sent through WebSocket
 #[derive(Debug, Clone)]
@@ -37,7 +37,7 @@ impl WebSocketManager {
     /// Unregister a WebSocket connection
     pub fn unregister(&self, connection_id: &str) {
         self.connections.remove(connection_id);
-        
+
         // Remove from all channels
         for mut entry in self.channels.iter_mut() {
             entry.value_mut().retain(|id| id != connection_id);
@@ -62,7 +62,8 @@ impl WebSocketManager {
     /// Send message to a specific connection
     pub fn send_to(&self, connection_id: &str, message: String) -> Result<(), String> {
         if let Some(sender) = self.connections.get(connection_id) {
-            sender.send(message)
+            sender
+                .send(message)
                 .map_err(|e| format!("Failed to send message: {}", e))?;
             Ok(())
         } else {
@@ -73,7 +74,7 @@ impl WebSocketManager {
     /// Broadcast message to all connections
     pub fn broadcast(&self, message: String) -> Result<(), String> {
         let mut failed = Vec::new();
-        
+
         for entry in self.connections.iter() {
             if let Err(e) = entry.value().send(message.clone()) {
                 failed.push(format!("Failed to send to {}: {}", entry.key(), e));
@@ -91,7 +92,7 @@ impl WebSocketManager {
     pub fn broadcast_to_channel(&self, channel: &str, message: String) -> Result<(), String> {
         if let Some(connection_ids) = self.channels.get(channel) {
             let mut failed = Vec::new();
-            
+
             for conn_id in connection_ids.value() {
                 if let Some(sender) = self.connections.get(conn_id) {
                     if let Err(e) = sender.send(message.clone()) {

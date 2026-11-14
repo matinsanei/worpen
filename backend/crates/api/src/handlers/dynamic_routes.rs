@@ -1,11 +1,13 @@
-use axum::{
-    extract::{State, Path},
-    Json,
-    http::{StatusCode, HeaderMap},
-};
-use crate::state::AppState;
 use crate::auth::{require_route_auth, require_token};
-use proto::models::{RouteDefinition, RegisterRouteRequest, RouteTestRequest, RouteTestResponse, FunctionDef};
+use crate::state::AppState;
+use axum::{
+    extract::{Path, State},
+    http::{HeaderMap, StatusCode},
+    Json,
+};
+use proto::models::{
+    FunctionDef, RegisterRouteRequest, RouteDefinition, RouteTestRequest, RouteTestResponse,
+};
 use serde_json::Value;
 
 /// Register a new dynamic route
@@ -40,8 +42,8 @@ pub async fn register_route(
         rate_limit: req.rate_limit,
         enabled: req.enabled,
         version: req.version,
-        created_at: String::new(), // Will be set by service
-        updated_at: String::new(), // Will be set by service
+        created_at: String::new(),        // Will be set by service
+        updated_at: String::new(),        // Will be set by service
         created_by: "system".to_string(), // Default creator
         sandbox: req.sandbox,
     };
@@ -52,14 +54,14 @@ pub async fn register_route(
                 "status": "REGISTERED",
                 "route_id": route_id,
                 "message": "Route registered successfully"
-            }))
+            })),
         )),
         Err(e) => Err((
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({
                 "error": e
-            }))
-        ))
+            })),
+        )),
     }
 }
 
@@ -71,9 +73,7 @@ pub async fn register_route(
         (status = 200, description = "List of all routes", body = Vec<RouteDefinition>)
     )
 )]
-pub async fn list_routes(
-    State(state): State<AppState>,
-) -> Json<Vec<RouteDefinition>> {
+pub async fn list_routes(State(state): State<AppState>) -> Json<Vec<RouteDefinition>> {
     match state.dynamic_route_service.list_routes().await {
         Ok(routes) => Json(routes),
         Err(_) => Json(vec![]),
@@ -122,14 +122,13 @@ pub async fn update_route(
             "status": "UPDATED",
             "route_id": id
         }))),
-        Err(e) if e.contains("not found") => Err((
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({"error": e}))
-        )),
+        Err(e) if e.contains("not found") => {
+            Err((StatusCode::NOT_FOUND, Json(serde_json::json!({"error": e}))))
+        }
         Err(e) => Err((
             StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"error": e}))
-        ))
+            Json(serde_json::json!({"error": e})),
+        )),
     }
 }
 
@@ -175,16 +174,18 @@ pub async fn test_route(
 ) -> Result<Json<RouteTestResponse>, (StatusCode, Json<Value>)> {
     // Test executes route logic — treat as privileged when a token is configured.
     require_token(&headers)?;
-    Ok(match state.dynamic_route_service.test_route(request).await {
-        Ok(response) => Json(response),
-        Err(e) => Json(RouteTestResponse {
-            success: false,
-            result: None,
-            error: Some(e),
-            execution_time_ms: 0,
-            steps_executed: vec![],
-        }),
-    })
+    Ok(
+        match state.dynamic_route_service.test_route(request).await {
+            Ok(response) => Json(response),
+            Err(e) => Json(RouteTestResponse {
+                success: false,
+                result: None,
+                error: Some(e),
+                execution_time_ms: 0,
+                steps_executed: vec![],
+            }),
+        },
+    )
 }
 
 /// Execute a dynamic route
@@ -205,32 +206,37 @@ pub async fn execute_route(
     Json(payload): Json<Value>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     // Enforce per-route auth when a token is configured
-    let auth_required = state.dynamic_route_service.get_route(&id).await
+    let auth_required = state
+        .dynamic_route_service
+        .get_route(&id)
+        .await
         .map(|r| r.map(|route| route.auth_required).unwrap_or(false))
         .unwrap_or(false);
     require_route_auth(&headers, auth_required)?;
-    match state.dynamic_route_service.execute_route(
-        &id,
-        Some(payload),
-        std::collections::HashMap::new(),
-        std::collections::HashMap::new(),
-    ).await {
+    match state
+        .dynamic_route_service
+        .execute_route(
+            &id,
+            Some(payload),
+            std::collections::HashMap::new(),
+            std::collections::HashMap::new(),
+        )
+        .await
+    {
         Ok(result) => Ok(Json(result)),
-        Err(e) if e.contains("not found") => Err((
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({"error": e}))
-        )),
-        Err(e) if e.contains("disabled") => Err((
-            StatusCode::FORBIDDEN,
-            Json(serde_json::json!({"error": e}))
-        )),
+        Err(e) if e.contains("not found") => {
+            Err((StatusCode::NOT_FOUND, Json(serde_json::json!({"error": e}))))
+        }
+        Err(e) if e.contains("disabled") => {
+            Err((StatusCode::FORBIDDEN, Json(serde_json::json!({"error": e}))))
+        }
         Err(e) if e.contains("rate limit") => Err((
             StatusCode::TOO_MANY_REQUESTS,
-            Json(serde_json::json!({"error": e}))
+            Json(serde_json::json!({"error": e})),
         )),
         Err(e) => Err((
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"error": e}))
+            Json(serde_json::json!({"error": e})),
         )),
     }
 }
@@ -276,12 +282,12 @@ pub async fn import_route(
             Json(serde_json::json!({
                 "status": "IMPORTED",
                 "route_id": route_id
-            }))
+            })),
         )),
         Err(e) => Err((
             StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"error": e}))
-        ))
+            Json(serde_json::json!({"error": e})),
+        )),
     }
 }
 /// Define a global function for zero-cost inlining
@@ -300,21 +306,25 @@ pub async fn define_global_function(
     Json(func): Json<FunctionDef>,
 ) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
     require_token(&headers)?;
-    match state.dynamic_route_service.define_global_function(func.clone()).await {
+    match state
+        .dynamic_route_service
+        .define_global_function(func.clone())
+        .await
+    {
         Ok(_) => Ok((
             StatusCode::CREATED,
             Json(serde_json::json!({
                 "status": "DEFINED",
                 "function_name": func.name,
                 "message": "Global function defined successfully"
-            }))
+            })),
         )),
         Err(e) => Err((
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({
                 "error": "Function definition failed",
                 "message": e
-            }))
+            })),
         )),
     }
 }
@@ -336,7 +346,7 @@ pub async fn list_global_functions(
         Json(serde_json::json!({
             "functions": functions,
             "count": functions.len()
-        }))
+        })),
     ))
 }
 
@@ -376,8 +386,14 @@ pub async fn delete_global_function(
     if require_token(&headers).is_err() {
         return Err(StatusCode::UNAUTHORIZED);
     }
-    match state.dynamic_route_service.delete_global_function(&name).await {
-        Ok(true) => Ok(Json(serde_json::json!({"status": "DELETED", "function_name": name}))),
+    match state
+        .dynamic_route_service
+        .delete_global_function(&name)
+        .await
+    {
+        Ok(true) => Ok(Json(
+            serde_json::json!({"status": "DELETED", "function_name": name}),
+        )),
         Ok(false) => Err(StatusCode::NOT_FOUND),
         Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
@@ -390,29 +406,28 @@ pub async fn delete_global_function(
         (status = 200, description = "Route statistics", body = Value)
     )
 )]
-pub async fn get_route_stats(
-    State(state): State<AppState>,
-) -> Json<Value> {
+pub async fn get_route_stats(State(state): State<AppState>) -> Json<Value> {
     match state.dynamic_route_service.list_routes().await {
         Ok(routes) => {
             let total = routes.len();
             let enabled = routes.iter().filter(|r| r.enabled).count();
             let disabled = total - enabled;
-            
-            let by_method: std::collections::HashMap<String, usize> = routes.iter()
+
+            let by_method: std::collections::HashMap<String, usize> = routes
+                .iter()
                 .map(|r| format!("{:?}", r.method))
                 .fold(std::collections::HashMap::new(), |mut acc, method| {
                     *acc.entry(method).or_insert(0) += 1;
                     acc
                 });
-            
+
             Json(serde_json::json!({
                 "total_routes": total,
                 "enabled_routes": enabled,
                 "disabled_routes": disabled,
                 "routes_by_method": by_method,
             }))
-        },
+        }
         Err(_) => Json(serde_json::json!({
             "total_routes": 0,
             "enabled_routes": 0,
@@ -434,7 +449,8 @@ pub async fn get_audit(
     State(state): State<AppState>,
     axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> Json<Value> {
-    let limit: usize = params.get("limit")
+    let limit: usize = params
+        .get("limit")
         .and_then(|v| v.parse().ok())
         .unwrap_or(50)
         .clamp(1, 500);

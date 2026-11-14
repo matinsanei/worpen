@@ -1,6 +1,6 @@
-use utoipa::OpenApi;
 use crate::dtos::{RegisterAgentRequest, TelemetryRequest};
 use crate::handlers;
+use utoipa::OpenApi;
 
 #[derive(OpenApi)]
 #[openapi(

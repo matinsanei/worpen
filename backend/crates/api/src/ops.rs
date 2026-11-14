@@ -21,37 +21,53 @@ fn base(s: &ServerRef) -> String {
 }
 
 pub async fn route_list(s: &ServerRef) -> Result<(), String> {
-    let r = client_for(s).get(format!("{}/api/v1/dynamic-routes", base(s)))
-        .send().await.map_err(|e| e.to_string())?;
+    let r = client_for(s)
+        .get(format!("{}/api/v1/dynamic-routes", base(s)))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     let v: serde_json::Value = r.json().await.map_err(|e| e.to_string())?;
     println!("{}", serde_json::to_string_pretty(&v).unwrap_or_default());
     Ok(())
 }
 
 pub async fn route_add(a: &AddRouteArgs) -> Result<(), String> {
-    let content = std::fs::read_to_string(&a.file).map_err(|e| format!("read {}: {}", a.file, e))?;
+    let content =
+        std::fs::read_to_string(&a.file).map_err(|e| format!("read {}: {}", a.file, e))?;
     // Normalize to JSON Value so we can inject sandbox when --locked
     let mut value: serde_json::Value = if a.file.ends_with(".yaml") || a.file.ends_with(".yml") {
-        let y: serde_yaml::Value = serde_yaml::from_str(&content).map_err(|e| format!("yaml parse: {}", e))?;
+        let y: serde_yaml::Value =
+            serde_yaml::from_str(&content).map_err(|e| format!("yaml parse: {}", e))?;
         serde_json::to_value(y).map_err(|e| e.to_string())?
     } else {
         serde_json::from_str(&content).map_err(|e| format!("json parse: {}", e))?
     };
     if a.locked {
         if let Some(obj) = value.as_object_mut() {
-            obj.insert("sandbox".to_string(), serde_json::json!({
-                "allow_net": false, "allowed_hosts": [],
-                "allow_sql": false, "allow_redis": false, "allow_scripts": false,
-                "max_timeout_ms": 10000, "max_sleep_ms": 1000, "max_loop_iterations": 500,
-                "max_variables": 500
-            }));
+            obj.insert(
+                "sandbox".to_string(),
+                serde_json::json!({
+                    "allow_net": false, "allowed_hosts": [],
+                    "allow_sql": false, "allow_redis": false, "allow_scripts": false,
+                    "max_timeout_ms": 10000, "max_sleep_ms": 1000, "max_loop_iterations": 500,
+                    "max_variables": 500
+                }),
+            );
         }
     }
-    let r = client_for(&a.server).post(format!("{}/api/v1/dynamic-routes", base(&a.server)))
-        .json(&value).send().await.map_err(|e| e.to_string())?;
+    let r = client_for(&a.server)
+        .post(format!("{}/api/v1/dynamic-routes", base(&a.server)))
+        .json(&value)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     let status = r.status();
     let v: serde_json::Value = r.json().await.unwrap_or(serde_json::json!({}));
-    println!("{} {}", status, serde_json::to_string_pretty(&v).unwrap_or_default());
+    println!(
+        "{} {}",
+        status,
+        serde_json::to_string_pretty(&v).unwrap_or_default()
+    );
     if !status.is_success() {
         return Err(format!("server returned {}", status));
     }
@@ -59,49 +75,76 @@ pub async fn route_add(a: &AddRouteArgs) -> Result<(), String> {
 }
 
 pub async fn route_export(id: &str, s: &ServerRef) -> Result<(), String> {
-    let r = client_for(s).get(format!("{}/api/v1/dynamic-routes/{}/export", base(s), id))
-        .send().await.map_err(|e| e.to_string())?;
+    let r = client_for(s)
+        .get(format!("{}/api/v1/dynamic-routes/{}/export", base(s), id))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     let text = r.text().await.map_err(|e| e.to_string())?;
     println!("{}", text);
     Ok(())
 }
 
 pub async fn route_delete(id: &str, s: &ServerRef) -> Result<(), String> {
-    let r = client_for(s).delete(format!("{}/api/v1/dynamic-routes/{}", base(s), id))
-        .send().await.map_err(|e| e.to_string())?;
+    let r = client_for(s)
+        .delete(format!("{}/api/v1/dynamic-routes/{}", base(s), id))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     println!("{}", r.status());
     Ok(())
 }
 
 pub async fn route_exec(a: &ExecRouteArgs) -> Result<(), String> {
-    let payload: serde_json::Value = serde_json::from_str(&a.payload).unwrap_or(serde_json::json!({}));
-    let r = client_for(&a.server).post(format!("{}/api/v1/dynamic-routes/{}/execute", base(&a.server), a.id))
-        .json(&payload).send().await.map_err(|e| e.to_string())?;
+    let payload: serde_json::Value =
+        serde_json::from_str(&a.payload).unwrap_or(serde_json::json!({}));
+    let r = client_for(&a.server)
+        .post(format!(
+            "{}/api/v1/dynamic-routes/{}/execute",
+            base(&a.server),
+            a.id
+        ))
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     let v: serde_json::Value = r.json().await.unwrap_or(serde_json::json!({}));
     println!("{}", serde_json::to_string_pretty(&v).unwrap_or_default());
     Ok(())
 }
 
 pub async fn func_list(s: &ServerRef) -> Result<(), String> {
-    let r = client_for(s).get(format!("{}/api/v1/global-functions", base(s)))
-        .send().await.map_err(|e| e.to_string())?;
+    let r = client_for(s)
+        .get(format!("{}/api/v1/global-functions", base(s)))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     let v: serde_json::Value = r.json().await.map_err(|e| e.to_string())?;
     println!("{}", serde_json::to_string_pretty(&v).unwrap_or_default());
     Ok(())
 }
 
 pub async fn func_add(a: &AddFuncArgs) -> Result<(), String> {
-    let content = std::fs::read_to_string(&a.file).map_err(|e| format!("read {}: {}", a.file, e))?;
-    let value: serde_json::Value = serde_json::from_str(&content).map_err(|e| format!("json parse: {}", e))?;
-    let r = client_for(&a.server).post(format!("{}/api/v1/global-functions", base(&a.server)))
-        .json(&value).send().await.map_err(|e| e.to_string())?;
+    let content =
+        std::fs::read_to_string(&a.file).map_err(|e| format!("read {}: {}", a.file, e))?;
+    let value: serde_json::Value =
+        serde_json::from_str(&content).map_err(|e| format!("json parse: {}", e))?;
+    let r = client_for(&a.server)
+        .post(format!("{}/api/v1/global-functions", base(&a.server)))
+        .json(&value)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     println!("{}", r.status());
     Ok(())
 }
 
 pub async fn func_delete(name: &str, s: &ServerRef) -> Result<(), String> {
-    let r = client_for(s).delete(format!("{}/api/v1/global-functions/{}", base(s), name))
-        .send().await.map_err(|e| e.to_string())?;
+    let r = client_for(s)
+        .delete(format!("{}/api/v1/global-functions/{}", base(s), name))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     let status = r.status();
     let body = r.text().await.unwrap_or_default();
     println!("{} {}", status, body);
@@ -128,17 +171,38 @@ pub async fn doctor(a: &DoctorArgs) -> Result<(), String> {
         println!("  {}/: {} files", sub, n);
     }
     for cand in ["../dist/index.html", "./dist/index.html", "dist/index.html"] {
-        println!("  ui {} present={}", cand, std::path::Path::new(cand).exists());
+        println!(
+            "  ui {} present={}",
+            cand,
+            std::path::Path::new(cand).exists()
+        );
     }
-    println!("env DATABASE_URL={}", std::env::var("DATABASE_URL").unwrap_or("(default sqlite:worpen.db?mode=rwc)".into()));
+    println!(
+        "env DATABASE_URL={}",
+        std::env::var("DATABASE_URL").unwrap_or("(default sqlite:worpen.db?mode=rwc)".into())
+    );
     // Never print the secret itself — only whether auth is armed.
-    println!("auth WORPEN_API_TOKEN={}", if std::env::var("WORPEN_API_TOKEN").ok().filter(|t| !t.trim().is_empty()).is_some() { "set (protected)" } else { "unset (open)" });
+    println!(
+        "auth WORPEN_API_TOKEN={}",
+        if std::env::var("WORPEN_API_TOKEN")
+            .ok()
+            .filter(|t| !t.trim().is_empty())
+            .is_some()
+        {
+            "set (protected)"
+        } else {
+            "unset (open)"
+        }
+    );
     Ok(())
 }
 
 pub async fn mcp_tools(s: &ServerRef) -> Result<(), String> {
-    let r = client_for(s).get(format!("{}/mcp/tools", base(s)))
-        .send().await.map_err(|e| e.to_string())?;
+    let r = client_for(s)
+        .get(format!("{}/mcp/tools", base(s)))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     let v: serde_json::Value = r.json().await.map_err(|e| e.to_string())?;
     println!("{}", serde_json::to_string_pretty(&v).unwrap_or_default());
     Ok(())
@@ -147,42 +211,66 @@ pub async fn mcp_tools(s: &ServerRef) -> Result<(), String> {
 pub async fn mcp_call(a: &McpCallArgs) -> Result<(), String> {
     let args: serde_json::Value = serde_json::from_str(&a.args).unwrap_or(serde_json::json!({}));
     let body = serde_json::json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":a.tool,"arguments":args}});
-    let r = client_for(&a.server).post(format!("{}/mcp", base(&a.server)))
-        .json(&body).send().await.map_err(|e| e.to_string())?;
+    let r = client_for(&a.server)
+        .post(format!("{}/mcp", base(&a.server)))
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     let v: serde_json::Value = r.json().await.map_err(|e| e.to_string())?;
     println!("{}", serde_json::to_string_pretty(&v).unwrap_or_default());
     Ok(())
 }
 
 pub async fn route_audit(a: &AuditArgs) -> Result<(), String> {
-    let r = client_for(&a.server).get(format!("{}/api/v1/dynamic-routes/audit?limit={}", base(&a.server), a.limit))
-        .send().await.map_err(|e| e.to_string())?;
+    let r = client_for(&a.server)
+        .get(format!(
+            "{}/api/v1/dynamic-routes/audit?limit={}",
+            base(&a.server),
+            a.limit
+        ))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     let v: serde_json::Value = r.json().await.map_err(|e| e.to_string())?;
     println!("{}", serde_json::to_string_pretty(&v).unwrap_or_default());
     Ok(())
 }
 
 pub async fn pipe_list(s: &ServerRef) -> Result<(), String> {
-    let r = client_for(s).get(format!("{}/api/v1/pipelines", base(s)))
-        .send().await.map_err(|e| e.to_string())?;
+    let r = client_for(s)
+        .get(format!("{}/api/v1/pipelines", base(s)))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     let v: serde_json::Value = r.json().await.map_err(|e| e.to_string())?;
     println!("{}", serde_json::to_string_pretty(&v).unwrap_or_default());
     Ok(())
 }
 
 pub async fn pipe_define(a: &AddPipeArgs) -> Result<(), String> {
-    let content = std::fs::read_to_string(&a.file).map_err(|e| format!("read {}: {}", a.file, e))?;
+    let content =
+        std::fs::read_to_string(&a.file).map_err(|e| format!("read {}: {}", a.file, e))?;
     let value: serde_json::Value = if a.file.ends_with(".yaml") || a.file.ends_with(".yml") {
-        let y: serde_yaml::Value = serde_yaml::from_str(&content).map_err(|e| format!("yaml parse: {}", e))?;
+        let y: serde_yaml::Value =
+            serde_yaml::from_str(&content).map_err(|e| format!("yaml parse: {}", e))?;
         serde_json::to_value(y).map_err(|e| e.to_string())?
     } else {
         serde_json::from_str(&content).map_err(|e| format!("json parse: {}", e))?
     };
-    let r = client_for(&a.server).post(format!("{}/api/v1/pipelines", base(&a.server)))
-        .json(&value).send().await.map_err(|e| e.to_string())?;
+    let r = client_for(&a.server)
+        .post(format!("{}/api/v1/pipelines", base(&a.server)))
+        .json(&value)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     let status = r.status();
     let v: serde_json::Value = r.json().await.unwrap_or(serde_json::json!({}));
-    println!("{} {}", status, serde_json::to_string_pretty(&v).unwrap_or_default());
+    println!(
+        "{} {}",
+        status,
+        serde_json::to_string_pretty(&v).unwrap_or_default()
+    );
     if !status.is_success() {
         return Err(format!("server returned {}", status));
     }
@@ -190,10 +278,15 @@ pub async fn pipe_define(a: &AddPipeArgs) -> Result<(), String> {
 }
 
 pub async fn pipe_run(a: &RunPipeArgs) -> Result<(), String> {
-    let payload: serde_json::Value = serde_json::from_str(&a.payload).unwrap_or(serde_json::json!({}));
+    let payload: serde_json::Value =
+        serde_json::from_str(&a.payload).unwrap_or(serde_json::json!({}));
     let body = serde_json::json!({"pipelineId": a.name, "payload": payload});
-    let r = client_for(&a.server).post(format!("{}/api/v1/pipelines/trigger", base(&a.server)))
-        .json(&body).send().await.map_err(|e| e.to_string())?;
+    let r = client_for(&a.server)
+        .post(format!("{}/api/v1/pipelines/trigger", base(&a.server)))
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     let status = r.status();
     let v: serde_json::Value = r.json().await.unwrap_or(serde_json::json!({}));
     println!("{}", serde_json::to_string_pretty(&v).unwrap_or_default());
@@ -204,8 +297,11 @@ pub async fn pipe_run(a: &RunPipeArgs) -> Result<(), String> {
 }
 
 pub async fn pipe_delete(id: &str, s: &ServerRef) -> Result<(), String> {
-    let r = client_for(s).delete(format!("{}/api/v1/pipelines/{}", base(s), id))
-        .send().await.map_err(|e| e.to_string())?;
+    let r = client_for(s)
+        .delete(format!("{}/api/v1/pipelines/{}", base(s), id))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     let status = r.status();
     println!("{} {}", status, r.text().await.unwrap_or_default());
     if !status.is_success() {
@@ -215,11 +311,19 @@ pub async fn pipe_delete(id: &str, s: &ServerRef) -> Result<(), String> {
 }
 
 pub async fn pipe_runs(a: &RunsArgs) -> Result<(), String> {
-    let mut url = format!("{}/api/v1/pipelines/runs?limit={}", base(&a.server), a.limit);
+    let mut url = format!(
+        "{}/api/v1/pipelines/runs?limit={}",
+        base(&a.server),
+        a.limit
+    );
     if let Some(pid) = &a.pipeline_id {
         url.push_str(&format!("&pipeline_id={}", pid));
     }
-    let r = client_for(&a.server).get(url).send().await.map_err(|e| e.to_string())?;
+    let r = client_for(&a.server)
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     let v: serde_json::Value = r.json().await.map_err(|e| e.to_string())?;
     println!("{}", serde_json::to_string_pretty(&v).unwrap_or_default());
     Ok(())
@@ -275,6 +379,14 @@ pub async fn setup() -> Result<(), String> {
 
     println!("\nWrote .env:\n{}", env);
     println!("Run: worpen serve   (uses HOST/PORT from .env)");
-    println!("Open: http://{}:{}/", if host == "0.0.0.0" { "127.0.0.1" } else { &host }, port);
+    println!(
+        "Open: http://{}:{}/",
+        if host == "0.0.0.0" {
+            "127.0.0.1"
+        } else {
+            &host
+        },
+        port
+    );
     Ok(())
 }

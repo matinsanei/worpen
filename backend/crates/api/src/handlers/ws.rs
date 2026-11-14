@@ -1,8 +1,11 @@
+use crate::state::AppState;
 use axum::{
-    extract::{ws::{Message, WebSocket, WebSocketUpgrade}, State, Query},
+    extract::{
+        ws::{Message, WebSocket, WebSocketUpgrade},
+        Query, State,
+    },
     response::IntoResponse,
 };
-use crate::state::AppState;
 use futures::{sink::SinkExt, stream::StreamExt};
 use serde::Deserialize;
 
@@ -12,7 +15,7 @@ pub struct WsParams {
 }
 
 /// WebSocket handler for agent connection
-/// 
+///
 /// Agents connect here to receive real-time commands.
 /// Usage: `ws://localhost:3000/ws?agent_id=<uuid>`
 #[utoipa::path(

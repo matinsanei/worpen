@@ -1,7 +1,7 @@
 // Integration tests for YAML routes with JSON Schema validation
 
-use worpen_core::validation::{validate_input, validate_with_details};
 use serde_json::json;
+use worpen_core::validation::{validate_input, validate_with_details};
 
 #[test]
 fn test_validate_user_registration_schema() {
@@ -28,7 +28,7 @@ fn test_validate_user_registration_schema() {
         },
         "required": ["email", "username", "password"]
     });
-    
+
     // Valid data
     let valid_request = json!({
         "email": "user@example.com",
@@ -37,14 +37,14 @@ fn test_validate_user_registration_schema() {
         "age": 25
     });
     assert!(validate_input(&valid_request, &schema).is_ok());
-    
+
     // Missing required field
     let missing_field = json!({
         "email": "user@example.com",
         "password": "secret123"
     });
     assert!(validate_input(&missing_field, &schema).is_err());
-    
+
     // Invalid email format
     let invalid_email = json!({
         "email": "not-an-email",
@@ -52,7 +52,7 @@ fn test_validate_user_registration_schema() {
         "password": "secret123"
     });
     assert!(validate_input(&invalid_email, &schema).is_err());
-    
+
     // Password too short
     let short_password = json!({
         "email": "user@example.com",
@@ -60,7 +60,7 @@ fn test_validate_user_registration_schema() {
         "password": "short"
     });
     assert!(validate_input(&short_password, &schema).is_err());
-    
+
     // Age too low
     let underage = json!({
         "email": "user@example.com",
@@ -100,7 +100,7 @@ fn test_validate_product_schema() {
         },
         "required": ["name", "price", "quantity", "category"]
     });
-    
+
     // Valid product
     let valid_product = json!({
         "name": "Laptop",
@@ -110,7 +110,7 @@ fn test_validate_product_schema() {
         "tags": ["computer", "portable"]
     });
     assert!(validate_input(&valid_product, &schema).is_ok());
-    
+
     // Negative price
     let negative_price = json!({
         "name": "Laptop",
@@ -119,7 +119,7 @@ fn test_validate_product_schema() {
         "category": "electronics"
     });
     assert!(validate_input(&negative_price, &schema).is_err());
-    
+
     // Invalid category
     let invalid_category = json!({
         "name": "Laptop",
@@ -128,7 +128,7 @@ fn test_validate_product_schema() {
         "category": "invalid"
     });
     assert!(validate_input(&invalid_category, &schema).is_err());
-    
+
     // Empty tags array
     let empty_tags = json!({
         "name": "Laptop",
@@ -165,7 +165,7 @@ fn test_validate_nested_schema() {
         },
         "required": ["user", "address"]
     });
-    
+
     // Valid nested data
     let valid_data = json!({
         "user": {
@@ -179,7 +179,7 @@ fn test_validate_nested_schema() {
         }
     });
     assert!(validate_input(&valid_data, &schema).is_ok());
-    
+
     // Missing nested required field
     let missing_nested = json!({
         "user": {
@@ -192,7 +192,7 @@ fn test_validate_nested_schema() {
         }
     });
     assert!(validate_input(&missing_nested, &schema).is_err());
-    
+
     // Invalid zip pattern
     let invalid_zip = json!({
         "user": {
@@ -228,7 +228,7 @@ fn test_validate_array_of_objects() {
         },
         "required": ["items"]
     });
-    
+
     // Valid array
     let valid_data = json!({
         "items": [
@@ -237,11 +237,11 @@ fn test_validate_array_of_objects() {
         ]
     });
     assert!(validate_input(&valid_data, &schema).is_ok());
-    
+
     // Empty array
     let empty_array = json!({"items": []});
     assert!(validate_input(&empty_array, &schema).is_err());
-    
+
     // Missing property in array item
     let missing_property = json!({
         "items": [
@@ -263,17 +263,17 @@ fn test_validate_with_details_multiple_errors() {
         },
         "required": ["email", "age", "name"]
     });
-    
+
     let invalid_data = json!({
         "email": "invalid-email",
         "age": -5,
         "name": ""
     });
-    
+
     let result = validate_with_details(&invalid_data, &schema);
     assert!(!result.valid);
     assert!(result.errors.len() >= 2); // Multiple validation errors
-    
+
     // Check that we can convert to Result
     assert!(result.to_result().is_err());
 }
@@ -307,7 +307,7 @@ fn test_validate_checkout_request() {
         },
         "required": ["customer_email", "items", "payment_method"]
     });
-    
+
     // Valid checkout
     let valid_checkout = json!({
         "customer_email": "customer@example.com",
@@ -318,7 +318,7 @@ fn test_validate_checkout_request() {
         "payment_method": "card"
     });
     assert!(validate_input(&valid_checkout, &schema).is_ok());
-    
+
     // Invalid payment method
     let invalid_payment = json!({
         "customer_email": "customer@example.com",
@@ -328,7 +328,7 @@ fn test_validate_checkout_request() {
         "payment_method": "cash"
     });
     assert!(validate_input(&invalid_payment, &schema).is_err());
-    
+
     // Negative quantity
     let negative_quantity = json!({
         "customer_email": "customer@example.com",
@@ -367,7 +367,7 @@ fn test_validate_api_key_request() {
         },
         "required": ["name", "scopes"]
     });
-    
+
     // Valid request
     let valid_request = json!({
         "name": "My API Key",
@@ -375,14 +375,14 @@ fn test_validate_api_key_request() {
         "expires_in_days": 30
     });
     assert!(validate_input(&valid_request, &schema).is_ok());
-    
+
     // Invalid scope
     let invalid_scope = json!({
         "name": "My API Key",
         "scopes": ["read", "invalid"]
     });
     assert!(validate_input(&invalid_scope, &schema).is_err());
-    
+
     // Too long expiry
     let long_expiry = json!({
         "name": "My API Key",
@@ -416,7 +416,7 @@ fn test_validate_webhook_config() {
         },
         "required": ["url", "events"]
     });
-    
+
     // Valid webhook
     let valid_webhook = json!({
         "url": "https://example.com/webhook",
@@ -425,7 +425,7 @@ fn test_validate_webhook_config() {
         "secret": "very-secret-key-123"
     });
     assert!(validate_input(&valid_webhook, &schema).is_ok());
-    
+
     // Short secret
     let short_secret = json!({
         "url": "https://example.com/webhook",
@@ -451,20 +451,20 @@ fn test_validate_phone_number() {
         },
         "required": ["phone"]
     });
-    
+
     // Valid phone
     let valid_phone = json!({
         "phone": "+1234567890",
         "country_code": "US"
     });
     assert!(validate_input(&valid_phone, &schema).is_ok());
-    
+
     // Invalid phone format
     let invalid_phone = json!({
         "phone": "not-a-phone"
     });
     assert!(validate_input(&invalid_phone, &schema).is_err());
-    
+
     // Invalid country code
     let invalid_country = json!({
         "phone": "+1234567890",

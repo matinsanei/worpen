@@ -1,7 +1,11 @@
 use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug, Clone)]
-#[command(name = "worpen", version, about = "Worpen Dynamic API Engine — single binary (API + UI + CLI + MCP)")]
+#[command(
+    name = "worpen",
+    version,
+    about = "Worpen Dynamic API Engine — single binary (API + UI + CLI + MCP)"
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,
@@ -43,7 +47,11 @@ pub struct ServeArgs {
     pub host: String,
     #[arg(long, env = "PORT", default_value_t = 3000)]
     pub port: u16,
-    #[arg(long, env = "DATABASE_URL", default_value = "sqlite:worpen.db?mode=rwc")]
+    #[arg(
+        long,
+        env = "DATABASE_URL",
+        default_value = "sqlite:worpen.db?mode=rwc"
+    )]
     pub database_url: String,
     /// Data dir (routes/functions/pipelines JSON). "auto" = backend/data from repo root, ./data from backend/.
     #[arg(long, env = "DATA_DIR", default_value = "auto")]
@@ -63,9 +71,19 @@ pub enum RouteCmd {
     /// Add route from JSON/YAML file
     Add(AddRouteArgs),
     /// Export route by id
-    Export { #[arg(long)] id: String, #[command(flatten)] server: ServerRef },
+    Export {
+        #[arg(long)]
+        id: String,
+        #[command(flatten)]
+        server: ServerRef,
+    },
     /// Delete route by id
-    Delete { #[arg(long)] id: String, #[command(flatten)] server: ServerRef },
+    Delete {
+        #[arg(long)]
+        id: String,
+        #[command(flatten)]
+        server: ServerRef,
+    },
     /// Execute route by id with JSON payload
     Exec(ExecRouteArgs),
     /// Show recent execution audit entries
@@ -114,7 +132,12 @@ pub struct AuditArgs {
 pub enum FuncCmd {
     List(ServerRef),
     Add(AddFuncArgs),
-    Delete { #[arg(long)] name: String, #[command(flatten)] server: ServerRef },
+    Delete {
+        #[arg(long)]
+        name: String,
+        #[command(flatten)]
+        server: ServerRef,
+    },
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -174,7 +197,12 @@ pub enum PipeCmd {
     /// Run a pipeline by id or name
     Run(RunPipeArgs),
     /// Delete a pipeline definition
-    Delete { #[arg(long)] id: String, #[command(flatten)] server: ServerRef },
+    Delete {
+        #[arg(long)]
+        id: String,
+        #[command(flatten)]
+        server: ServerRef,
+    },
     /// Show run history
     Runs(RunsArgs),
 }

@@ -1,11 +1,11 @@
-use worpen_core::domain::{Agent, AgentStatus};
-use worpen_core::ports::AgentRepository;
-use sqlx::{SqlitePool, Row};
-use uuid::Uuid;
+use chrono::{DateTime, Utc};
+use sqlx::{Row, SqlitePool};
 use std::future::Future;
 use std::pin::Pin;
-use chrono::{DateTime, Utc};
 use std::str::FromStr;
+use uuid::Uuid;
+use worpen_core::domain::{Agent, AgentStatus};
+use worpen_core::ports::AgentRepository;
 
 #[derive(Clone)]
 pub struct SqliteAgentRepository {
@@ -28,7 +28,7 @@ impl AgentRepository for SqliteAgentRepository {
                 AgentStatus::Busy => "Busy",
                 AgentStatus::Error => "Error",
             };
-            
+
             let metadata_json = serde_json::to_value(&agent.metadata).map_err(|e| e.to_string())?;
 
             sqlx::query(
@@ -54,12 +54,15 @@ impl AgentRepository for SqliteAgentRepository {
             .execute(&pool)
             .await
             .map_err(|e| e.to_string())?;
-            
+
             Ok(())
         })
     }
 
-    fn find_by_id(&self, id: Uuid) -> Pin<Box<dyn Future<Output = Result<Option<Agent>, String>> + Send>> {
+    fn find_by_id(
+        &self,
+        id: Uuid,
+    ) -> Pin<Box<dyn Future<Output = Result<Option<Agent>, String>> + Send>> {
         let pool = self.pool.clone();
         Box::pin(async move {
             let row = sqlx::query("SELECT * FROM agents WHERE id = $1")
@@ -76,15 +79,17 @@ impl AgentRepository for SqliteAgentRepository {
                     "Error" => AgentStatus::Error,
                     _ => AgentStatus::Offline,
                 };
-                
+
                 let id_str: String = row.try_get("id").map_err(|e| e.to_string())?;
                 let id = Uuid::from_str(&id_str).map_err(|e| e.to_string())?;
 
-                let metadata_val: serde_json::Value = row.try_get("metadata").map_err(|e| e.to_string())?;
+                let metadata_val: serde_json::Value =
+                    row.try_get("metadata").map_err(|e| e.to_string())?;
                 let metadata = serde_json::from_value(metadata_val).map_err(|e| e.to_string())?;
-                
+
                 // sqlx decodes DATETIME to chrono::DateTime<Utc> automatically if feature is enabled
-                let last_heartbeat: DateTime<Utc> = row.try_get("last_heartbeat").map_err(|e| e.to_string())?;
+                let last_heartbeat: DateTime<Utc> =
+                    row.try_get("last_heartbeat").map_err(|e| e.to_string())?;
 
                 Ok(Some(Agent {
                     id,
@@ -118,14 +123,16 @@ impl AgentRepository for SqliteAgentRepository {
                     "Error" => AgentStatus::Error,
                     _ => AgentStatus::Offline,
                 };
-                
+
                 let id_str: String = row.try_get("id").map_err(|e| e.to_string())?;
                 let id = Uuid::from_str(&id_str).map_err(|e| e.to_string())?;
 
-                let metadata_val: serde_json::Value = row.try_get("metadata").map_err(|e| e.to_string())?;
+                let metadata_val: serde_json::Value =
+                    row.try_get("metadata").map_err(|e| e.to_string())?;
                 let metadata = serde_json::from_value(metadata_val).map_err(|e| e.to_string())?;
-                
-                let last_heartbeat: DateTime<Utc> = row.try_get("last_heartbeat").map_err(|e| e.to_string())?;
+
+                let last_heartbeat: DateTime<Utc> =
+                    row.try_get("last_heartbeat").map_err(|e| e.to_string())?;
 
                 agents_list.push(Agent {
                     id,

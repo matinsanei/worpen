@@ -1,8 +1,8 @@
+use crate::state::AppState;
 use axum::{
-    extract::{State, Path},
+    extract::{Path, State},
     Json,
 };
-use crate::state::AppState;
 use proto::models::Container;
 use serde_json::Value;
 use sqlx::types::chrono::Utc;
@@ -67,12 +67,15 @@ pub async fn get_container_logs(
         (status = 200, description = "Start container", body = Value)
     )
 )]
-pub async fn start_container(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> Json<Value> {
-    match state.docker_service.container_action(id.clone(), "start").await {
-        Ok(msg) => Json(serde_json::json!({"status": "STARTED", "container_id": id, "message": msg})),
+pub async fn start_container(State(state): State<AppState>, Path(id): Path<String>) -> Json<Value> {
+    match state
+        .docker_service
+        .container_action(id.clone(), "start")
+        .await
+    {
+        Ok(msg) => {
+            Json(serde_json::json!({"status": "STARTED", "container_id": id, "message": msg}))
+        }
         Err(e) => Json(serde_json::json!({"error": e})),
     }
 }
@@ -84,12 +87,15 @@ pub async fn start_container(
         (status = 200, description = "Stop container", body = Value)
     )
 )]
-pub async fn stop_container(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> Json<Value> {
-    match state.docker_service.container_action(id.clone(), "stop").await {
-        Ok(msg) => Json(serde_json::json!({"status": "STOPPED", "container_id": id, "message": msg})),
+pub async fn stop_container(State(state): State<AppState>, Path(id): Path<String>) -> Json<Value> {
+    match state
+        .docker_service
+        .container_action(id.clone(), "stop")
+        .await
+    {
+        Ok(msg) => {
+            Json(serde_json::json!({"status": "STOPPED", "container_id": id, "message": msg}))
+        }
         Err(e) => Json(serde_json::json!({"error": e})),
     }
 }
@@ -105,8 +111,14 @@ pub async fn restart_container(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Json<Value> {
-    match state.docker_service.container_action(id.clone(), "restart").await {
-        Ok(msg) => Json(serde_json::json!({"status": "RESTARTED", "container_id": id, "message": msg})),
+    match state
+        .docker_service
+        .container_action(id.clone(), "restart")
+        .await
+    {
+        Ok(msg) => {
+            Json(serde_json::json!({"status": "RESTARTED", "container_id": id, "message": msg}))
+        }
         Err(e) => Json(serde_json::json!({"error": e})),
     }
 }
@@ -168,10 +180,7 @@ pub async fn list_images(State(_state): State<AppState>) -> Json<Value> {
         (status = 200, description = "Pull container image", body = Value)
     )
 )]
-pub async fn pull_image(
-    State(_state): State<AppState>,
-    Json(payload): Json<Value>,
-) -> Json<Value> {
+pub async fn pull_image(State(_state): State<AppState>, Json(payload): Json<Value>) -> Json<Value> {
     let image = payload["image"].as_str().unwrap_or("unknown");
     Json(serde_json::json!({
         "status": "PULLED",

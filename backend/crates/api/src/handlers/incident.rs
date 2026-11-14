@@ -1,8 +1,8 @@
+use crate::state::AppState;
 use axum::{
-    extract::{State, Path},
+    extract::{Path, State},
     Json,
 };
-use crate::state::AppState;
 use proto::models::Incident;
 use serde_json::Value;
 
@@ -27,8 +27,12 @@ pub async fn resolve_incident(
 ) -> Json<Value> {
     let method = payload["method"].as_str().unwrap_or("MANUAL").to_string();
     let notes = payload["notes"].as_str().unwrap_or("").to_string();
-    
-    match state.incident_service.resolve_incident(id, method, notes).await {
+
+    match state
+        .incident_service
+        .resolve_incident(id, method, notes)
+        .await
+    {
         Ok(_) => Json(serde_json::json!({"status": "RESOLVED"})),
         Err(e) => Json(serde_json::json!({"error": e})),
     }

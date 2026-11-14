@@ -8,7 +8,7 @@ pub async fn initialize_db(database_url: &str) -> Result<SqlitePool, sqlx::Error
         .await?;
 
     match sqlx::migrate!("../../migrations").run(&pool).await {
-        Ok(()) => {},
+        Ok(()) => {}
         // The DB was created with an older copy of the migration files
         // (checksum drift, e.g. line endings). Tables already exist with the
         // same schema, so warn and continue instead of crashing startup.

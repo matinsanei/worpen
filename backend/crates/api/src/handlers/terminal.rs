@@ -1,8 +1,11 @@
+use crate::state::AppState;
 use axum::{
-    extract::{Path, State, ws::{WebSocket, WebSocketUpgrade, Message}},
+    extract::{
+        ws::{Message, WebSocket, WebSocketUpgrade},
+        Path, State,
+    },
     response::Response,
 };
-use crate::state::AppState;
 use futures::{sink::SinkExt, stream::StreamExt};
 
 /// WebSocket endpoint for interactive container terminal
@@ -16,9 +19,9 @@ pub async fn container_terminal_ws(
 
 async fn handle_container_terminal(socket: WebSocket, container_id: String) {
     let (mut sender, mut receiver) = socket.split();
-    
+
     let session_id = uuid::Uuid::new_v4().to_string();
-    
+
     // Send welcome message
     let welcome = serde_json::json!({
         "type": "connected",
@@ -26,28 +29,42 @@ async fn handle_container_terminal(socket: WebSocket, container_id: String) {
         "container_id": container_id,
         "message": format!("Connected to container: {}", container_id)
     });
-    
-    if sender.send(Message::Text(welcome.to_string())).await.is_err() {
+
+    if sender
+        .send(Message::Text(welcome.to_string()))
+        .await
+        .is_err()
+    {
         return;
     }
-    
+
     // Send mock prompt
-    let _ = sender.send(Message::Text(serde_json::json!({
-        "type": "output",
-        "data": format!("root@{}:/# ", container_id)
-    }).to_string())).await;
-    
+    let _ = sender
+        .send(Message::Text(
+            serde_json::json!({
+                "type": "output",
+                "data": format!("root@{}:/# ", container_id)
+            })
+            .to_string(),
+        ))
+        .await;
+
     // Handle incoming messages
     while let Some(msg) = receiver.next().await {
         if let Ok(msg) = msg {
             match msg {
                 Message::Text(text) => {
                     // Echo command
-                    let _ = sender.send(Message::Text(serde_json::json!({
-                        "type": "echo",
-                        "data": text.clone()
-                    }).to_string())).await;
-                    
+                    let _ = sender
+                        .send(Message::Text(
+                            serde_json::json!({
+                                "type": "echo",
+                                "data": text.clone()
+                            })
+                            .to_string(),
+                        ))
+                        .await;
+
                     // Mock command execution
                     let response = match text.trim() {
                         "ls" => "bin  boot  dev  etc  home  lib  media  mnt  opt  proc  root  run  sbin  srv  sys  tmp  usr  var",
@@ -63,13 +80,18 @@ async fn handle_container_terminal(socket: WebSocket, container_id: String) {
                         cmd if cmd.starts_with("echo ") => &cmd[5..],
                         _ => &format!("bash: {}: command not found", text.trim())
                     };
-                    
+
                     // Send response
-                    let _ = sender.send(Message::Text(serde_json::json!({
-                        "type": "output",
-                        "data": format!("{}\nroot@{}:/# ", response, container_id)
-                    }).to_string())).await;
-                },
+                    let _ = sender
+                        .send(Message::Text(
+                            serde_json::json!({
+                                "type": "output",
+                                "data": format!("{}\nroot@{}:/# ", response, container_id)
+                            })
+                            .to_string(),
+                        ))
+                        .await;
+                }
                 Message::Close(_) => break,
                 _ => {}
             }
@@ -88,9 +110,9 @@ pub async fn agent_terminal_ws(
 
 async fn handle_agent_terminal(socket: WebSocket, agent_id: String) {
     let (mut sender, mut receiver) = socket.split();
-    
+
     let session_id = uuid::Uuid::new_v4().to_string();
-    
+
     // Send welcome message
     let welcome = serde_json::json!({
         "type": "connected",
@@ -98,28 +120,42 @@ async fn handle_agent_terminal(socket: WebSocket, agent_id: String) {
         "agent_id": agent_id,
         "message": format!("Connected to agent: {}", agent_id)
     });
-    
-    if sender.send(Message::Text(welcome.to_string())).await.is_err() {
+
+    if sender
+        .send(Message::Text(welcome.to_string()))
+        .await
+        .is_err()
+    {
         return;
     }
-    
+
     // Send mock prompt
-    let _ = sender.send(Message::Text(serde_json::json!({
-        "type": "output",
-        "data": format!("worpen@agent-{}:~$ ", agent_id)
-    }).to_string())).await;
-    
+    let _ = sender
+        .send(Message::Text(
+            serde_json::json!({
+                "type": "output",
+                "data": format!("worpen@agent-{}:~$ ", agent_id)
+            })
+            .to_string(),
+        ))
+        .await;
+
     // Handle incoming messages
     while let Some(msg) = receiver.next().await {
         if let Ok(msg) = msg {
             match msg {
                 Message::Text(text) => {
                     // Echo command
-                    let _ = sender.send(Message::Text(serde_json::json!({
-                        "type": "echo",
-                        "data": text.clone()
-                    }).to_string())).await;
-                    
+                    let _ = sender
+                        .send(Message::Text(
+                            serde_json::json!({
+                                "type": "echo",
+                                "data": text.clone()
+                            })
+                            .to_string(),
+                        ))
+                        .await;
+
                     // Mock command execution
                     let response = match text.trim() {
                         "ls" => "Desktop  Documents  Downloads  Pictures  Videos  worpen",
@@ -139,13 +175,18 @@ async fn handle_agent_terminal(socket: WebSocket, agent_id: String) {
                         cmd if cmd.starts_with("echo ") => &cmd[5..],
                         _ => &format!("bash: {}: command not found", text.trim())
                     };
-                    
+
                     // Send response
-                    let _ = sender.send(Message::Text(serde_json::json!({
-                        "type": "output",
-                        "data": format!("{}\nworpen@agent-{}:~$ ", response, agent_id)
-                    }).to_string())).await;
-                },
+                    let _ = sender
+                        .send(Message::Text(
+                            serde_json::json!({
+                                "type": "output",
+                                "data": format!("{}\nworpen@agent-{}:~$ ", response, agent_id)
+                            })
+                            .to_string(),
+                        ))
+                        .await;
+                }
                 Message::Close(_) => break,
                 _ => {}
             }

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 use std::collections::HashMap;
+use utoipa::ToSchema;
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
@@ -23,7 +23,7 @@ pub enum HttpMethod {
 pub enum LogicOperation {
     // Data Operations
     #[serde(rename = "return")]
-    Return { 
+    Return {
         value: serde_json::Value,
         #[serde(skip_serializing_if = "Option::is_none")]
         status: Option<u16>,
@@ -32,117 +32,181 @@ pub enum LogicOperation {
         #[serde(skip_serializing_if = "Option::is_none")]
         raw: Option<bool>,
     },
-    
+
     #[serde(rename = "comment")]
     Comment { text: String },
-    
+
     #[serde(rename = "query_db")]
-    QueryDb { query: String, params: Vec<serde_json::Value> },
-    
-    #[serde(rename = "sql_op")]
-    SqlOp { query: String, args: Vec<serde_json::Value>, output_var: String },
-    
-    #[serde(rename = "redis_op")]
-    RedisOp { 
-        command: String,  // "GET", "SET", "DEL", "EXPIRE", "INCR", "DECR"
-        key: String,      // Target key (supports {{vars}})
-        value: Option<String>, // Value for SET (supports {{vars}})
-        ttl_seconds: Option<u64>, // For EXPIRE or SETEX
-        output_var: Option<String> // Where to store result
+    QueryDb {
+        query: String,
+        params: Vec<serde_json::Value>,
     },
-    
+
+    #[serde(rename = "sql_op")]
+    SqlOp {
+        query: String,
+        args: Vec<serde_json::Value>,
+        output_var: String,
+    },
+
+    #[serde(rename = "redis_op")]
+    RedisOp {
+        command: String,            // "GET", "SET", "DEL", "EXPIRE", "INCR", "DECR"
+        key: String,                // Target key (supports {{vars}})
+        value: Option<String>,      // Value for SET (supports {{vars}})
+        ttl_seconds: Option<u64>,   // For EXPIRE or SETEX
+        output_var: Option<String>, // Where to store result
+    },
+
     #[serde(rename = "ws_op")]
     WsOp {
-        command: String,  // "send" | "broadcast"
-        message: String,  // Message to send (supports {{vars}})
+        command: String,         // "send" | "broadcast"
+        message: String,         // Message to send (supports {{vars}})
         channel: Option<String>, // Optional channel for targeted broadcast
     },
-    
+
     #[serde(rename = "http_request")]
-    HttpRequest { url: String, method: String, body: Option<serde_json::Value>, headers: Option<HashMap<String, String>>, timeout_ms: Option<u64> },
-    
+    HttpRequest {
+        url: String,
+        method: String,
+        body: Option<serde_json::Value>,
+        headers: Option<HashMap<String, String>>,
+        timeout_ms: Option<u64>,
+    },
+
     // Control Flow - Basic
     #[serde(rename = "if")]
-    If { condition: String, then: Vec<LogicOperation>, otherwise: Option<Vec<LogicOperation>> },
-    
+    If {
+        condition: String,
+        then: Vec<LogicOperation>,
+        otherwise: Option<Vec<LogicOperation>>,
+    },
+
     #[serde(rename = "loop")]
-    Loop { collection: String, var: String, body: Vec<LogicOperation> },
-    
+    Loop {
+        collection: String,
+        var: String,
+        body: Vec<LogicOperation>,
+    },
+
     // Control Flow - Advanced
     #[serde(rename = "switch")]
-    Switch { value: String, cases: Vec<SwitchCase>, default: Option<Vec<LogicOperation>> },
-    
+    Switch {
+        value: String,
+        cases: Vec<SwitchCase>,
+        default: Option<Vec<LogicOperation>>,
+    },
+
     #[serde(rename = "while")]
-    While { condition: String, body: Vec<LogicOperation>, max_iterations: Option<u32> },
-    
+    While {
+        condition: String,
+        body: Vec<LogicOperation>,
+        max_iterations: Option<u32>,
+    },
+
     #[serde(rename = "break")]
     Break,
-    
+
     #[serde(rename = "continue")]
     Continue,
-    
+
     // Error Handling
     #[serde(rename = "try")]
-    Try { body: Vec<LogicOperation>, catch: Vec<LogicOperation>, finally: Option<Vec<LogicOperation>> },
-    
+    Try {
+        body: Vec<LogicOperation>,
+        catch: Vec<LogicOperation>,
+        finally: Option<Vec<LogicOperation>>,
+    },
+
     #[serde(rename = "throw")]
-    Throw { message: String, code: Option<String> },
-    
+    Throw {
+        message: String,
+        code: Option<String>,
+    },
+
     // Parallel Execution
     #[serde(rename = "parallel")]
-    Parallel { tasks: Vec<Vec<LogicOperation>>, max_concurrent: Option<usize> },
-    
+    Parallel {
+        tasks: Vec<Vec<LogicOperation>>,
+        max_concurrent: Option<usize>,
+    },
+
     #[serde(rename = "await_all")]
     AwaitAll { task_ids: Vec<String> },
-    
+
     // Function Operations
     #[serde(rename = "define_function")]
-    DefineFunction { name: String, params: Vec<String>, body: Vec<LogicOperation> },
-    
+    DefineFunction {
+        name: String,
+        params: Vec<String>,
+        body: Vec<LogicOperation>,
+    },
+
     #[serde(rename = "call_function")]
-    CallFunction { name: String, args: Vec<serde_json::Value>, output_var: String },
-    
+    CallFunction {
+        name: String,
+        args: Vec<serde_json::Value>,
+        output_var: String,
+    },
+
     // Data Transformations
     #[serde(rename = "map")]
     Map { input: String, transform: String },
-    
+
     #[serde(rename = "filter")]
     Filter { input: String, condition: String },
-    
+
     #[serde(rename = "aggregate")]
     Aggregate { input: String, operation: String }, // sum, count, avg, min, max
-    
+
     // Variable Operations
     #[serde(rename = "set")]
-    Set { var: String, value: serde_json::Value },
-    
+    Set {
+        var: String,
+        value: serde_json::Value,
+    },
+
     #[serde(rename = "get")]
     Get { var: String },
-    
+
     // Helper Functions
     #[serde(rename = "string_op")]
-    StringOp { operation: String, input: String, args: Vec<serde_json::Value> }, // split, join, upper, lower, trim, replace, regex_match
-    
+    StringOp {
+        operation: String,
+        input: String,
+        args: Vec<serde_json::Value>,
+    }, // split, join, upper, lower, trim, replace, regex_match
+
     #[serde(rename = "math_op")]
-    MathOp { operation: String, args: Vec<serde_json::Value> }, // sum, avg, min, max, round, ceil, floor, abs, pow, sqrt
-    
+    MathOp {
+        operation: String,
+        args: Vec<serde_json::Value>,
+    }, // sum, avg, min, max, round, ceil, floor, abs, pow, sqrt
+
     #[serde(rename = "date_op")]
-    DateOp { operation: String, args: Vec<serde_json::Value> }, // now, parse, format, add, diff
-    
+    DateOp {
+        operation: String,
+        args: Vec<serde_json::Value>,
+    }, // now, parse, format, add, diff
+
     #[serde(rename = "json_op")]
-    JsonOp { operation: String, input: String, args: Vec<serde_json::Value> }, // parse, stringify, merge, get_path, set_path
-    
+    JsonOp {
+        operation: String,
+        input: String,
+        args: Vec<serde_json::Value>,
+    }, // parse, stringify, merge, get_path, set_path
+
     // Logging & Debugging
     #[serde(rename = "log")]
     Log { level: String, message: String },
-    
+
     #[serde(rename = "sleep")]
     Sleep { duration_ms: u64 },
-    
+
     // Custom Script Execution
     #[serde(rename = "execute_script")]
     ExecuteScript { language: String, code: String },
-    
+
     // Custom Operations (for user-defined extensions)
     #[serde(untagged)]
     CustomOp(HashMap<String, serde_json::Value>),
@@ -198,11 +262,21 @@ pub struct SandboxPolicy {
     pub max_variables: usize,
 }
 
-fn default_true() -> bool { true }
-fn default_timeout() -> u64 { 10_000 }
-fn default_max_sleep() -> u64 { 5_000 }
-fn default_max_iters() -> u32 { 1000 }
-fn default_max_vars() -> usize { 5000 }
+fn default_true() -> bool {
+    true
+}
+fn default_timeout() -> u64 {
+    10_000
+}
+fn default_max_sleep() -> u64 {
+    5_000
+}
+fn default_max_iters() -> u32 {
+    1000
+}
+fn default_max_vars() -> usize {
+    5000
+}
 
 impl Default for SandboxPolicy {
     fn default() -> Self {

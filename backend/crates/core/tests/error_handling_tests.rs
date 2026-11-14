@@ -12,11 +12,11 @@
 
 #[cfg(test)]
 mod error_handling_tests {
-    use worpen_core::parsers::route_parser::parse_route;
-    use worpen_core::expression::{Tokenizer, Parser, Evaluator};
-    use worpen_core::validation::validate_input;
     use serde_json::{json, Value};
     use std::collections::HashMap;
+    use worpen_core::expression::{Evaluator, Parser, Tokenizer};
+    use worpen_core::parsers::route_parser::parse_route;
+    use worpen_core::validation::validate_input;
 
     // ========== Parse Errors ==========
 
@@ -79,7 +79,7 @@ method: GET
         let expr = "a ++ b";
         let mut tokenizer = Tokenizer::new(expr);
         let tokens_result = tokenizer.tokenize();
-        
+
         if let Ok(tokens) = tokens_result {
             let mut parser = Parser::new(tokens);
             let result = parser.parse();
@@ -94,11 +94,11 @@ method: GET
         let tokens = tokenizer.tokenize().unwrap();
         let mut parser = Parser::new(tokens);
         let ast = parser.parse().unwrap();
-        
+
         let context: HashMap<String, Value> = HashMap::new();
         let evaluator = Evaluator::with_variables(context);
         let result = evaluator.evaluate(&ast);
-        
+
         // Should error or return Infinity
         assert!(result.is_err() || result.unwrap() == json!(f64::INFINITY));
     }
@@ -110,11 +110,11 @@ method: GET
         let tokens = tokenizer.tokenize().unwrap();
         let mut parser = Parser::new(tokens);
         let ast = parser.parse().unwrap();
-        
+
         let context: HashMap<String, Value> = HashMap::new();
         let evaluator = Evaluator::with_variables(context);
         let result = evaluator.evaluate(&ast);
-        
+
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(err.contains("Undefined variable"));
@@ -127,13 +127,13 @@ method: GET
         let tokens = tokenizer.tokenize().unwrap();
         let mut parser = Parser::new(tokens);
         let ast = parser.parse().unwrap();
-        
+
         let mut context = HashMap::new();
         context.insert("text".to_string(), json!("hello"));
-        
+
         let evaluator = Evaluator::with_variables(context);
         let result = evaluator.evaluate(&ast);
-        
+
         // Should either coerce or error
         assert!(result.is_ok() || result.is_err());
     }
@@ -145,14 +145,14 @@ method: GET
         let tokens = tokenizer.tokenize().unwrap();
         let mut parser = Parser::new(tokens);
         let ast = parser.parse().unwrap();
-        
+
         let mut context = HashMap::new();
         context.insert("a".to_string(), json!(1));
         context.insert("b".to_string(), json!(2));
-        
+
         let evaluator = Evaluator::with_variables(context);
         let result = evaluator.evaluate(&ast);
-        
+
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(err.contains("Undefined function"));
@@ -165,13 +165,13 @@ method: GET
         let tokens = tokenizer.tokenize().unwrap();
         let mut parser = Parser::new(tokens);
         let ast = parser.parse().unwrap();
-        
+
         let mut context = HashMap::new();
         context.insert("a".to_string(), json!(10));
-        
+
         let evaluator = Evaluator::with_variables(context);
         let result = evaluator.evaluate(&ast);
-        
+
         // max() with 1 arg is ok, returns that arg
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), json!(10.0));
@@ -184,15 +184,16 @@ method: GET
         let tokens = tokenizer.tokenize().unwrap();
         let mut parser = Parser::new(tokens);
         let ast = parser.parse().unwrap();
-        
+
         let mut context = HashMap::new();
         context.insert("name".to_string(), json!("test"));
-        
+
         let evaluator = Evaluator::with_variables(context);
         let result = evaluator.evaluate(&ast);
-        
+
         assert!(result.is_err());
-        let err = result.unwrap_err(); assert!(err.contains("Unknown filter") || err.contains("not found"));
+        let err = result.unwrap_err();
+        assert!(err.contains("Unknown filter") || err.contains("not found"));
     }
 
     #[test]
@@ -202,13 +203,13 @@ method: GET
         let tokens = tokenizer.tokenize().unwrap();
         let mut parser = Parser::new(tokens);
         let ast = parser.parse().unwrap();
-        
+
         let mut context = HashMap::new();
         context.insert("number".to_string(), json!(42));
-        
+
         let evaluator = Evaluator::with_variables(context);
         let result = evaluator.evaluate(&ast);
-        
+
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(err.contains("string") || err.contains("type"));
@@ -375,10 +376,10 @@ method: GET
         for _ in 0..1000 {
             expr.push_str(" + 1");
         }
-        
+
         let mut tokenizer = Tokenizer::new(&expr);
         let result = tokenizer.tokenize();
-        
+
         // Should handle or error gracefully
         assert!(result.is_ok() || result.is_err());
     }
@@ -389,10 +390,10 @@ method: GET
         for _ in 0..100 {
             expr = format!("({} + 1)", expr);
         }
-        
+
         let mut tokenizer = Tokenizer::new(&expr);
         let tokens_result = tokenizer.tokenize();
-        
+
         if let Ok(tokens) = tokens_result {
             let mut parser = Parser::new(tokens);
             let result = parser.parse();
@@ -406,7 +407,7 @@ method: GET
         let expr = "";
         let mut tokenizer = Tokenizer::new(expr);
         let result = tokenizer.tokenize();
-        
+
         assert!(result.is_ok());
         // Tokenizer includes EOF token
         assert_eq!(result.unwrap().len(), 1);
@@ -417,7 +418,7 @@ method: GET
         let expr = "   \t\n  ";
         let mut tokenizer = Tokenizer::new(expr);
         let result = tokenizer.tokenize();
-        
+
         assert!(result.is_ok());
         // Tokenizer includes EOF token
         assert_eq!(result.unwrap().len(), 1);
@@ -439,13 +440,13 @@ method: GET
         let tokens = tokenizer.tokenize().unwrap();
         let mut parser = Parser::new(tokens);
         let ast = parser.parse().unwrap();
-        
+
         let mut context = HashMap::new();
         context.insert("name".to_string(), json!("你好"));
-        
+
         let evaluator = Evaluator::with_variables(context);
         let result = evaluator.evaluate(&ast);
-        
+
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), json!(true));
     }
@@ -457,13 +458,13 @@ method: GET
         let tokens = tokenizer.tokenize().unwrap();
         let mut parser = Parser::new(tokens);
         let ast = parser.parse().unwrap();
-        
+
         let mut context = HashMap::new();
         context.insert("value".to_string(), json!(null));
-        
+
         let evaluator = Evaluator::with_variables(context);
         let result = evaluator.evaluate(&ast);
-        
+
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), json!(true));
     }
@@ -484,11 +485,11 @@ method: GET
             let tokens = tokenizer.tokenize().unwrap();
             let mut parser = Parser::new(tokens);
             let ast = parser.parse().unwrap();
-            
+
             let context: HashMap<String, Value> = HashMap::new();
             let evaluator = Evaluator::with_variables(context);
             let result = evaluator.evaluate(&ast).unwrap();
-            
+
             assert_eq!(result, json!(expected), "Failed for expression: {}", expr);
         }
     }
@@ -501,10 +502,10 @@ method: GET
         let tokens = tokenizer.tokenize().unwrap();
         let mut parser = Parser::new(tokens);
         let ast = parser.parse().unwrap();
-        
+
         let evaluator = Evaluator::new();
         let result = evaluator.evaluate(&ast);
-        
+
         // Should return false (strict comparison)
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), json!(false));
@@ -517,11 +518,11 @@ method: GET
         let tokens = tokenizer.tokenize().unwrap();
         let mut parser = Parser::new(tokens);
         let ast = parser.parse().unwrap();
-        
+
         let _context: HashMap<String, Value> = HashMap::new();
         let evaluator = Evaluator::new();
         let result = evaluator.evaluate(&ast);
-        
+
         // Should handle large numbers or overflow gracefully
         assert!(result.is_ok() || result.is_err());
     }
@@ -533,11 +534,9 @@ method: GET
         let tokens = tokenizer.tokenize().unwrap();
         let mut parser = Parser::new(tokens);
         let ast = parser.parse().unwrap();
-        
+
         let evaluator = Evaluator::new();
         let result = evaluator.evaluate(&ast).unwrap();
         assert_eq!(result, json!(true));
     }
 }
-
-
