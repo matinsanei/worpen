@@ -75,11 +75,11 @@ Ordered strictly by the 10 Phases of the Worpen Action Plane Mission.
 
 ## Phase 7 — MCP Quality
 *Goal: Tool annotations, identity filtering, structured errors, approval tools, client compatibility.*
-- [ ] **TASK-7.1:** MCP tool annotations (`readOnly`, `destructive`, `idempotent` hints).
-- [ ] **TASK-7.2:** Identity-based `tools/list` filtering based on caller credentials and permissions.
-- [ ] **TASK-7.3:** Structured agent-friendly error format: `{code, message, hint, retryable, fields}`.
-- [ ] **TASK-7.4:** Built-in MCP management tools: `get_run`, `list_pending_approvals`.
-- [ ] **TASK-7.5:** Compatibility integration tests against real MCP client scenarios; exportable configs for Claude Desktop, Cursor, and VS Code.
+- [x] **TASK-7.1:** MCP tool annotations (`readOnly`, `destructive`, `idempotent` hints).
+- [x] **TASK-7.2:** Identity-based `tools/list` filtering based on caller credentials and permissions.
+- [x] **TASK-7.3:** Structured agent-friendly error format: `{code, message, hint, retryable, fields}`.
+- [x] **TASK-7.4:** Built-in MCP management tools: `get_run`, `list_pending_approvals`, `approve_run`, `verify_audit`.
+- [x] **TASK-7.5:** Compatibility integration tests against real MCP client scenarios; exportable configs for Claude Desktop, Cursor, and VS Code.
 
 ---
 

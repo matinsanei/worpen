@@ -7,6 +7,10 @@ edition = "2021"
 name = "worpen"
 path = "src/main.rs"
 
+[lib]
+name = "api"
+path = "src/lib.rs"
+
 [dependencies]
 worpen-core = { path = "../core" }
 infra = { path = "../infra" }

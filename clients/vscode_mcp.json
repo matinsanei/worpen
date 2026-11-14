@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "worpen": {
+      "command": "worpen",
+      "args": ["mcp", "serve-stdio"],
+      "env": {
+        "DATA_DIR": "./data",
+        "DATABASE_URL": "sqlite:worpen.db?mode=rwc"
+      }
+    }
+  }
+}

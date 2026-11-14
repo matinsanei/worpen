@@ -87,5 +87,18 @@
   7. Expose REST endpoints `GET /api/v1/audit/verify` and `GET /api/v1/audit/export?format=jsonl|cef|otel`.
 - **Consequences:** Provides mathematical proof of audit trail integrity and seamless ingestion into enterprise SIEMs (Splunk, Datadog, Elastic).
 
+## ADR-0010: Enterprise MCP Protocol Quality, Tool Annotations, and Agent Errors
+- **Date:** 2026-11-14
+- **Status:** Accepted
+- **Context:** AI agents interacting via the Model Context Protocol (MCP) require accurate tool risk hints (`readOnly`, `destructive`, `idempotent`), identity/role-based tool filtering, structured error handling with actionable recovery hints, and first-class tools for durable workflow runs and human approval gates.
+- **Decision:**
+  1. Add standard tool annotations (`readOnly`, `destructive`, `idempotent`) across all exposed dynamic routes, pipelines, workflows, and built-in management tools.
+  2. Implement caller identity and role-based filtering (`X-Agent-Role`, e.g. `read_only_analyst` filtering out non-readOnly tools).
+  3. Expose built-in MCP management tools: `get_run`, `list_pending_approvals`, `approve_run`, `reject_run`, and `verify_audit`.
+  4. Standardize agent errors into structured `McpAgentError` format (`{ code, message, hint, retryable, fields }`), enabling autonomous agents to distinguish between permanent policy rejections, missing arguments, and approval gates.
+  5. Provide out-of-the-box client configurations for Claude Desktop, Cursor, and VS Code.
+- **Consequences:** Makes Worpen a top-tier MCP server for Claude, Cursor, and autonomous agent frameworks with zero guessing, clear risk boundaries, and first-class human approval handling.
+
+
 
 

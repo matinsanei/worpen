@@ -2,6 +2,20 @@
 
 ## [Unreleased] - 2026-11-14 (Enterprise Action Plane Loop)
 
+### 🤖 MCP Quality & Agent Tooling (Phase 7)
+- **Standard Tool Annotations:**
+  - Added `readOnly`, `destructive`, and `idempotent` hints across dynamic routes, pipelines, workflows, and built-in management tools.
+- **Identity & Role-Based Filtering:**
+  - Dynamic tool filtering in `tools/list` based on caller role (`X-Agent-Role`, e.g. `read_only_analyst` filtering out mutating tools) and token authentication.
+- **Built-in Workflow & Approval Management Tools:**
+  - Added `get_run`, `list_pending_approvals`, `approve_run`, `reject_run`, and `verify_audit` to MCP server for both HTTP and STDIO modes.
+- **Structured Agent-Friendly Errors:**
+  - Standardized error envelopes with `{ code, message, hint, retryable, fields }` returned in both text payloads and typed `structuredError` objects.
+- **Ready-to-Use Client Configurations:**
+  - Added exportable client configs for Claude Desktop (`clients/claude_desktop_config.json`), Cursor (`clients/cursor_mcp.json`, `.cursor/mcp.json`), and VS Code (`clients/vscode_mcp.json`).
+- **MCP Test Suite:**
+  - Created `backend/crates/api/tests/mcp_test.rs` validating initialize/ping, annotations, identity filtering, structured errors, and an end-to-end workflow pause, pending approval inspection, approval resume, and audit verification cycle.
+
 ### 🔗 Tamper-Evident Audit & Verification (Phase 6)
 - **Hash-Chained Audit Trail (`worpen-core::audit::chain`):**
   - Cryptographically chained audit logging where each record computes a SHA-256 hash over canonical fields: `index`, `timestamp`, `prev_hash`, `action`, `actor`, `route_or_workflow`, `details`, and `policy_decision`.
