@@ -168,3 +168,76 @@ fn test_vm_sql() {
         }
     });
 }
+
+#[tokio::test]
+async fn test_dynamic_route_service_with_sql() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    sqlx::query("CREATE TABLE orders (id INTEGER PRIMARY KEY, total REAL)")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO orders (id, total) VALUES (42, 99.50)")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let data_dir = format!("target/test_data_sql_{}", uuid::Uuid::new_v4());
+    let mut service = worpen_core::services::DynamicRouteService::with_data_dir(data_dir);
+    service.set_db_pool(pool);
+
+    let route = proto::models::RouteDefinition {
+        id: "refund_lookup".to_string(),
+        name: "refund_lookup".to_string(),
+        description: "Lookup order total".to_string(),
+        path: "/api/orders/lookup".to_string(),
+        method: proto::models::HttpMethod::POST,
+        route_type: proto::models::RouteType::Http,
+        parameters: vec![],
+        response_schema: None,
+        auth_required: false,
+        rate_limit: None,
+        enabled: true,
+        version: "1.0.0".to_string(),
+        created_at: "2026-11-14T00:00:00Z".to_string(),
+        updated_at: "2026-11-14T00:00:00Z".to_string(),
+        created_by: "system".to_string(),
+        ws_hooks: None,
+        sandbox: Some(proto::models::SandboxPolicy {
+            allow_sql: true,
+            ..Default::default()
+        }),
+        logic: vec![
+            LogicOperation::Set {
+                var: "order_id".to_string(),
+                value: serde_json::json!(42),
+            },
+            LogicOperation::SqlOp {
+                query: "SELECT total FROM orders WHERE id = ?".to_string(),
+                args: vec![serde_json::json!("{{order_id}}")],
+                output_var: "order_rows".to_string(),
+            },
+            LogicOperation::Return {
+                value: serde_json::json!("{{order_rows}}"),
+                status: None,
+                headers: None,
+                raw: None,
+            },
+        ],
+    };
+
+    service.register_route(route).await.unwrap();
+    let res = service
+        .execute_route(
+            "refund_lookup",
+            None,
+            std::collections::HashMap::new(),
+            std::collections::HashMap::new(),
+        )
+        .await
+        .unwrap();
+
+    assert!(res.is_array());
+    let arr = res.as_array().unwrap();
+    assert_eq!(arr.len(), 1);
+    assert_eq!(arr[0]["total"], 99.5);
+}

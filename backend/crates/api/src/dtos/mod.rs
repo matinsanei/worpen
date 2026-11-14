@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use utoipa::ToSchema;
 
+#[allow(dead_code)]
 #[derive(Deserialize, ToSchema)]
 pub struct RegisterAgentRequest {
     #[schema(example = "agent-01")]
@@ -11,6 +12,7 @@ pub struct RegisterAgentRequest {
     pub version: String,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, ToSchema)]
 pub struct TelemetryRequest {
     #[schema(value_type = String, example = "550e8400-e29b-41d4-a716-446655440000")]

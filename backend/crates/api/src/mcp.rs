@@ -221,9 +221,13 @@ async fn call_tool(
 pub async fn serve_stdio() -> Result<(), String> {
     use tokio::io::{AsyncBufReadExt, BufReader};
     let data_dir = std::env::var("DATA_DIR").unwrap_or_else(|_| "data".to_string());
-    let svc = std::sync::Arc::new(worpen_core::services::DynamicRouteService::with_data_dir(
-        data_dir,
-    ));
+    let db_url =
+        std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite:worpen.db?mode=rwc".to_string());
+    let mut svc_raw = worpen_core::services::DynamicRouteService::with_data_dir(data_dir);
+    if let Ok(pool) = infra::initialize_db(&db_url).await {
+        svc_raw.set_db_pool(pool);
+    }
+    let svc = std::sync::Arc::new(svc_raw);
     let pipes = std::sync::Arc::new(worpen_core::services::PipelineService::with_executor(
         svc.clone(),
     ));

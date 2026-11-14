@@ -639,10 +639,7 @@ impl DynamicRouteService {
                                 timeout_ms
                             )
                         })?;
-                match vm_res {
-                    Ok(v) => Ok(v),
-                    Err(_) => run_interpreter(payload, path_params, query_params).await,
-                }
+                vm_res
             } else {
                 run_interpreter(payload, path_params, query_params).await
             }

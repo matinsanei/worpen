@@ -4,21 +4,21 @@ Ordered strictly by the 10 Phases of the Worpen Action Plane Mission.
 
 ---
 
-## Phase 0 — Audit & Groundwork (CURRENT)
+## Phase 0 — Audit & Groundwork (COMPLETED)
 - [x] **TASK-0.1:** Codebase inspection & claim verification matrix (`AUDIT.md`).
-- [ ] **TASK-0.2:** Remove fabricated benchmark charts and unverified claims from `README.md`.
-- [ ] **TASK-0.3:** Establish `STATE.md`, `BACKLOG.md`, `DECISIONS.md`.
-- [ ] **TASK-0.4:** Fix critical substring match vulnerability in `is_host_allowed`.
+- [x] **TASK-0.2:** Remove fabricated benchmark charts and unverified claims from `README.md`.
+- [x] **TASK-0.3:** Establish `STATE.md`, `BACKLOG.md`, `DECISIONS.md`.
+- [x] **TASK-0.4:** Fix critical substring match vulnerability in `is_host_allowed`.
 
 ---
 
-## Phase 1 — Focus
+## Phase 1 — Focus (COMPLETED)
 *Goal: Freeze/remove non-core features from default build (WebSocket, ONNX, WASM, JIT, container/agent daemon, builder UI). Keep only: workflow engine, MCP server (STDIO + HTTP), CLI, minimal run/approval/audit UI.*
-- [ ] **TASK-1.1:** Deprecate/freeze legacy endpoints in `api/src/main.rs` (`/api/v1/containers/*`, `/api/v1/agents/*`, `/api/v1/terminal/*`, `/api/v1/docker/*`, `/api/v1/incidents/*`).
-- [ ] **TASK-1.2:** Freeze WebSocket transport (`/api/ws/*`, `ws_handler`, `dynamic_ws_handler`) and remove unused WebSocket VM opcodes or mark dormant.
-- [ ] **TASK-1.3:** Remove/freeze unmaintained roadmap items (WASM logic blocks, ONNX nodes, Cranelift JIT) from documentation.
-- [ ] **TASK-1.4:** Pass database pool to `mcp::serve_stdio` so SQL operations work out-of-the-box in STDIO mode without crashing.
-- [ ] **TASK-1.5:** Ensure `cargo clippy --all-targets -- -D warnings` and `cargo test` pass cleanly.
+- [x] **TASK-1.1:** Deprecate/freeze legacy endpoints in `api/src/main.rs` (`/api/v1/containers/*`, `/api/v1/agents/*`, `/api/v1/terminal/*`, `/api/v1/docker/*`, `/api/v1/incidents/*`).
+- [x] **TASK-1.2:** Freeze WebSocket transport (`/api/ws/*`, `ws_handler`, `dynamic_ws_handler`) and remove unused WebSocket VM opcodes or mark dormant.
+- [x] **TASK-1.3:** Remove/freeze unmaintained roadmap items (WASM logic blocks, ONNX nodes, Cranelift JIT) from documentation.
+- [x] **TASK-1.4:** Pass database pool to `mcp::serve_stdio` so SQL operations work out-of-the-box in STDIO mode without crashing.
+- [x] **TASK-1.5:** Ensure `cargo clippy --all-targets -- -D warnings` and `cargo test` pass cleanly.
 
 ---
 

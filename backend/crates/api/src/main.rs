@@ -144,8 +144,9 @@ async fn build_state(database_url: &str, data_dir: &str) -> AppState {
     } else {
         std::env::set_var("DATA_DIR", data_dir);
     }
-    let dynamic_route_service =
-        std::sync::Arc::new(worpen_core::services::DynamicRouteService::new());
+    let mut dynamic_route_service = worpen_core::services::DynamicRouteService::new();
+    dynamic_route_service.set_db_pool(pool.clone());
+    let dynamic_route_service = std::sync::Arc::new(dynamic_route_service);
     // Pipelines execute stages through the same engine (inlining + audit).
     let pipeline_service = std::sync::Arc::new(
         worpen_core::services::PipelineService::with_executor(dynamic_route_service.clone()),
@@ -191,100 +192,7 @@ async fn serve(a: cli::ServeArgs) {
         .route("/health", get(handlers::health_check))
         .route("/mcp", post(mcp::mcp_handler).get(mcp::mcp_info))
         .route("/mcp/tools", get(mcp::mcp_tools_rest))
-        .route("/api/v1/agents/register", post(handlers::register_agent))
-        .route("/api/v1/telemetry", post(handlers::receive_telemetry))
-        .route("/api/v1/ws", get(handlers::ws_handler))
-        .route("/api/v1/dashboard/stats", get(handlers::get_stats))
-        .route(
-            "/api/v1/dashboard/network",
-            get(handlers::get_network_stats),
-        )
-        .route(
-            "/api/v1/dashboard/services",
-            get(handlers::get_services_health),
-        )
-        .route(
-            "/api/v1/dashboard/load",
-            get(handlers::get_load_distribution),
-        )
-        .route("/api/v1/agents", get(handlers::list_agents))
-        .route("/api/v1/agents/:id", get(handlers::get_agent))
-        .route("/api/v1/agents/:id/exec", post(handlers::exec_on_agent))
-        .route(
-            "/api/v1/agents/:id/shell",
-            post(handlers::start_agent_shell),
-        )
-        .route(
-            "/api/v1/agents/:id/processes",
-            get(handlers::list_agent_processes),
-        )
-        .route(
-            "/api/v1/agents/:id/system",
-            get(handlers::get_agent_system_info),
-        )
-        .route("/api/v1/agents/sync", post(handlers::sync_agents))
-        .route(
-            "/api/v1/internal/heartbeat",
-            post(handlers::agent_heartbeat),
-        )
-        .route("/api/v1/containers", get(handlers::list_containers))
-        .route(
-            "/api/v1/containers/:id/:action",
-            post(handlers::container_action),
-        )
-        .route(
-            "/api/v1/containers/:id/logs",
-            get(handlers::get_container_logs),
-        )
-        .route(
-            "/api/v1/containers/:id/start",
-            post(handlers::start_container),
-        )
-        .route(
-            "/api/v1/containers/:id/stop",
-            post(handlers::stop_container),
-        )
-        .route(
-            "/api/v1/containers/:id/restart",
-            post(handlers::restart_container),
-        )
-        .route(
-            "/api/v1/containers/:id",
-            axum::routing::delete(handlers::delete_container),
-        )
-        .route(
-            "/api/v1/containers/:id/exec",
-            post(handlers::exec_in_container),
-        )
-        .route(
-            "/api/v1/containers/:id/shell",
-            post(handlers::start_container_shell),
-        )
-        .route(
-            "/api/v1/containers/:id/attach",
-            get(handlers::attach_to_container),
-        )
-        .route(
-            "/api/v1/containers/:id/inspect",
-            get(handlers::inspect_container),
-        )
-        .route("/api/v1/docker/prune", post(handlers::prune_system))
-        .route("/api/v1/images", get(handlers::list_images))
-        .route("/api/v1/images/pull", post(handlers::pull_image))
-        .route("/api/v1/incidents", get(handlers::list_incidents))
-        .route(
-            "/api/v1/incidents/:id/resolve",
-            post(handlers::resolve_incident),
-        )
-        .route(
-            "/api/v1/automation/rules",
-            get(handlers::list_rules).post(handlers::create_rule),
-        )
-        .route(
-            "/api/v1/automation/rules/:id",
-            get(handlers::get_rule).put(handlers::update_rule),
-        )
-        .route("/api/v1/automation/dry-run", post(handlers::dry_run))
+        // Multi-stage pipeline / workflow jobs
         .route(
             "/api/v1/pipelines",
             get(handlers::list_pipelines).post(handlers::define_pipeline),
@@ -302,19 +210,7 @@ async fn serve(a: cli::ServeArgs) {
             "/api/v1/pipelines/:id/runs",
             get(handlers::pipeline_runs_by_id),
         )
-        .route("/api/v1/logs", get(handlers::get_logs))
-        .route(
-            "/api/v1/terminal/container/:id",
-            get(handlers::container_terminal_ws),
-        )
-        .route(
-            "/api/v1/terminal/agent/:id",
-            get(handlers::agent_terminal_ws),
-        )
-        .route(
-            "/api/v1/terminal/sessions",
-            get(handlers::list_terminal_sessions),
-        )
+        // Dynamic routes (single-call workflows / MCP tools)
         .route(
             "/api/v1/dynamic-routes",
             get(handlers::list_routes).post(handlers::register_route),
@@ -351,7 +247,6 @@ async fn serve(a: cli::ServeArgs) {
             "/api/v1/dynamic-routes/:id/export",
             get(handlers::export_route),
         )
-        .route("/api/ws/*path", get(handlers::dynamic_ws_handler))
         .route(
             "/api/v1/global-functions",
             get(handlers::list_global_functions).post(handlers::define_global_function),

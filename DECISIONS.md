@@ -20,3 +20,10 @@
 - **Context:** `SandboxPolicy::is_host_allowed` used `h.contains(&a)` to match target hosts, allowing spoofed domains like `api.stripe.com.evil.com` or `evil-api.stripe.com` to bypass sandbox restrictions.
 - **Decision:** Restrict host matching strictly to exact equality or explicit subdomain suffixes (`h == a || h.ends_with(&format!(".{}", a))`). Reject any substring-only matching.
 - **Consequences:** Closes critical security hole SEC-01. Prevents domain bypasses in outbound HTTP actions.
+
+## ADR-0004: Freeze Legacy Endpoints & Wire Database Pool in STDIO MCP
+- **Date:** 2026-11-14
+- **Status:** Accepted
+- **Context:** The default HTTP router exposed dozens of unmaintained agent/container monitoring and WebSocket endpoints. Concurrently, `DynamicRouteService` never received the initialized database pool in `build_state` or `serve_stdio`, causing any route executing `SqlOp` to crash.
+- **Decision:** Freeze all legacy daemon endpoints (Docker, fleet agents, incidents, terminals, dynamic WebSockets) from the active server router. Inject the initialized SQLite connection pool into `DynamicRouteService` across both HTTP serve and STDIO MCP modes, and ensure execution errors in VM are surfaced directly without silent fallback.
+- **Consequences:** Hardens the attack surface, aligns the runtime strictly with workflow execution, and enables full database operations for local agents via STDIO MCP.

@@ -2,35 +2,54 @@ use crate::dtos::RegisterAgentRequest;
 use crate::state::AppState;
 use axum::{extract::State, http::StatusCode, Json};
 
+#[allow(dead_code, unused_imports)]
 pub mod automation;
+#[allow(dead_code, unused_imports)]
 pub mod dashboard;
+#[allow(dead_code, unused_imports)]
 pub mod docker;
 pub mod dynamic_fallback;
 pub mod dynamic_routes;
 pub mod dynamic_routes_yaml;
+#[allow(dead_code, unused_imports)]
 pub mod dynamic_ws;
+#[allow(dead_code, unused_imports)]
 pub mod fleet;
+#[allow(dead_code, unused_imports)]
 pub mod incident;
+#[allow(dead_code, unused_imports)]
 pub mod logs;
 pub mod pipelines;
+#[allow(dead_code, unused_imports)]
 pub mod terminal;
+#[allow(dead_code, unused_imports)]
 pub mod ws;
 
+#[allow(unused_imports)]
 pub use automation::*;
+#[allow(unused_imports)]
 pub use dashboard::*;
+#[allow(unused_imports)]
 pub use docker::*;
 pub use dynamic_fallback::*;
 pub use dynamic_routes::*;
 pub use dynamic_routes_yaml::*;
+#[allow(unused_imports)]
 pub use dynamic_ws::*;
+#[allow(unused_imports)]
 pub use fleet::*;
+#[allow(unused_imports)]
 pub use incident::*;
+#[allow(unused_imports)]
 pub use logs::*;
 pub use pipelines::*;
+#[allow(unused_imports)]
 pub use terminal::*;
+#[allow(unused_imports)]
 pub use ws::ws_handler;
 
 /// Register a new agent in the Hive
+#[allow(dead_code)]
 #[utoipa::path(
     post,
     path = "/agents/register",
@@ -60,6 +79,7 @@ pub async fn register_agent(
 use crate::dtos::TelemetryRequest;
 
 /// Receive telemetry data from an agent
+#[allow(dead_code)]
 #[utoipa::path(
     post,
     path = "/telemetry",

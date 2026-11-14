@@ -13,6 +13,12 @@
 - Established `STATE.md` and `DECISIONS.md` (ADR-0001, ADR-0002, ADR-0003).
 - Cleaned `README.md`: Removed unverified comparison bar charts and fabricated performance claims; aligned roadmap with enterprise action plane.
 
+### 🎯 Focus & Architecture (Phase 1)
+- **Frozen Legacy Daemon Endpoints:** Deactivated unmaintained Docker container, agent monitoring, terminal websockets, and dynamic WebSocket endpoints from the active server router in `api/src/main.rs`.
+- **Database Pool Integration in STDIO MCP & Serve:** Fixed missing database pool injection in `DynamicRouteService`, allowing SQL operations (`sql_op`) to execute deterministically in both HTTP server and STDIO MCP mode.
+- **Direct VM Error Reporting:** Removed silent fallback from VM execution errors to legacy interpreter, ensuring real operational and SQL errors are accurately surfaced.
+- **Added Integration Test:** Added `test_dynamic_route_service_with_sql` verifying end-to-end route execution with SQLite querying.
+
 ### 🧹 Code Quality
 - Formatted entire Rust codebase across `core`, `proto`, `infra`, and `api` using `cargo fmt`.
 
