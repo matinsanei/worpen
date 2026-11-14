@@ -73,4 +73,19 @@
   5. State survives full application restarts and provides CLI / REST endpoints (`/api/v1/runs/*`).
 - **Consequences:** Guarantees deterministic, restart-safe human approval gates for high-risk agent operations.
 
+## ADR-0009: Tamper-Evident Hash-Chained Audit Log and SIEM Export Formats
+- **Date:** 2026-11-14
+- **Status:** Accepted
+- **Context:** To satisfy the North Star principle ("every action is provably recorded"), audit records must be cryptographically chained to prevent retroactive modification, deletion, or reordering by attackers or compromised accounts. Security teams also require integration with external SIEMs and telemetry pipelines.
+- **Decision:**
+  1. Implement append-only hash-chained audit logging in `worpen_core::audit::chain`.
+  2. Each record computes a SHA-256 `entry_hash` over canonical fields: `index:timestamp:prev_hash:action:actor:route_or_workflow:details:policy_decision`.
+  3. The first record links to a canonical `GENESIS_HASH` (`0000000000000000000000000000000000000000000000000000000000000000`). Each subsequent record references the previous entry's hash.
+  4. Provide `verify_audit_chain` which detects any index jump, broken hash pointer, or modified payload, pinpointing the exact broken record index.
+  5. Automatically append audit records for all workflow lifecycles (start, approval request, step failure, completion, approval, rejection, cancellation) and route executions.
+  6. Provide export endpoints and converters for industry-standard SIEM formats: JSON Lines (JSONL), Common Event Format (CEF), and OpenTelemetry LogRecords (OTel).
+  7. Expose REST endpoints `GET /api/v1/audit/verify` and `GET /api/v1/audit/export?format=jsonl|cef|otel`.
+- **Consequences:** Provides mathematical proof of audit trail integrity and seamless ingestion into enterprise SIEMs (Splunk, Datadog, Elastic).
+
+
 

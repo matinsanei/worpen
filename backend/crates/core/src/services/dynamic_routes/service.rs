@@ -1,5 +1,6 @@
 use super::cache::ExecutionPlan;
 use super::execution::execute_logic_extended;
+use crate::audit::AuditChainManager;
 use crate::compiler::lowerer::LogicCompiler;
 use crate::secrets::SecretStore;
 use crate::vm::machine::VirtualMachine;
@@ -55,6 +56,8 @@ pub struct DynamicRouteService {
     audit: Arc<std::sync::RwLock<VecDeque<AuditEntry>>>,
     // Secret store for isolated credential resolution and automatic redaction
     secret_store: Arc<SecretStore>,
+    // Tamper-evident hash-chained audit manager
+    audit_chain: Arc<AuditChainManager>,
 }
 
 impl Default for DynamicRouteService {
@@ -84,6 +87,7 @@ impl DynamicRouteService {
 
     pub fn with_data_dir(data_dir: String) -> Self {
         let secret_store = Arc::new(SecretStore::new());
+        let audit_chain = Arc::new(AuditChainManager::new(&data_dir));
         let service = Self {
             routes: Arc::new(std::sync::RwLock::new(HashMap::new())),
             global_functions: Arc::new(std::sync::RwLock::new(HashMap::new())),
@@ -95,10 +99,16 @@ impl DynamicRouteService {
             rate_windows: Arc::new(dashmap::DashMap::new()),
             audit: Arc::new(std::sync::RwLock::new(VecDeque::new())),
             secret_store,
+            audit_chain,
         };
         // Load persisted data
         let _ = service.load_persisted_data();
         service
+    }
+
+    /// Access the audit chain manager
+    pub fn audit_chain(&self) -> Arc<AuditChainManager> {
+        self.audit_chain.clone()
     }
 
     /// Access the SecretStore
@@ -195,13 +205,35 @@ impl DynamicRouteService {
         let entry = AuditEntry {
             ts: chrono::Utc::now().to_rfc3339(),
             route_id: route_id.to_string(),
-            route_name,
-            path: redacted_path,
+            route_name: route_name.clone(),
+            path: redacted_path.clone(),
             success,
-            error: redacted_error,
+            error: redacted_error.clone(),
             execution_time_ms,
             via: via.to_string(),
         };
+
+        // Append to cryptographically chained tamper-evident log
+        let details = serde_json::json!({
+            "route_id": route_id,
+            "route_name": route_name,
+            "path": redacted_path,
+            "success": success,
+            "error": redacted_error,
+            "execution_time_ms": execution_time_ms,
+        });
+        let policy_decision = if success {
+            "allowed"
+        } else {
+            "rejected_or_failed"
+        };
+        let _ = self.audit_chain.append(
+            via,
+            "agent_or_client",
+            route_id,
+            details,
+            Some(policy_decision),
+        );
         {
             let mut ring = self.audit.write().unwrap();
             if ring.len() >= AUDIT_RING_CAP {

@@ -66,10 +66,10 @@ Ordered strictly by the 10 Phases of the Worpen Action Plane Mission.
 
 ## Phase 6 — Tamper-Evident Audit
 *Goal: Append-only hash-chained audit log, verification CLI, provenance records, standard exports.*
-- [ ] **TASK-6.1:** Hash-chained audit log structure (`SHA-256(prev_hash + entry_data)`).
-- [ ] **TASK-6.2:** Per-step audit records (agent identity, redacted inputs/outputs, policy evaluation decisions, approver ID).
-- [ ] **TASK-6.3:** Audit verification command: `worpen audit verify`.
-- [ ] **TASK-6.4:** Export formatters for JSONL, CEF (Common Event Format), and OpenTelemetry (OTel) traces.
+- [x] **TASK-6.1:** Hash-chained audit log structure (`SHA-256(prev_hash + entry_data)`).
+- [x] **TASK-6.2:** Per-step audit records (agent identity, redacted inputs/outputs, policy evaluation decisions, approver ID).
+- [x] **TASK-6.3:** Audit verification command: `worpen audit verify` & `/api/v1/audit/verify`.
+- [x] **TASK-6.4:** Export formatters for JSONL, CEF (Common Event Format), and OpenTelemetry (OTel) traces.
 
 ---
 

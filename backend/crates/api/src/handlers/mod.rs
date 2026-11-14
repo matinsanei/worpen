@@ -2,6 +2,7 @@ use crate::dtos::RegisterAgentRequest;
 use crate::state::AppState;
 use axum::{extract::State, http::StatusCode, Json};
 
+pub mod audit;
 #[allow(dead_code, unused_imports)]
 pub mod automation;
 #[allow(dead_code, unused_imports)]
@@ -26,6 +27,7 @@ pub mod workflows;
 #[allow(dead_code, unused_imports)]
 pub mod ws;
 
+pub use audit::*;
 #[allow(unused_imports)]
 pub use automation::*;
 #[allow(unused_imports)]

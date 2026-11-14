@@ -1,3 +1,4 @@
+use crate::audit::AuditChainManager;
 use crate::sandbox::{is_blocked_ip, resolve_and_validate_host, validate_sql_policy};
 use crate::secrets::SecretStore;
 use chrono::{DateTime, Utc};
@@ -218,6 +219,7 @@ pub struct DurableWorkflowEngine {
     store: Arc<DurableRunStore>,
     db_pool: Pool<Sqlite>,
     secret_store: Arc<SecretStore>,
+    audit_chain: Arc<AuditChainManager>,
 }
 
 impl DurableWorkflowEngine {
@@ -225,17 +227,24 @@ impl DurableWorkflowEngine {
         store: Arc<DurableRunStore>,
         db_pool: Pool<Sqlite>,
         secret_store: Arc<SecretStore>,
+        audit_chain: Arc<AuditChainManager>,
     ) -> Self {
         Self {
             store,
             db_pool,
             secret_store,
+            audit_chain,
         }
     }
 
     /// Access the underlying store
     pub fn store(&self) -> Arc<DurableRunStore> {
         self.store.clone()
+    }
+
+    /// Access the audit chain manager
+    pub fn audit_chain(&self) -> Arc<AuditChainManager> {
+        self.audit_chain.clone()
     }
 
     /// Start a new durable run
@@ -247,6 +256,18 @@ impl DurableWorkflowEngine {
     ) -> Result<WorkflowRun, String> {
         let run_id = Uuid::new_v4().to_string();
         let now = Utc::now().to_rfc3339();
+
+        let _ = self.audit_chain.append(
+            "workflow.start",
+            "agent",
+            &spec.name,
+            json!({
+                "run_id": &run_id,
+                "version": &spec.version,
+                "mode": format!("{:?}", mode),
+            }),
+            Some("allowed"),
+        );
 
         let mut variables = HashMap::new();
         // Inject payload fields into variables
@@ -308,11 +329,23 @@ impl DurableWorkflowEngine {
                 run.status = RunStatus::WaitingForApproval;
                 run.pending_approval = Some(PendingApproval {
                     step_id: step.id.clone(),
-                    summary: resolved_summary,
+                    summary: resolved_summary.clone(),
                     requested_at: Utc::now().to_rfc3339(),
                     expires_at: expires_at.to_rfc3339(),
                 });
                 run.updated_at = Utc::now().to_rfc3339();
+
+                let _ = self.audit_chain.append(
+                    "workflow.approval_requested",
+                    "system",
+                    &spec.name,
+                    json!({
+                        "run_id": &run.run_id,
+                        "step_id": &step.id,
+                        "summary": &resolved_summary,
+                    }),
+                    Some("approval_pending"),
+                );
 
                 self.store.save_run(run).await?;
                 return Ok(run.clone());
@@ -331,6 +364,19 @@ impl DurableWorkflowEngine {
                     run.status = RunStatus::Failed;
                     run.error = Some(redacted_err.clone());
                     run.updated_at = Utc::now().to_rfc3339();
+
+                    let _ = self.audit_chain.append(
+                        "workflow.step_failed",
+                        "system",
+                        &spec.name,
+                        json!({
+                            "run_id": &run.run_id,
+                            "step_id": &step.id,
+                            "error": &redacted_err,
+                        }),
+                        Some("rejected_or_failed"),
+                    );
+
                     self.store.save_run(run).await?;
                     return Err(redacted_err);
                 }
@@ -344,6 +390,18 @@ impl DurableWorkflowEngine {
         run.status = RunStatus::Completed;
         run.result = Some(redacted_result);
         run.updated_at = Utc::now().to_rfc3339();
+
+        let _ = self.audit_chain.append(
+            "workflow.completed",
+            "system",
+            &spec.name,
+            json!({
+                "run_id": &run.run_id,
+                "status": "completed",
+            }),
+            Some("allowed"),
+        );
+
         self.store.save_run(run).await?;
 
         Ok(run.clone())
@@ -398,6 +456,18 @@ impl DurableWorkflowEngine {
         run.status = RunStatus::Running;
         run.step_index += 1; // Advance past the approval step
         run.updated_at = Utc::now().to_rfc3339();
+
+        let _ = self.audit_chain.append(
+            "workflow.approved",
+            approver,
+            &spec.name,
+            json!({
+                "run_id": run_id,
+                "reason": reason,
+            }),
+            Some("allowed"),
+        );
+
         self.store.save_run(&run).await?;
 
         // Resume execution
@@ -429,6 +499,17 @@ impl DurableWorkflowEngine {
         run.pending_approval = None;
         run.updated_at = Utc::now().to_rfc3339();
 
+        let _ = self.audit_chain.append(
+            "workflow.rejected",
+            rejecter,
+            &run.workflow_name,
+            json!({
+                "run_id": run_id,
+                "reason": reason,
+            }),
+            Some("denied_by_human"),
+        );
+
         self.store.save_run(&run).await?;
         Ok(run)
     }
@@ -451,6 +532,16 @@ impl DurableWorkflowEngine {
         run.status = RunStatus::Cancelled;
         run.pending_approval = None;
         run.updated_at = Utc::now().to_rfc3339();
+
+        let _ = self.audit_chain.append(
+            "workflow.cancelled",
+            "operator",
+            &run.workflow_name,
+            json!({
+                "run_id": run_id,
+            }),
+            Some("cancelled"),
+        );
 
         self.store.save_run(&run).await?;
         Ok(run)

@@ -245,6 +245,9 @@ async fn serve(a: cli::ServeArgs) {
         .route("/api/v1/runs/:id/approve", post(handlers::approve_run))
         .route("/api/v1/runs/:id/reject", post(handlers::reject_run))
         .route("/api/v1/runs/:id/cancel", post(handlers::cancel_run))
+        // Tamper-Evident Audit (Phase 6)
+        .route("/api/v1/audit/verify", get(handlers::verify_audit))
+        .route("/api/v1/audit/export", get(handlers::export_audit))
         // Dynamic routes (single-call workflows / MCP tools)
         .route(
             "/api/v1/dynamic-routes",

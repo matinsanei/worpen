@@ -1,3 +1,4 @@
+pub mod audit;
 pub mod compiler;
 pub mod domain;
 pub mod expression;
@@ -14,6 +15,7 @@ pub mod vm;
 pub mod websocket;
 pub mod workflow;
 
+pub use audit::*;
 pub use domain::*;
 pub use parsers::*;
 pub use ports::*;

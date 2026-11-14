@@ -2,6 +2,22 @@
 
 ## [Unreleased] - 2026-11-14 (Enterprise Action Plane Loop)
 
+### 🔗 Tamper-Evident Audit & Verification (Phase 6)
+- **Hash-Chained Audit Trail (`worpen-core::audit::chain`):**
+  - Cryptographically chained audit logging where each record computes a SHA-256 hash over canonical fields: `index`, `timestamp`, `prev_hash`, `action`, `actor`, `route_or_workflow`, `details`, and `policy_decision`.
+  - Links to a canonical genesis hash (`0000000000000000000000000000000000000000000000000000000000000000`).
+  - Implemented `verify_audit_chain` engine detecting any payload mutation, hash pointer breaks, or index deletions, returning the exact broken index.
+- **Durable Engine & Dynamic Route Integration:**
+  - Automatically records every workflow lifecycle step (start, approval request, execution failure, workflow completion, approval, rejection, cancellation) into the tamper-evident chain.
+  - Automatically records all dynamic route executions and policy decisions.
+- **Standard SIEM Exporters (`worpen-core::audit::export`):**
+  - Export to JSON Lines (`export_jsonl`), Common Event Format (`export_cef`), and OpenTelemetry LogRecords (`export_otel`).
+- **Audit REST Endpoints:**
+  - Added `GET /api/v1/audit/verify` returning cryptographic verification reports.
+  - Added `GET /api/v1/audit/export?format=jsonl|cef|otel` for SIEM ingestion.
+- **Audit Tamper Test Suite:**
+  - Created `backend/crates/core/tests/audit_tamper_test.rs` validating clean chain verification, detection of tampered details, broken hash pointers, index gaps, disk persistence across restarts, and CEF/OTel export outputs.
+
 ### 🔒 Security - Sandbox & Allowlist
 - **SEC-01 Fix:** Eliminated unsafe substring match (`h.contains(&a)`) in `SandboxPolicy::is_host_allowed`.
 - Enforced strict exact domain or explicit subdomain suffix matching (`h == domain || h.ends_with(&format!(".{}", domain))`).

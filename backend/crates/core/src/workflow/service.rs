@@ -181,7 +181,12 @@ impl WorkflowService {
 
         let store = Arc::new(DurableRunStore::new(pool.clone()));
         store.init().await?;
-        let engine = DurableWorkflowEngine::new(store, pool, self.route_service.secret_store());
+        let engine = DurableWorkflowEngine::new(
+            store,
+            pool,
+            self.route_service.secret_store(),
+            self.route_service.audit_chain(),
+        );
         Ok(Arc::new(engine))
     }
 
