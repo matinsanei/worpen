@@ -1,5 +1,5 @@
 use crate::audit::AuditChainManager;
-use crate::sandbox::{is_blocked_ip, resolve_and_validate_host, validate_sql_policy};
+use crate::sandbox::{resolve_and_validate_host, validate_sql_policy};
 use crate::secrets::SecretStore;
 use chrono::{DateTime, Utc};
 pub use proto::models::WorkflowRun;
@@ -42,6 +42,7 @@ impl DurableRunStore {
             updated_at TEXT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_workflow_runs_idempotency ON workflow_runs (workflow_name, idempotency_key);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_workflow_runs_idempotency_unique ON workflow_runs (workflow_name, idempotency_key) WHERE idempotency_key IS NOT NULL;
         "#;
         sqlx::query(sql)
             .execute(&self.pool)
@@ -53,6 +54,9 @@ impl DurableRunStore {
             .execute(&self.pool)
             .await;
         let _ = sqlx::query("ALTER TABLE workflow_runs ADD COLUMN idempotency_key TEXT")
+            .execute(&self.pool)
+            .await;
+        let _ = sqlx::query("CREATE UNIQUE INDEX IF NOT EXISTS idx_workflow_runs_idempotency_unique ON workflow_runs (workflow_name, idempotency_key) WHERE idempotency_key IS NOT NULL")
             .execute(&self.pool)
             .await;
 
@@ -334,19 +338,15 @@ impl DurableWorkflowEngine {
         let run_id = Uuid::new_v4().to_string();
         let now = Utc::now().to_rfc3339();
 
+        // Initiator must come strictly from caller context (authenticated user or header). If none, set "unknown_agent".
+        // NEVER read payload.__initiator!
         let effective_initiator = initiator
-            .or_else(|| {
-                payload
-                    .as_ref()
-                    .and_then(|p| p.get("__initiator"))
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string())
-            })
-            .or_else(|| Some("system".to_string()));
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or_else(|| "unknown_agent".to_string());
 
         let _ = self.audit_chain.append(
             "workflow.start",
-            effective_initiator.as_deref().unwrap_or("agent"),
+            &effective_initiator,
             &spec.name,
             json!({
                 "run_id": &run_id,
@@ -386,13 +386,26 @@ impl DurableWorkflowEngine {
             pending_approval: None,
             result: None,
             error: None,
-            initiator: effective_initiator,
-            idempotency_key: effective_idempotency_key,
+            initiator: Some(effective_initiator),
+            idempotency_key: effective_idempotency_key.clone(),
             created_at: now.clone(),
             updated_at: now,
         };
 
-        self.store.save_run(&run).await?;
+        if let Err(e) = self.store.save_run(&run).await {
+            // Unique violation race condition fallback: fetch existing run by idempotency key
+            if let Some(ref ikey) = effective_idempotency_key {
+                if let Ok(Some(existing)) = self
+                    .store
+                    .get_run_by_idempotency_key(&spec.name, ikey)
+                    .await
+                {
+                    return Ok(existing);
+                }
+            }
+            return Err(e);
+        }
+
         self.resume_run(spec, &mut run).await
     }
 
@@ -414,6 +427,21 @@ impl DurableWorkflowEngine {
             } = &step.op
             {
                 let resolved_summary = self.interpolate_string(summary, &run.variables);
+                if run.mode == ExecutionMode::DryRun {
+                    run.variables.insert(
+                        format!("{}_approved", step.id),
+                        json!({
+                            "_worpen_dry_run": true,
+                            "status": "simulated_approved",
+                            "summary": resolved_summary,
+                        }),
+                    );
+                    run.step_index += 1;
+                    run.updated_at = Utc::now().to_rfc3339();
+                    self.store.save_run(run).await?;
+                    continue;
+                }
+
                 let timeout_secs = timeout_seconds.unwrap_or(86400); // Default 24h
                 let expires_at = Utc::now() + chrono::Duration::seconds(timeout_secs as i64);
 
@@ -542,10 +570,13 @@ impl DurableWorkflowEngine {
         }
 
         // Anti-self-approval enforcement: Run initiator cannot approve their own run
+        let clean_approver = approver.trim().to_lowercase();
+        if clean_approver.is_empty() {
+            return Err("Approver identity cannot be empty".to_string());
+        }
         if let Some(ref initiator) = run.initiator {
-            let clean_approver = approver.trim().to_lowercase();
             let clean_initiator = initiator.trim().to_lowercase();
-            if !clean_approver.is_empty() && clean_approver == clean_initiator {
+            if clean_approver == clean_initiator {
                 return Err(format!(
                     "Self-approval forbidden: Initiator '{}' cannot approve their own run '{}'. Approval must come from a distinct operator.",
                     initiator, run_id
@@ -787,11 +818,15 @@ impl DurableWorkflowEngine {
                 headers,
                 output_var,
             } => {
+                let interpolated_url = self.interpolate_string(url, &run.variables);
+                let resolved_url = self.secret_store.inject_secrets(&interpolated_url)?;
+
                 if run.mode == ExecutionMode::DryRun {
                     let mock_res = json!({
                         "_worpen_dry_run": true,
                         "method": method,
-                        "url": url,
+                        "url": resolved_url,
+                        "idempotency_key": step.idempotency_key.as_ref().map(|k| self.interpolate_string(k, &run.variables)),
                     });
                     if let Some(out) = output_var {
                         run.variables.insert(out.clone(), mock_res);
@@ -799,105 +834,244 @@ impl DurableWorkflowEngine {
                     return Ok(());
                 }
 
-                // 1. Resolve URL with variables and secrets
-                let interpolated_url = self.interpolate_string(url, &run.variables);
-                let resolved_url = self.secret_store.inject_secrets(&interpolated_url)?;
+                let mut current_url = resolved_url;
+                let mut current_method = method.to_uppercase();
+                let mut current_body = body.clone();
+                let mut hops = 0;
+                const MAX_HOPS: usize = 5;
 
-                // 2. Enforce SSRF & host allowlist check
-                let (host, port, pinned_ip) =
-                    resolve_and_validate_host(&resolved_url, policy).await?;
+                let (final_status, final_body_json, final_url) = loop {
+                    let (host, port, pinned_ip) = resolve_and_validate_host(&current_url, policy)
+                        .await
+                        .map_err(|e| {
+                            if hops > 0 {
+                                format!("sandbox: redirect to '{}' denied: {}", current_url, e)
+                            } else {
+                                e
+                            }
+                        })?;
 
-                let timeout = step.timeout_ms.unwrap_or(policy.max_timeout_ms);
-                let mut client_builder = reqwest::Client::builder()
-                    .timeout(std::time::Duration::from_millis(timeout))
-                    .resolve(&host, std::net::SocketAddr::new(pinned_ip, port));
+                    let timeout = step.timeout_ms.unwrap_or(policy.max_timeout_ms);
+                    let client = reqwest::Client::builder()
+                        .timeout(std::time::Duration::from_millis(timeout))
+                        .resolve(&host, std::net::SocketAddr::new(pinned_ip, port))
+                        .redirect(reqwest::redirect::Policy::none())
+                        .build()
+                        .map_err(|e| format!("HTTP client error: {}", e))?;
 
-                // Safe redirect policy
-                let policy_clone = policy.clone();
-                let redirect_policy = reqwest::redirect::Policy::custom(move |attempt| {
-                    if attempt.previous().len() >= 5 {
-                        return attempt.stop();
+                    let mut rb = match current_method.as_str() {
+                        "GET" => client.get(&current_url),
+                        "POST" => client.post(&current_url),
+                        "PUT" => client.put(&current_url),
+                        "DELETE" => client.delete(&current_url),
+                        "PATCH" => client.patch(&current_url),
+                        "HEAD" => client.head(&current_url),
+                        _ => return Err(format!("Unsupported HTTP method: {}", current_method)),
+                    };
+
+                    // Add headers
+                    if let Some(hdrs) = headers {
+                        for (k, v) in hdrs {
+                            let interp = self.interpolate_string(v, &run.variables);
+                            let secret_val = self.secret_store.inject_secrets(&interp)?;
+                            rb = rb.header(k, secret_val);
+                        }
                     }
-                    let next_host_opt = attempt.url().host_str().map(|h| h.to_string());
-                    if let Some(next_host) = next_host_opt {
-                        if !policy_clone.is_host_allowed(&next_host) {
-                            return attempt.error(format!(
-                                "sandbox: redirect to host '{}' denied by allowlist",
-                                next_host
+
+                    // Add body
+                    if let Some(ref b) = current_body {
+                        let interp_body = self.interpolate_value(b, &run.variables);
+                        let body_str = match interp_body {
+                            Value::String(s) => self.secret_store.inject_secrets(&s)?,
+                            other => {
+                                let s = serde_json::to_string(&other).unwrap_or_default();
+                                self.secret_store.inject_secrets(&s)?
+                            }
+                        };
+                        rb = rb.body(body_str);
+                    }
+
+                    // Execute request
+                    let resp = rb
+                        .send()
+                        .await
+                        .map_err(|e| format!("HTTP request failed: {}", e))?;
+                    let status = resp.status().as_u16();
+
+                    // Check for redirect status
+                    if [301, 302, 303, 307, 308].contains(&status) {
+                        if hops >= MAX_HOPS {
+                            return Err(format!(
+                                "sandbox: redirect limit exceeded (max {} hops)",
+                                MAX_HOPS
                             ));
                         }
-                        if policy_clone.block_private_ips {
-                            if let Ok(ip) = next_host.parse::<std::net::IpAddr>() {
-                                if is_blocked_ip(ip) {
-                                    return attempt.error(format!(
-                                        "sandbox: redirect to private IP '{}' denied",
-                                        ip
-                                    ));
-                                }
+                        if let Some(loc_header) = resp.headers().get(reqwest::header::LOCATION) {
+                            let loc_str = loc_header.to_str().map_err(|_| {
+                                "sandbox: invalid Location header in redirect".to_string()
+                            })?;
+                            let base = reqwest::Url::parse(&current_url).map_err(|e| {
+                                format!("sandbox: invalid URL '{}': {}", current_url, e)
+                            })?;
+                            let next_url = base.join(loc_str).map_err(|e| {
+                                format!("sandbox: invalid redirect target '{}': {}", loc_str, e)
+                            })?;
+                            current_url = next_url.to_string();
+
+                            // 301, 302, 303 change POST to GET and drop body
+                            if status == 301 || status == 302 || status == 303 {
+                                current_method = "GET".to_string();
+                                current_body = None;
                             }
+                            hops += 1;
+                            continue;
                         }
                     }
-                    attempt.follow()
-                });
 
-                client_builder = client_builder.redirect(redirect_policy);
-                let client = client_builder
-                    .build()
-                    .map_err(|e| format!("HTTP client error: {}", e))?;
+                    let text = resp
+                        .text()
+                        .await
+                        .map_err(|e| format!("read body failed: {}", e))?;
+                    let body_json: Value =
+                        serde_json::from_str(&text).unwrap_or(Value::String(text));
 
-                let mut rb = match method.to_uppercase().as_str() {
-                    "GET" => client.get(&resolved_url),
-                    "POST" => client.post(&resolved_url),
-                    "PUT" => client.put(&resolved_url),
-                    "DELETE" => client.delete(&resolved_url),
-                    "PATCH" => client.patch(&resolved_url),
-                    "HEAD" => client.head(&resolved_url),
-                    _ => return Err(format!("Unsupported HTTP method: {}", method)),
+                    break (status, body_json, current_url);
                 };
 
-                // Add headers
-                if let Some(hdrs) = headers {
-                    for (k, v) in hdrs {
-                        let interp = self.interpolate_string(v, &run.variables);
-                        let secret_val = self.secret_store.inject_secrets(&interp)?;
-                        rb = rb.header(k, secret_val);
-                    }
-                }
-
-                // Add body
-                if let Some(b) = body {
-                    let interp_body = self.interpolate_value(b, &run.variables);
-                    let body_str = match interp_body {
-                        Value::String(s) => self.secret_store.inject_secrets(&s)?,
-                        other => {
-                            let s = serde_json::to_string(&other).unwrap_or_default();
-                            self.secret_store.inject_secrets(&s)?
-                        }
-                    };
-                    rb = rb.body(body_str);
-                }
-
-                // Execute request
-                let resp = rb
-                    .send()
-                    .await
-                    .map_err(|e| format!("HTTP request failed: {}", e))?;
-                let status = resp.status().as_u16();
-                let text = resp
-                    .text()
-                    .await
-                    .map_err(|e| format!("read body failed: {}", e))?;
-                let body_json: Value = serde_json::from_str(&text).unwrap_or(Value::String(text));
-
                 if let Some(out) = output_var {
+                    let mut safe_url = final_url.clone();
+                    if let Ok(mut u) = reqwest::Url::parse(&safe_url) {
+                        let _ = u.set_password(None);
+                        let _ = u.set_username("");
+                        safe_url = u.to_string();
+                    }
+                    let redacted_url = self.secret_store.redaction().redact_str(&safe_url);
                     let resp_obj = json!({
-                        "status": status,
-                        "body": body_json,
-                        "url": resolved_url,
+                        "status": final_status,
+                        "body": final_body_json,
+                        "url": redacted_url,
                         "method": method,
                     });
-                    run.variables.insert(out.clone(), resp_obj);
+                    let redacted_obj = self.secret_store.redaction().redact_value(&resp_obj);
+                    run.variables.insert(out.clone(), redacted_obj);
                 }
+                Ok(())
+            }
+
+            WorkflowOpV1::If {
+                condition,
+                then,
+                r#else,
+            } => {
+                let cond_res = self.evaluate_condition_str(condition, &run.variables)?;
+                let branch = if cond_res {
+                    then
+                } else if let Some(ref else_steps) = r#else {
+                    else_steps
+                } else {
+                    &Vec::new()
+                };
+
+                for inner_step in branch {
+                    Box::pin(self.execute_step(inner_step, run, policy)).await?;
+                }
+                Ok(())
+            }
+
+            WorkflowOpV1::Loop {
+                items,
+                as_var,
+                body,
+                max_iterations,
+            } => {
+                if *max_iterations == 0 {
+                    return Err("Loop max_iterations must be greater than 0".to_string());
+                }
+                let effective_max =
+                    (*max_iterations as usize).min(policy.max_loop_iterations as usize);
+
+                let items_val = if let Some(v) = run.variables.get(items) {
+                    v.clone()
+                } else {
+                    let interp =
+                        self.interpolate_value(&Value::String(items.clone()), &run.variables);
+                    match interp {
+                        Value::Array(_) => interp,
+                        Value::String(s) => {
+                            serde_json::from_str(&s).unwrap_or(Value::Array(vec![]))
+                        }
+                        other => Value::Array(vec![other]),
+                    }
+                };
+
+                if let Value::Array(elements) = items_val {
+                    let count = elements.len().min(effective_max);
+                    for item in elements.into_iter().take(count) {
+                        run.variables.insert(as_var.clone(), item);
+                        for inner_step in body {
+                            Box::pin(self.execute_step(inner_step, run, policy)).await?;
+                        }
+                    }
+                }
+                Ok(())
+            }
+
+            WorkflowOpV1::Switch {
+                value,
+                cases,
+                default,
+            } => {
+                let resolved_val = self.interpolate_string(value, &run.variables);
+                let branch = if let Some(case_steps) = cases.get(&resolved_val) {
+                    case_steps
+                } else if let Some(ref def_steps) = default {
+                    def_steps
+                } else {
+                    &Vec::new()
+                };
+
+                for inner_step in branch {
+                    Box::pin(self.execute_step(inner_step, run, policy)).await?;
+                }
+                Ok(())
+            }
+
+            WorkflowOpV1::TryCatch {
+                r#try,
+                catch,
+                error_var,
+            } => {
+                let mut try_failed = false;
+                let mut err_msg = String::new();
+                for inner_step in r#try {
+                    if let Err(e) = Box::pin(self.execute_step(inner_step, run, policy)).await {
+                        try_failed = true;
+                        err_msg = e;
+                        break;
+                    }
+                }
+                if try_failed {
+                    if let Some(ref err_v) = error_var {
+                        run.variables.insert(err_v.clone(), json!(err_msg));
+                    }
+                    for inner_step in catch {
+                        Box::pin(self.execute_step(inner_step, run, policy)).await?;
+                    }
+                }
+                Ok(())
+            }
+
+            WorkflowOpV1::Parallel { branches, .. } => {
+                for branch in branches {
+                    for inner_step in branch {
+                        Box::pin(self.execute_step(inner_step, run, policy)).await?;
+                    }
+                }
+                Ok(())
+            }
+
+            WorkflowOpV1::Approval { .. } => {
+                // Approval steps are handled in resume_run
                 Ok(())
             }
 
@@ -916,11 +1090,6 @@ impl DurableWorkflowEngine {
             WorkflowOpV1::Fail { message, .. } => {
                 let resolved = self.interpolate_string(message, &run.variables);
                 Err(resolved)
-            }
-
-            _ => {
-                // Other ops can execute simulated
-                Ok(())
             }
         }
     }
@@ -1027,5 +1196,87 @@ impl DurableWorkflowEngine {
         }
 
         Ok(Value::String(interpolated))
+    }
+
+    /// Evaluate conditional expressions for If steps
+    fn evaluate_condition_str(
+        &self,
+        condition: &str,
+        vars: &HashMap<String, Value>,
+    ) -> Result<bool, String> {
+        let resolved = self.interpolate_string(condition, vars);
+        let trimmed = resolved.trim();
+
+        if trimmed == "true" {
+            return Ok(true);
+        }
+        if trimmed == "false" {
+            return Ok(false);
+        }
+
+        // Comparison operators
+        if trimmed.contains("==") {
+            let parts: Vec<&str> = trimmed.split("==").map(|s| s.trim()).collect();
+            if parts.len() == 2 {
+                let left = parts[0].trim_matches(|c| c == '\'' || c == '"');
+                let right = parts[1].trim_matches(|c| c == '\'' || c == '"');
+                return Ok(left == right);
+            }
+        }
+        if trimmed.contains("!=") {
+            let parts: Vec<&str> = trimmed.split("!=").map(|s| s.trim()).collect();
+            if parts.len() == 2 {
+                let left = parts[0].trim_matches(|c| c == '\'' || c == '"');
+                let right = parts[1].trim_matches(|c| c == '\'' || c == '"');
+                return Ok(left != right);
+            }
+        }
+        if trimmed.contains(">=") {
+            let parts: Vec<&str> = trimmed.split(">=").collect();
+            if parts.len() == 2 {
+                if let (Ok(l), Ok(r)) = (
+                    parts[0].trim().parse::<f64>(),
+                    parts[1].trim().parse::<f64>(),
+                ) {
+                    return Ok(l >= r);
+                }
+            }
+        }
+        if trimmed.contains("<=") {
+            let parts: Vec<&str> = trimmed.split("<=").collect();
+            if parts.len() == 2 {
+                if let (Ok(l), Ok(r)) = (
+                    parts[0].trim().parse::<f64>(),
+                    parts[1].trim().parse::<f64>(),
+                ) {
+                    return Ok(l <= r);
+                }
+            }
+        }
+        if trimmed.contains(">") {
+            let parts: Vec<&str> = trimmed.split(">").collect();
+            if parts.len() == 2 {
+                if let (Ok(l), Ok(r)) = (
+                    parts[0].trim().parse::<f64>(),
+                    parts[1].trim().parse::<f64>(),
+                ) {
+                    return Ok(l > r);
+                }
+            }
+        }
+        if trimmed.contains("<") {
+            let parts: Vec<&str> = trimmed.split("<").collect();
+            if parts.len() == 2 {
+                if let (Ok(l), Ok(r)) = (
+                    parts[0].trim().parse::<f64>(),
+                    parts[1].trim().parse::<f64>(),
+                ) {
+                    return Ok(l < r);
+                }
+            }
+        }
+
+        // Truthiness
+        Ok(!trimmed.is_empty() && trimmed != "0" && trimmed != "null")
     }
 }

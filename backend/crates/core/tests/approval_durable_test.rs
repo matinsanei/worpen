@@ -347,3 +347,430 @@ return:
     assert_eq!(run2.status, RunStatus::Completed);
     assert_eq!(run2.result, run1.result);
 }
+
+#[tokio::test]
+async fn test_durable_sql_execution_and_read_only_enforcement() {
+    let temp_dir = std::env::temp_dir().join(format!("worpen_sql_test_{}", uuid::Uuid::new_v4()));
+    fs::create_dir_all(&temp_dir).unwrap();
+    let data_dir = temp_dir.to_str().unwrap().to_string();
+
+    let db_pool = SqlitePoolOptions::new()
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+
+    // 1. Create table and populate sample rows
+    sqlx::query(
+        "CREATE TABLE products (id INTEGER PRIMARY KEY, sku TEXT NOT NULL, price REAL NOT NULL, active INTEGER NOT NULL);",
+    )
+    .execute(&db_pool)
+    .await
+    .unwrap();
+
+    sqlx::query("INSERT INTO products (sku, price, active) VALUES ('PROD-A', 49.99, 1);")
+        .execute(&db_pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO products (sku, price, active) VALUES ('PROD-B', 19.99, 1);")
+        .execute(&db_pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO products (sku, price, active) VALUES ('PROD-C', 89.50, 0);")
+        .execute(&db_pool)
+        .await
+        .unwrap();
+
+    let mut route_service = DynamicRouteService::with_data_dir(data_dir.clone());
+    route_service.set_db_pool(db_pool.clone());
+    let wf_svc = WorkflowService::new(data_dir.clone(), Arc::new(route_service));
+
+    // 2. Read-only SQL workflow: Executes SELECT query and populates output_var
+    let read_yaml = r#"
+name: get_active_products
+version: "1.0"
+policy:
+  allow_sql: true
+  read_only_sql: true
+  allowed_tables:
+    - "products"
+input_schema:
+  type: object
+  properties:
+    min_price:
+      type: number
+steps:
+  - id: step_query
+    op: sql
+    query: "SELECT sku, price FROM products WHERE active = 1 AND price >= $1 ORDER BY price ASC"
+    args:
+      - "{{min_price}}"
+    output_var: active_products
+return:
+  status: 200
+  value:
+    products: "{{active_products}}"
+"#;
+
+    wf_svc.register_workflow(read_yaml).await.unwrap();
+
+    let payload = json!({ "min_price": 20.0 });
+    let run = wf_svc
+        .start_run("get_active_products", Some(payload), ExecutionMode::Live)
+        .await
+        .unwrap();
+
+    assert_eq!(run.status, RunStatus::Completed);
+    // output_var active_products must be populated in run.variables
+    let active_products = run
+        .variables
+        .get("active_products")
+        .expect("active_products populated");
+    assert!(active_products.is_array());
+    let prods = active_products.as_array().unwrap();
+    assert_eq!(prods.len(), 1, "Only PROD-A is active and >= 20.0");
+    assert_eq!(prods[0]["sku"], "PROD-A");
+    assert_eq!(prods[0]["price"], 49.99);
+
+    // 3. Mutating SQL statement (INSERT) under read_only_sql: true must FAIL
+    let mutate_yaml = r#"
+name: attack_insert_products
+version: "1.0"
+policy:
+  allow_sql: true
+  read_only_sql: true
+  allowed_tables:
+    - "products"
+steps:
+  - id: step_insert
+    op: sql
+    query: "INSERT INTO products (sku, price, active) VALUES ('PROD-EVIL', 0.0, 1)"
+    args: []
+    output_var: insert_res
+return:
+  status: 200
+  value: "done"
+"#;
+
+    wf_svc.register_workflow(mutate_yaml).await.unwrap();
+    let err_run = wf_svc
+        .start_run("attack_insert_products", None, ExecutionMode::Live)
+        .await;
+
+    assert!(
+        err_run.is_err(),
+        "Mutating INSERT query must fail under read_only_sql: true"
+    );
+    let err_msg = err_run.unwrap_err();
+    assert!(
+        err_msg.contains("read_only_sql=true") || err_msg.contains("SQL write operation denied"),
+        "Error message must specify read_only restriction: {}",
+        err_msg
+    );
+
+    // Verify row count in DB has not changed
+    let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM products")
+        .fetch_one(&db_pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        count.0, 3,
+        "No rows should have been inserted into products"
+    );
+
+    // 4. Mutating SQL statement (UPDATE) under read_only_sql: true must also FAIL
+    let update_yaml = r#"
+name: attack_update_products
+version: "1.0"
+policy:
+  allow_sql: true
+  read_only_sql: true
+  allowed_tables:
+    - "products"
+steps:
+  - id: step_update
+    op: sql
+    query: "UPDATE products SET price = 0.0 WHERE sku = 'PROD-A'"
+    args: []
+    output_var: update_res
+return:
+  status: 200
+  value: "done"
+"#;
+    wf_svc.register_workflow(update_yaml).await.unwrap();
+    let err_update = wf_svc
+        .start_run("attack_update_products", None, ExecutionMode::Live)
+        .await;
+    assert!(err_update.is_err());
+
+    // 5. Mutating SQL succeeds when read_only_sql: false
+    let write_allowed_yaml = r#"
+name: allowed_insert_product
+version: "1.0"
+policy:
+  allow_sql: true
+  read_only_sql: false
+  allowed_tables:
+    - "products"
+steps:
+  - id: step_insert_ok
+    op: sql
+    query: "INSERT INTO products (sku, price, active) VALUES ($1, $2, $3)"
+    args:
+      - "PROD-NEW"
+      - 34.50
+      - 1
+    output_var: insert_ok_res
+return:
+  status: 200
+  value:
+    inserted: true
+"#;
+    wf_svc.register_workflow(write_allowed_yaml).await.unwrap();
+    let ok_run = wf_svc
+        .start_run("allowed_insert_product", None, ExecutionMode::Live)
+        .await
+        .unwrap();
+    assert_eq!(ok_run.status, RunStatus::Completed);
+
+    let count_after: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM products")
+        .fetch_one(&db_pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        count_after.0, 4,
+        "Row count must be 4 after legitimate insert"
+    );
+}
+
+#[tokio::test]
+async fn test_anti_self_approval_payload_spoofing_prevented() {
+    let temp_dir = std::env::temp_dir().join(format!("worpen_anti_self_{}", uuid::Uuid::new_v4()));
+    fs::create_dir_all(&temp_dir).unwrap();
+    let data_dir = temp_dir.to_str().unwrap().to_string();
+
+    let db_pool = SqlitePoolOptions::new()
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+
+    let mut route_service = DynamicRouteService::with_data_dir(data_dir.clone());
+    route_service.set_db_pool(db_pool);
+    let wf_svc = WorkflowService::new(data_dir.clone(), Arc::new(route_service));
+
+    let yaml = r#"
+name: wire_transfer
+version: "1.0"
+description: Wire transfer requiring distinct operator sign-off
+input_schema:
+  type: object
+  properties:
+    __initiator:
+      type: string
+    amount:
+      type: number
+    recipient:
+      type: string
+steps:
+  - id: gate_manager
+    op: approval
+    summary: "Approve transfer of ${{amount}} to {{recipient}}"
+return:
+  status: 200
+  value:
+    status: "dispatched"
+    approved_by: "{{__approved_by}}"
+"#;
+
+    wf_svc.register_workflow(yaml).await.unwrap();
+
+    // 1. Attacker (caller identity "evil_alice") initiates run, but injects "__initiator": "innocent_bob" in payload
+    let spoof_payload = json!({
+        "__initiator": "innocent_bob",
+        "amount": 50000,
+        "recipient": "offshore_account"
+    });
+
+    let run = wf_svc
+        .start_run_with_meta(
+            "wire_transfer",
+            Some(spoof_payload),
+            ExecutionMode::Live,
+            Some("evil_alice".to_string()),
+            None,
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(run.status, RunStatus::WaitingForApproval);
+    // Initiator must be "evil_alice", payload.__initiator MUST BE COMPLETELY IGNORED!
+    assert_eq!(
+        run.initiator.as_deref(),
+        Some("evil_alice"),
+        "Workflow run initiator must strictly reflect caller identity, not spoofed payload!"
+    );
+
+    // 2. Real initiator ("evil_alice") attempts to approve her own run
+    let self_approve_err = wf_svc
+        .approve_run(&run.run_id, "evil_alice", "Approved by manager")
+        .await
+        .unwrap_err();
+
+    assert!(
+        self_approve_err.contains("Self-approval forbidden"),
+        "Initiator 'evil_alice' must be blocked from self-approval: {}",
+        self_approve_err
+    );
+    assert!(
+        self_approve_err.contains("evil_alice"),
+        "Error message should mention initiator 'evil_alice': {}",
+        self_approve_err
+    );
+
+    // 3. Obfuscation bypass attempts: case sensitivity & whitespace tricks
+    let caps_approve_err = wf_svc
+        .approve_run(&run.run_id, "EVIL_ALICE", "Caps bypass attempt")
+        .await
+        .unwrap_err();
+    assert!(caps_approve_err.contains("Self-approval forbidden"));
+
+    let space_approve_err = wf_svc
+        .approve_run(&run.run_id, " evil_alice ", "Whitespace bypass attempt")
+        .await
+        .unwrap_err();
+    assert!(space_approve_err.contains("Self-approval forbidden"));
+
+    // 4. Authorized distinct human operator can approve the run
+    let ok_approve = wf_svc
+        .approve_run(&run.run_id, "supervisor_carol", "Legitimate wire verified")
+        .await
+        .expect("Distinct supervisor approval must succeed");
+
+    assert_eq!(ok_approve.status, RunStatus::Completed);
+    assert_eq!(
+        ok_approve.result.unwrap()["approved_by"],
+        "supervisor_carol"
+    );
+
+    // 5. Payload spoofing when caller identity is None: defaults to "unknown_agent"
+    let unauthed_payload = json!({
+        "__initiator": "trusted_admin",
+        "amount": 100
+    });
+    let run2 = wf_svc
+        .start_run_with_meta(
+            "wire_transfer",
+            Some(unauthed_payload),
+            ExecutionMode::Live,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(run2.initiator.as_deref(), Some("unknown_agent"));
+    let unauth_approve_err = wf_svc
+        .approve_run(&run2.run_id, "unknown_agent", "Self approval")
+        .await
+        .unwrap_err();
+    assert!(unauth_approve_err.contains("Self-approval forbidden"));
+}
+
+#[tokio::test]
+async fn test_concurrent_idempotency_key_deduplication() {
+    let temp_dir =
+        std::env::temp_dir().join(format!("worpen_concurrent_idem_{}", uuid::Uuid::new_v4()));
+    fs::create_dir_all(&temp_dir).unwrap();
+    let data_dir = temp_dir.to_str().unwrap().to_string();
+
+    let db_pool = SqlitePoolOptions::new()
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+
+    let mut route_service = DynamicRouteService::with_data_dir(data_dir.clone());
+    route_service.set_db_pool(db_pool.clone());
+    let wf_svc = Arc::new(WorkflowService::new(
+        data_dir.clone(),
+        Arc::new(route_service),
+    ));
+
+    let yaml = r#"
+name: concurrent_tx_test
+version: "1.0"
+steps:
+  - id: step_math
+    op: transform
+    expr: "50 * 2"
+    output_var: val
+return:
+  status: 200
+  value:
+    result: "{{val}}"
+"#;
+    wf_svc.register_workflow(yaml).await.unwrap();
+
+    let idem_key = format!("tx_race_{}", uuid::Uuid::new_v4());
+    let payload = json!({ "account": "acc_123" });
+
+    // Spawn 10 concurrent requests with the identical idempotency key
+    let mut handles = Vec::new();
+    for i in 0..10 {
+        let svc = wf_svc.clone();
+        let key = idem_key.clone();
+        let p = payload.clone();
+        let handle = tokio::spawn(async move {
+            svc.start_run_with_meta(
+                "concurrent_tx_test",
+                Some(p),
+                ExecutionMode::Live,
+                Some(format!("worker_{}", i)),
+                Some(key),
+            )
+            .await
+        });
+        handles.push(handle);
+    }
+
+    let mut run_ids = Vec::new();
+    for h in handles {
+        let res = h.await.unwrap();
+        assert!(res.is_ok(), "Concurrent start_run failed: {:?}", res.err());
+        let run = res.unwrap();
+        // A concurrent caller either initiates the run (transitioning to Completed) or
+        // deduplicates against the in-flight/completed run record without raising an error.
+        assert!(
+            run.status == RunStatus::Running || run.status == RunStatus::Completed,
+            "Run status must be Running or Completed, got: {:?}",
+            run.status
+        );
+        run_ids.push(run.run_id);
+    }
+
+    // All 10 concurrent requests must resolve to the EXACT SAME run_id
+    let first_id = &run_ids[0];
+    for id in &run_ids {
+        assert_eq!(
+            id, first_id,
+            "Concurrent idempotency race produced distinct run_ids!"
+        );
+    }
+
+    // Verify terminal completion and output of the deduplicated run
+    let final_run = wf_svc.get_run(first_id).await.unwrap().unwrap();
+    assert_eq!(final_run.status, RunStatus::Completed);
+    assert_eq!(final_run.result.unwrap()["result"], 100);
+
+    // Verify in database that exactly ONE row was created with this idempotency key
+    let _engine = wf_svc.ensure_durable_engine().await.unwrap();
+    let count: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM workflow_runs WHERE idempotency_key = $1")
+            .bind(&idem_key)
+            .fetch_one(&db_pool)
+            .await
+            .unwrap();
+
+    assert_eq!(
+        count.0, 1,
+        "Exactly 1 database row should exist for idempotency key"
+    );
+}

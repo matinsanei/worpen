@@ -174,10 +174,15 @@ impl WorkflowService {
 
     /// Ensure the durable execution engine and SQLite runs table are initialized
     pub async fn ensure_durable_engine(&self) -> Result<Arc<DurableWorkflowEngine>, String> {
-        let pool = self
-            .route_service
-            .get_db_pool()
-            .ok_or_else(|| "Database pool not configured on DynamicRouteService".to_string())?;
+        let pool = if let Some(p) = self.route_service.get_db_pool() {
+            p
+        } else {
+            let db_path = Path::new(&self.data_dir).join("workflow_runs.db");
+            let db_url = format!("sqlite:{}?mode=rwc", db_path.display());
+            sqlx::SqlitePool::connect(&db_url)
+                .await
+                .map_err(|e| format!("Failed to initialize workflow SQLite DB: {}", e))?
+        };
 
         let store = Arc::new(DurableRunStore::new(pool.clone()));
         store.init().await?;
@@ -297,45 +302,35 @@ impl WorkflowService {
             .get_workflow(name)
             .ok_or_else(|| format!("Workflow '{}' not found", name))?;
 
-        let has_approval = spec
-            .steps
-            .iter()
-            .any(|s| matches!(s.op, WorkflowOpV1::Approval { .. }));
+        let run = self
+            .start_run_with_meta(name, payload, mode, initiator, idempotency_key)
+            .await?;
 
-        if has_approval && mode == ExecutionMode::Live {
-            let run = self
-                .start_run_with_meta(name, payload, mode, initiator, idempotency_key)
-                .await?;
-            if let Some(res) = run.result {
-                return Ok(res);
-            }
-            return Ok(serde_json::to_value(&run).unwrap_or_default());
+        if let Some(res) = run.result {
+            let wrapped_res = match mode {
+                ExecutionMode::DryRun => json!({
+                    "_worpen_mode": "dry_run",
+                    "status": spec.r#return.status,
+                    "result": res,
+                }),
+                ExecutionMode::Live => json!({
+                    "status": spec.r#return.status,
+                    "value": res,
+                }),
+            };
+            return Ok(self
+                .route_service
+                .secret_store()
+                .redaction()
+                .redact_value(&wrapped_res));
         }
 
-        let result = match mode {
-            ExecutionMode::Live => {
-                // Execute via dynamic route engine (VM with real DB & network)
-                self.route_service
-                    .execute_route(&spec.name, payload, HashMap::new(), HashMap::new())
-                    .await
-            }
-            ExecutionMode::DryRun => {
-                // Execute simulation with mock side-effects
-                self.execute_dry_run(&spec, payload)
-            }
-        };
-
-        result
-            .map(|val| {
-                self.route_service
-                    .secret_store()
-                    .redaction()
-                    .redact_value(&val)
-            })
-            .map_err(|e| self.route_service.secret_store().redaction().redact_str(&e))
+        // If waiting for approval, return the run object
+        Ok(serde_json::to_value(&run).unwrap_or_default())
     }
 
     /// Dry-run simulation: executes variables, math, and transforms, but mocks side-effects (sql, http, approval)
+    #[allow(dead_code)]
     fn execute_dry_run(
         &self,
         spec: &WorkflowSpecV1,
@@ -364,6 +359,7 @@ impl WorkflowService {
         }))
     }
 
+    #[allow(dead_code)]
     fn simulate_step(
         step: &WorkflowStepV1,
         memory: &mut HashMap<String, Value>,
@@ -476,6 +472,7 @@ impl WorkflowService {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn evaluate_transform_expr(
         expr: &str,
         memory: &HashMap<String, Value>,
@@ -489,6 +486,7 @@ impl WorkflowService {
         }
     }
 
+    #[allow(dead_code)]
     fn interpolate_string(template: &str, memory: &HashMap<String, Value>) -> String {
         let re = regex::Regex::new(r"\{\{([^}]+)\}\}").unwrap();
         re.replace_all(template, |caps: &regex::Captures| {
@@ -511,6 +509,7 @@ impl WorkflowService {
         .to_string()
     }
 
+    #[allow(dead_code)]
     fn interpolate_value(val: &Value, memory: &HashMap<String, Value>) -> Value {
         match val {
             Value::String(s) => {

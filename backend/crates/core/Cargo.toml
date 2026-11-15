@@ -30,6 +30,7 @@ dashmap = "6.1"
 sha2 = "0.10"
 hmac = "0.12"
 hex = "0.4"
+sqlparser = { version = "0.64.0", features = ["visitor"] }
 
 [dev-dependencies]
 criterion = "0.5"

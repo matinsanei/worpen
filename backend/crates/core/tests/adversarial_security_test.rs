@@ -272,3 +272,357 @@ return:
     assert!(err2.is_err());
     assert!(err2.unwrap_err().contains("exceeds policy cap"));
 }
+
+#[test]
+fn test_adversarial_sql_ast_nested_subqueries_and_ctes() {
+    let policy = SandboxPolicy {
+        allow_sql: true,
+        read_only_sql: true,
+        allowed_tables: vec!["orders".to_string(), "customers".to_string()],
+        ..Default::default()
+    };
+
+    // Subquery trying to read from forbidden table `credentials`
+    let subquery_in_where =
+        "SELECT * FROM orders WHERE customer_id IN (SELECT id FROM credentials)";
+    let res1 = validate_sql_policy(subquery_in_where, &policy);
+    assert!(res1.is_err());
+    assert!(res1.unwrap_err().contains("credentials"));
+
+    // Subquery in FROM derived table
+    let subquery_in_from =
+        "SELECT o.id FROM (SELECT * FROM credentials) AS c JOIN orders o ON o.customer_id = c.id";
+    let res2 = validate_sql_policy(subquery_in_from, &policy);
+    assert!(res2.is_err());
+    assert!(res2.unwrap_err().contains("credentials"));
+
+    // CTE referencing forbidden table
+    let cte_leak = "WITH leaked AS (SELECT pass FROM credentials) SELECT * FROM orders, leaked";
+    let res3 = validate_sql_policy(cte_leak, &policy);
+    assert!(res3.is_err());
+    assert!(res3.unwrap_err().contains("credentials"));
+
+    // Allowed CTE with only allowed tables
+    let cte_safe = "WITH safe_cte AS (SELECT id FROM customers) SELECT * FROM orders JOIN safe_cte ON orders.customer_id = safe_cte.id";
+    let res4 = validate_sql_policy(cte_safe, &policy);
+    assert!(res4.is_ok(), "Safe CTE on allowed tables must pass");
+}
+
+#[test]
+fn test_hmac_audit_key_generation_and_permissions() {
+    use std::fs;
+    use std::path::Path;
+
+    // Ensure WORPEN_AUDIT_KEY is not set for this test
+    std::env::remove_var("WORPEN_AUDIT_KEY");
+    let key_path = Path::new(".worpen_audit.key");
+
+    let key = worpen_core::audit::get_audit_secret_key();
+    assert_eq!(key.len(), 32, "Key must be 32 bytes");
+    assert!(key_path.exists(), ".worpen_audit.key file must exist");
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        let meta = fs::metadata(key_path).unwrap();
+        let mode = meta.mode() & 0o777;
+        assert_eq!(mode, 0o600, "Key file permissions must be 0600 on unix");
+    }
+
+    // Subsequent retrieval reads the existing file
+    let key2 = worpen_core::audit::get_audit_secret_key();
+    assert_eq!(key, key2, "Subsequent reads must return the same key");
+}
+
+#[test]
+fn test_ast_sql_policy_subqueries_and_ctes_adversarial() {
+    let policy = SandboxPolicy {
+        allow_sql: true,
+        read_only_sql: true,
+        allowed_tables: vec!["allowed_table".to_string()],
+        ..Default::default()
+    };
+
+    // 1. Subquery in WHERE: SELECT * FROM allowed_table WHERE id IN (SELECT id FROM secret_table)
+    let q_where = "SELECT * FROM allowed_table WHERE id IN (SELECT id FROM secret_table)";
+    let res_where = validate_sql_policy(q_where, &policy);
+    assert!(
+        res_where.is_err(),
+        "Subquery in WHERE referencing secret_table must fail validate_sql_policy"
+    );
+    assert!(res_where.unwrap_err().contains("secret_table"));
+
+    // 2. Subquery in FROM: SELECT * FROM (SELECT * FROM secret_table) AS sub
+    let q_from = "SELECT * FROM (SELECT * FROM secret_table) AS sub";
+    let res_from = validate_sql_policy(q_from, &policy);
+    assert!(
+        res_from.is_err(),
+        "Subquery in FROM referencing secret_table must fail validate_sql_policy"
+    );
+    assert!(res_from.unwrap_err().contains("secret_table"));
+
+    // 3. CTE subquery: WITH x AS (SELECT * FROM secret_table) SELECT * FROM allowed_table
+    let q_cte = "WITH x AS (SELECT * FROM secret_table) SELECT * FROM allowed_table";
+    let res_cte = validate_sql_policy(q_cte, &policy);
+    assert!(
+        res_cte.is_err(),
+        "CTE referencing secret_table must fail validate_sql_policy"
+    );
+    assert!(res_cte.unwrap_err().contains("secret_table"));
+
+    // 4. Valid query with CTE on allowed table: WITH x AS (SELECT * FROM allowed_table) SELECT * FROM x
+    let q_safe = "WITH x AS (SELECT * FROM allowed_table) SELECT * FROM x";
+    let res_safe = validate_sql_policy(q_safe, &policy);
+    assert!(
+        res_safe.is_ok(),
+        "Valid CTE query on allowed_table must pass: {:?}",
+        res_safe.err()
+    );
+
+    // 5. EXISTS subquery referencing secret_table
+    let q_exists = "SELECT * FROM allowed_table WHERE EXISTS (SELECT 1 FROM secret_table WHERE secret_table.id = allowed_table.id)";
+    let res_exists = validate_sql_policy(q_exists, &policy);
+    assert!(res_exists.is_err());
+    assert!(res_exists.unwrap_err().contains("secret_table"));
+
+    // 6. Projection subquery referencing secret_table
+    let q_proj = "SELECT (SELECT secret FROM secret_table LIMIT 1) FROM allowed_table";
+    let res_proj = validate_sql_policy(q_proj, &policy);
+    assert!(res_proj.is_err());
+    assert!(res_proj.unwrap_err().contains("secret_table"));
+}
+
+#[tokio::test]
+async fn test_ssrf_redirect_attack_blocked_at_hop() {
+    use proto::models::ExecutionMode;
+    use std::sync::Arc;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+    use worpen_core::services::DynamicRouteService;
+    use worpen_core::workflow::service::WorkflowService;
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+
+    let server_handle = tokio::spawn(async move {
+        for _ in 0..3 {
+            if let Ok((mut socket, _)) = listener.accept().await {
+                let mut buf = vec![0u8; 1024];
+                let n = socket.read(&mut buf).await.unwrap_or(0);
+                let req_text = String::from_utf8_lossy(&buf[..n]);
+
+                let response = if req_text.contains("/redirect_to_metadata") {
+                    "HTTP/1.1 302 Found\r\nLocation: http://169.254.169.254/latest/meta-data/\r\nContent-Length: 0\r\n\r\n".to_string()
+                } else if req_text.contains("/redirect_to_loopback") {
+                    "HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:9099/metadata\r\nContent-Length: 0\r\n\r\n".to_string()
+                } else if req_text.contains("/redirect_to_internal_ip") {
+                    "HTTP/1.1 302 Found\r\nLocation: http://10.0.0.1/admin\r\nContent-Length: 0\r\n\r\n".to_string()
+                } else {
+                    "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK".to_string()
+                };
+                let _ = socket.write_all(response.as_bytes()).await;
+            }
+        }
+    });
+
+    let temp_dir = std::env::temp_dir().join(format!("worpen_ssrf_test_{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&temp_dir).unwrap();
+    let data_dir = temp_dir.to_str().unwrap().to_string();
+
+    let db_pool = sqlx::sqlite::SqlitePoolOptions::new()
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+
+    let mut route_service = DynamicRouteService::with_data_dir(data_dir.clone());
+    route_service.set_db_pool(db_pool);
+    let route_service_arc = Arc::new(route_service);
+    let workflow_service = WorkflowService::new(data_dir, route_service_arc);
+
+    // 1. Initial URL redirects (302) to cloud metadata IP 169.254.169.254
+    let yaml_meta = format!(
+        r#"
+name: ssrf_redirect_metadata
+version: "1.0"
+policy:
+  allow_net: true
+  allowed_hosts:
+    - "127.0.0.1"
+  block_private_ips: false
+steps:
+  - id: http_step
+    op: http
+    method: GET
+    url: "http://127.0.0.1:{}/redirect_to_metadata"
+    output_var: res
+return:
+  status: 200
+  value: "{{{{res}}}}"
+"#,
+        port
+    );
+    workflow_service
+        .register_workflow(&yaml_meta)
+        .await
+        .unwrap();
+    let err_meta = workflow_service
+        .execute("ssrf_redirect_metadata", None, ExecutionMode::Live)
+        .await
+        .unwrap_err();
+    assert!(
+        err_meta.contains("sandbox: redirect to 'http://169.254.169.254/latest/meta-data/' denied"),
+        "Expected redirect to cloud metadata to be denied, got: {}",
+        err_meta
+    );
+
+    // 2. Initial URL redirects (302) to http://127.0.0.1:9099/metadata where 127.0.0.1 is not in allowed_hosts
+    let yaml_loopback = format!(
+        r#"
+name: ssrf_redirect_loopback
+version: "1.0"
+policy:
+  allow_net: true
+  allowed_hosts:
+    - "localhost"
+  block_private_ips: false
+steps:
+  - id: http_step
+    op: http
+    method: GET
+    url: "http://localhost:{}/redirect_to_loopback"
+    output_var: res
+return:
+  status: 200
+  value: "{{{{res}}}}"
+"#,
+        port
+    );
+    workflow_service
+        .register_workflow(&yaml_loopback)
+        .await
+        .unwrap();
+    let err_loopback = workflow_service
+        .execute("ssrf_redirect_loopback", None, ExecutionMode::Live)
+        .await
+        .unwrap_err();
+    assert!(
+        err_loopback.contains("sandbox: redirect to 'http://127.0.0.1:9099/metadata' denied"),
+        "Expected redirect to loopback to be denied, got: {}",
+        err_loopback
+    );
+
+    // 3. Initial URL redirects (302) to private IP 10.0.0.1
+    let yaml_internal = format!(
+        r#"
+name: ssrf_redirect_internal
+version: "1.0"
+policy:
+  allow_net: true
+  allowed_hosts:
+    - "127.0.0.1"
+  block_private_ips: false
+steps:
+  - id: http_step
+    op: http
+    method: GET
+    url: "http://127.0.0.1:{}/redirect_to_internal_ip"
+    output_var: res
+return:
+  status: 200
+  value: "{{{{res}}}}"
+"#,
+        port
+    );
+    workflow_service
+        .register_workflow(&yaml_internal)
+        .await
+        .unwrap();
+    let err_internal = workflow_service
+        .execute("ssrf_redirect_internal", None, ExecutionMode::Live)
+        .await
+        .unwrap_err();
+    assert!(
+        err_internal.contains("sandbox: redirect to 'http://10.0.0.1/admin' denied"),
+        "Expected redirect to 10.0.0.1 to be denied, got: {}",
+        err_internal
+    );
+
+    let _ = server_handle.await;
+}
+
+#[tokio::test]
+async fn test_ssrf_redirect_loop_capped_at_max_hops() {
+    use proto::models::ExecutionMode;
+    use std::sync::Arc;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+    use worpen_core::services::DynamicRouteService;
+    use worpen_core::workflow::service::WorkflowService;
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+
+    let server_handle = tokio::spawn(async move {
+        for _ in 0..10 {
+            if let Ok((mut socket, _)) = listener.accept().await {
+                let mut buf = vec![0u8; 1024];
+                let _ = socket.read(&mut buf).await;
+                let response = format!(
+                    "HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:{}/infinite_loop\r\nContent-Length: 0\r\n\r\n",
+                    port
+                );
+                let _ = socket.write_all(response.as_bytes()).await;
+            }
+        }
+    });
+
+    let temp_dir = std::env::temp_dir().join(format!("worpen_loop_test_{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&temp_dir).unwrap();
+    let data_dir = temp_dir.to_str().unwrap().to_string();
+
+    let db_pool = sqlx::sqlite::SqlitePoolOptions::new()
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+
+    let mut route_service = DynamicRouteService::with_data_dir(data_dir.clone());
+    route_service.set_db_pool(db_pool);
+    let route_service_arc = Arc::new(route_service);
+    let workflow_service = WorkflowService::new(data_dir, route_service_arc);
+
+    let yaml = format!(
+        r#"
+name: ssrf_redirect_infinite_loop
+version: "1.0"
+policy:
+  allow_net: true
+  allowed_hosts:
+    - "127.0.0.1"
+  block_private_ips: false
+steps:
+  - id: http_step
+    op: http
+    method: GET
+    url: "http://127.0.0.1:{}/infinite_loop"
+    output_var: res
+return:
+  status: 200
+  value: "{{{{res}}}}"
+"#,
+        port
+    );
+
+    workflow_service.register_workflow(&yaml).await.unwrap();
+    let err = workflow_service
+        .execute("ssrf_redirect_infinite_loop", None, ExecutionMode::Live)
+        .await
+        .unwrap_err();
+
+    assert!(
+        err.contains("sandbox: redirect limit exceeded (max 5 hops)"),
+        "Expected redirect limit error, got: {}",
+        err
+    );
+
+    server_handle.abort();
+}

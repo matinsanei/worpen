@@ -571,7 +571,7 @@ impl VirtualMachine {
                     headers,
                     timeout_ms,
                 } => {
-                    let resolved_url = self.resolve_string(url)?;
+                    let initial_url = self.resolve_string(url)?;
                     let timeout = timeout_ms.unwrap_or(
                         self.sandbox
                             .as_ref()
@@ -579,85 +579,118 @@ impl VirtualMachine {
                             .unwrap_or(10_000),
                     );
 
-                    let mut client_builder = reqwest::Client::builder()
-                        .timeout(std::time::Duration::from_millis(timeout));
+                    let mut current_url = initial_url;
+                    let mut current_method = method.to_uppercase();
+                    let mut current_body = body.clone();
+                    let mut hops = 0;
+                    const MAX_HOPS: usize = 5;
 
-                    if let Some(policy) = &self.sandbox {
-                        let (host, port, pinned_ip) =
-                            crate::sandbox::resolve_and_validate_host(&resolved_url, policy)
-                                .await?;
-                        // Pin connection to validated IP to defend against DNS rebinding
-                        client_builder = client_builder
-                            .resolve(&host, std::net::SocketAddr::new(pinned_ip, port));
+                    let (final_status, final_body, final_url) = loop {
+                        let mut client_builder = reqwest::Client::builder()
+                            .timeout(std::time::Duration::from_millis(timeout))
+                            .redirect(reqwest::redirect::Policy::none());
 
-                        // Safe redirect defense
-                        let policy_clone = policy.clone();
-                        let redirect_policy = reqwest::redirect::Policy::custom(move |attempt| {
-                            if attempt.previous().len() >= 5 {
-                                return attempt.stop();
-                            }
-                            let next_host_opt = attempt.url().host_str().map(|h| h.to_string());
-                            if let Some(next_host) = next_host_opt {
-                                if !policy_clone.is_host_allowed(&next_host) {
-                                    return attempt.error(format!(
-                                        "sandbox: redirect to host '{}' denied by allowlist",
-                                        next_host
-                                    ));
-                                }
-                                if policy_clone.block_private_ips {
-                                    if let Ok(ip) = next_host.parse::<std::net::IpAddr>() {
-                                        if crate::sandbox::is_blocked_ip(ip) {
-                                            return attempt.error(format!(
-                                                "sandbox: redirect to private IP '{}' denied",
-                                                ip
-                                            ));
+                        if let Some(policy) = &self.sandbox {
+                            let (host, port, pinned_ip) =
+                                crate::sandbox::resolve_and_validate_host(&current_url, policy)
+                                    .await
+                                    .map_err(|e| {
+                                        if hops > 0 {
+                                            format!(
+                                                "sandbox: redirect to '{}' denied: {}",
+                                                current_url, e
+                                            )
+                                        } else {
+                                            e
                                         }
-                                    }
-                                }
-                            }
-                            attempt.follow()
-                        });
-                        client_builder = client_builder.redirect(redirect_policy);
-                    }
-
-                    let client = client_builder
-                        .build()
-                        .map_err(|e| format!("HTTP client error: {}", e))?;
-                    let mut rb = match method.as_str() {
-                        "GET" => client.get(&resolved_url),
-                        "POST" => client.post(&resolved_url),
-                        "PUT" => client.put(&resolved_url),
-                        "DELETE" => client.delete(&resolved_url),
-                        "PATCH" => client.patch(&resolved_url),
-                        "HEAD" => client.head(&resolved_url),
-                        _ => return Err(format!("Unsupported HTTP method: {}", method)),
-                    };
-                    if let Some(hdrs) = headers {
-                        for (k, v) in hdrs {
-                            let rv = self.resolve_string(v)?;
-                            rb = rb.header(k, rv);
+                                    })?;
+                            client_builder = client_builder
+                                .resolve(&host, std::net::SocketAddr::new(pinned_ip, port));
                         }
-                    }
-                    if let Some(b) = body {
-                        let resolved_body = self.resolve_value(b)?;
-                        let s = match resolved_body {
-                            Value::String(st) => st,
-                            _ => serde_json::to_string(&resolved_body).unwrap_or_default(),
+
+                        let client = client_builder
+                            .build()
+                            .map_err(|e| format!("HTTP client error: {}", e))?;
+
+                        let mut rb = match current_method.as_str() {
+                            "GET" => client.get(&current_url),
+                            "POST" => client.post(&current_url),
+                            "PUT" => client.put(&current_url),
+                            "DELETE" => client.delete(&current_url),
+                            "PATCH" => client.patch(&current_url),
+                            "HEAD" => client.head(&current_url),
+                            _ => {
+                                return Err(format!("Unsupported HTTP method: {}", current_method))
+                            }
                         };
-                        rb = rb.body(s);
-                    }
-                    let resp = rb
-                        .send()
-                        .await
-                        .map_err(|e| format!("HTTP request failed: {}", e))?;
-                    let status = resp.status().as_u16();
-                    let text = resp
-                        .text()
-                        .await
-                        .map_err(|e| format!("read body failed: {}", e))?;
-                    let body_json: Value =
-                        serde_json::from_str(&text).unwrap_or(Value::String(text));
-                    let res_val = serde_json::json!({"status": status, "body": body_json, "url": resolved_url, "method": method});
+
+                        if let Some(hdrs) = headers {
+                            for (k, v) in hdrs {
+                                let rv = self.resolve_string(v)?;
+                                rb = rb.header(k, rv);
+                            }
+                        }
+
+                        if let Some(ref b) = current_body {
+                            let resolved_body = self.resolve_value(b)?;
+                            let s = match resolved_body {
+                                Value::String(st) => st,
+                                _ => serde_json::to_string(&resolved_body).unwrap_or_default(),
+                            };
+                            rb = rb.body(s);
+                        }
+
+                        let resp = rb
+                            .send()
+                            .await
+                            .map_err(|e| format!("HTTP request failed: {}", e))?;
+                        let status = resp.status().as_u16();
+
+                        if [301, 302, 303, 307, 308].contains(&status) {
+                            if hops >= MAX_HOPS {
+                                return Err(format!(
+                                    "sandbox: redirect limit exceeded (max {} hops)",
+                                    MAX_HOPS
+                                ));
+                            }
+                            if let Some(loc_header) = resp.headers().get(reqwest::header::LOCATION)
+                            {
+                                let loc_str = loc_header.to_str().map_err(|_| {
+                                    "sandbox: invalid Location header in redirect".to_string()
+                                })?;
+                                let base = reqwest::Url::parse(&current_url).map_err(|e| {
+                                    format!("sandbox: invalid URL '{}': {}", current_url, e)
+                                })?;
+                                let next_url = base.join(loc_str).map_err(|e| {
+                                    format!("sandbox: invalid redirect target '{}': {}", loc_str, e)
+                                })?;
+                                current_url = next_url.to_string();
+
+                                if status == 301 || status == 302 || status == 303 {
+                                    current_method = "GET".to_string();
+                                    current_body = None;
+                                }
+                                hops += 1;
+                                continue;
+                            }
+                        }
+
+                        let text = resp
+                            .text()
+                            .await
+                            .map_err(|e| format!("read body failed: {}", e))?;
+                        let body_json: Value =
+                            serde_json::from_str(&text).unwrap_or(Value::String(text));
+
+                        break (status, body_json, current_url);
+                    };
+
+                    let res_val = serde_json::json!({
+                        "status": final_status,
+                        "body": final_body,
+                        "url": final_url,
+                        "method": method
+                    });
                     if let Some(idx) = self.symbol_table.get_index("http_response") {
                         self.memory.set(idx, res_val.clone());
                     }

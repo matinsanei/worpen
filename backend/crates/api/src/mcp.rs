@@ -331,27 +331,37 @@ pub async fn mcp_handler(
                 .unwrap_or("")
                 .to_string();
             let args = params.get("arguments").cloned().unwrap_or(json!({}));
+            let redaction = state.dynamic_route_service.secret_store().redaction();
             match call_tool(&state, &headers, &name, args).await {
                 Ok(v) => {
-                    let formatted_text =
-                        serde_json::to_string_pretty(&v).unwrap_or_else(|_| v.to_string());
+                    let redacted_val = redaction.redact_value(&v);
+                    let formatted_text = serde_json::to_string_pretty(&redacted_val)
+                        .unwrap_or_else(|_| redacted_val.to_string());
+                    let redacted_text = redaction.redact_str(&formatted_text);
                     Json(rpc_ok(
                         id,
                         json!({
-                            "content": [{"type": "text", "text": formatted_text}],
+                            "content": [{"type": "text", "text": redacted_text}],
                             "isError": false,
-                            "result": v
+                            "result": redacted_val
                         }),
                     ))
                 }
                 Err(err) => {
-                    let err_json = serde_json::to_string_pretty(&err).unwrap_or_default();
+                    let mut redacted_err = err.clone();
+                    redacted_err.message = redaction.redact_str(&redacted_err.message);
+                    redacted_err.hint = redaction.redact_str(&redacted_err.hint);
+                    if let Some(ref f) = redacted_err.fields {
+                        redacted_err.fields = Some(redaction.redact_value(f));
+                    }
+                    let err_json = serde_json::to_string_pretty(&redacted_err).unwrap_or_default();
+                    let redacted_json = redaction.redact_str(&err_json);
                     Json(rpc_ok(
                         id,
                         json!({
-                            "content": [{"type": "text", "text": err_json}],
+                            "content": [{"type": "text", "text": redacted_json}],
                             "isError": true,
-                            "structuredError": err
+                            "structuredError": redacted_err
                         }),
                     ))
                 }
@@ -392,7 +402,15 @@ pub async fn call_tool(
                 .await
                 .map_err(|e| McpAgentError::execution_error(&e))?;
             match run_opt {
-                Some(run) => Ok(json!(run)),
+                Some(run) => {
+                    let run_val = json!(run);
+                    let redacted = state
+                        .dynamic_route_service
+                        .secret_store()
+                        .redaction()
+                        .redact_value(&run_val);
+                    Ok(redacted)
+                }
                 None => Err(McpAgentError::not_found(&format!("Run '{}'", run_id))),
             }
         }
@@ -656,33 +674,54 @@ pub async fn serve_stdio() -> Result<(), String> {
                     .to_string();
                 let args = params.get("arguments").cloned().unwrap_or(json!({}));
 
+                let redaction = svc.secret_store().redaction();
                 match name.as_str() {
                     "get_run" => {
                         let run_id = args.get("run_id").and_then(|v| v.as_str()).unwrap_or("");
                         match wf_svc.get_run(run_id).await {
-                            Ok(Some(run)) => rpc_ok(
-                                id,
-                                json!({ "content": [{"type": "text", "text": serde_json::to_string_pretty(&run).unwrap_or_default()}], "isError": false }),
-                            ),
+                            Ok(Some(run)) => {
+                                let run_val = json!(run);
+                                let redacted_val = redaction.redact_value(&run_val);
+                                let text =
+                                    serde_json::to_string_pretty(&redacted_val).unwrap_or_default();
+                                let redacted_text = redaction.redact_str(&text);
+                                rpc_ok(
+                                    id,
+                                    json!({ "content": [{"type": "text", "text": redacted_text}], "isError": false }),
+                                )
+                            }
                             Ok(None) => rpc_ok(
                                 id,
                                 json!({ "content": [{"type": "text", "text": format!("Run '{}' not found", run_id)}], "isError": true }),
                             ),
-                            Err(e) => rpc_ok(
-                                id,
-                                json!({ "content": [{"type": "text", "text": e}], "isError": true }),
-                            ),
+                            Err(e) => {
+                                let redacted_err = redaction.redact_str(&e);
+                                rpc_ok(
+                                    id,
+                                    json!({ "content": [{"type": "text", "text": redacted_err}], "isError": true }),
+                                )
+                            }
                         }
                     }
                     "list_pending_approvals" => match wf_svc.list_pending_approvals().await {
-                        Ok(pending) => rpc_ok(
-                            id,
-                            json!({ "content": [{"type": "text", "text": serde_json::to_string_pretty(&pending).unwrap_or_default()}], "isError": false }),
-                        ),
-                        Err(e) => rpc_ok(
-                            id,
-                            json!({ "content": [{"type": "text", "text": e}], "isError": true }),
-                        ),
+                        Ok(pending) => {
+                            let pending_val = json!(pending);
+                            let redacted_val = redaction.redact_value(&pending_val);
+                            let text =
+                                serde_json::to_string_pretty(&redacted_val).unwrap_or_default();
+                            let redacted_text = redaction.redact_str(&text);
+                            rpc_ok(
+                                id,
+                                json!({ "content": [{"type": "text", "text": redacted_text}], "isError": false }),
+                            )
+                        }
+                        Err(e) => {
+                            let redacted_err = redaction.redact_str(&e);
+                            rpc_ok(
+                                id,
+                                json!({ "content": [{"type": "text", "text": redacted_err}], "isError": true }),
+                            )
+                        }
                     },
                     "approve_run" | "reject_run" => rpc_ok(
                         id,
@@ -696,10 +735,13 @@ pub async fn serve_stdio() -> Result<(), String> {
                             id,
                             json!({ "content": [{"type": "text", "text": serde_json::to_string_pretty(&rep).unwrap_or_default()}], "isError": false }),
                         ),
-                        Err(e) => rpc_ok(
-                            id,
-                            json!({ "content": [{"type": "text", "text": e.to_string()}], "isError": true }),
-                        ),
+                        Err(e) => {
+                            let redacted_err = redaction.redact_str(&e.to_string());
+                            rpc_ok(
+                                id,
+                                json!({ "content": [{"type": "text", "text": redacted_err}], "isError": true }),
+                            )
+                        }
                     },
                     _ => {
                         // Check workflow
@@ -716,14 +758,23 @@ pub async fn serve_stdio() -> Result<(), String> {
                                 )
                                 .await
                             {
-                                Ok(val) => rpc_ok(
-                                    id,
-                                    json!({ "content": [{"type": "text", "text": serde_json::to_string_pretty(&val).unwrap_or_default()}], "isError": false }),
-                                ),
-                                Err(e) => rpc_ok(
-                                    id,
-                                    json!({ "content": [{"type": "text", "text": e}], "isError": true }),
-                                ),
+                                Ok(val) => {
+                                    let redacted_val = redaction.redact_value(&val);
+                                    let text = serde_json::to_string_pretty(&redacted_val)
+                                        .unwrap_or_default();
+                                    let redacted_text = redaction.redact_str(&text);
+                                    rpc_ok(
+                                        id,
+                                        json!({ "content": [{"type": "text", "text": redacted_text}], "isError": false }),
+                                    )
+                                }
+                                Err(e) => {
+                                    let redacted_err = redaction.redact_str(&e);
+                                    rpc_ok(
+                                        id,
+                                        json!({ "content": [{"type": "text", "text": redacted_err}], "isError": true }),
+                                    )
+                                }
                             }
                         } else if let Some(pipe_ref) = name.strip_prefix("pipeline:") {
                             let def = match pipes.get_definition(pipe_ref).await {
@@ -735,14 +786,24 @@ pub async fn serve_stdio() -> Result<(), String> {
                                     let payload =
                                         args.get("payload").cloned().or(Some(args.clone()));
                                     match pipes.run_pipeline(&d.id, payload).await {
-                                        Ok(run) => rpc_ok(
-                                            id,
-                                            json!({"content": [{"type": "text", "text": serde_json::to_string(&run).unwrap_or_default()}], "isError": false}),
-                                        ),
-                                        Err(e) => rpc_ok(
-                                            id,
-                                            json!({"content": [{"type": "text", "text": e}], "isError": true}),
-                                        ),
+                                        Ok(run) => {
+                                            let run_val =
+                                                serde_json::to_value(&run).unwrap_or_default();
+                                            let redacted_val = redaction.redact_value(&run_val);
+                                            let text = serde_json::to_string(&redacted_val)
+                                                .unwrap_or_default();
+                                            rpc_ok(
+                                                id,
+                                                json!({"content": [{"type": "text", "text": text}], "isError": false}),
+                                            )
+                                        }
+                                        Err(e) => {
+                                            let redacted_err = redaction.redact_str(&e);
+                                            rpc_ok(
+                                                id,
+                                                json!({"content": [{"type": "text", "text": redacted_err}], "isError": true}),
+                                            )
+                                        }
                                     }
                                 }
                                 None => rpc_ok(
@@ -765,14 +826,21 @@ pub async fn serve_stdio() -> Result<(), String> {
                                     )
                                     .await
                                 {
-                                    Ok(v) => rpc_ok(
-                                        id,
-                                        json!({"content": [{"type": "text", "text": v.to_string()}], "isError": false}),
-                                    ),
-                                    Err(e) => rpc_ok(
-                                        id,
-                                        json!({"content": [{"type": "text", "text": e}], "isError": true}),
-                                    ),
+                                    Ok(v) => {
+                                        let redacted_v = redaction.redact_value(&v);
+                                        let text = redacted_v.to_string();
+                                        rpc_ok(
+                                            id,
+                                            json!({"content": [{"type": "text", "text": text}], "isError": false}),
+                                        )
+                                    }
+                                    Err(e) => {
+                                        let redacted_err = redaction.redact_str(&e);
+                                        rpc_ok(
+                                            id,
+                                            json!({"content": [{"type": "text", "text": redacted_err}], "isError": true}),
+                                        )
+                                    }
                                 }
                             } else {
                                 rpc_ok(

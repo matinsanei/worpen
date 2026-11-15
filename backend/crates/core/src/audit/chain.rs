@@ -20,7 +20,58 @@ pub fn get_audit_secret_key() -> Vec<u8> {
             return trimmed.as_bytes().to_vec();
         }
     }
-    b"worpen-system-audit-anchor-hmac-v1".to_vec()
+
+    let key_path = Path::new(".worpen_audit.key");
+    if key_path.exists() {
+        if let Ok(bytes) = std::fs::read(key_path) {
+            let mut trimmed = bytes.as_slice();
+            while trimmed.ends_with(b"\n") || trimmed.ends_with(b"\r") {
+                trimmed = &trimmed[..trimmed.len() - 1];
+            }
+            if !trimmed.is_empty() {
+                return trimmed.to_vec();
+            }
+        }
+    }
+
+    // Generate secure random 32-byte key
+    let mut key = vec![0u8; 32];
+    let generated = if let Ok(mut f) = File::open("/dev/urandom") {
+        use std::io::Read;
+        f.read_exact(&mut key).is_ok()
+    } else {
+        false
+    };
+
+    if !generated {
+        // Fallback cryptographically seeded generation
+        use std::time::SystemTime;
+        let seed = format!(
+            "{:?}:{:?}:{}",
+            SystemTime::now(),
+            std::process::id(),
+            uuid::Uuid::new_v4()
+        );
+        key = sha2::Sha256::digest(seed.as_bytes()).to_vec();
+    }
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        let mut opts = OpenOptions::new();
+        opts.write(true).create(true).truncate(true).mode(0o600);
+        if let Ok(mut f) = opts.open(key_path) {
+            let _ = f.write_all(&key);
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        if let Ok(mut f) = File::create(key_path) {
+            let _ = f.write_all(&key);
+        }
+    }
+
+    key
 }
 
 /// Compute HMAC-SHA256 signature over entry hash using secret audit key

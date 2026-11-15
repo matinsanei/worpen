@@ -58,6 +58,7 @@ pub async fn get_workflow(
 /// POST /api/v1/workflows/:name/execute — Execute a workflow (Live or DryRun)
 pub async fn execute_workflow(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     Path(name): Path<String>,
     Query(params): Query<ExecuteParams>,
     payload: Option<Json<Value>>,
@@ -68,8 +69,34 @@ pub async fn execute_workflow(
         ExecutionMode::Live
     };
 
+    let initiator = headers
+        .get("x-worpen-initiator")
+        .or_else(|| headers.get("x-initiator"))
+        .or_else(|| headers.get("x-caller-id"))
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string())
+        .or_else(|| {
+            if crate::auth::require_token(&headers).is_ok()
+                && crate::auth::configured_token().is_some()
+            {
+                Some("authenticated_operator".to_string())
+            } else {
+                None
+            }
+        });
+
+    let ikey = headers
+        .get("idempotency-key")
+        .or_else(|| headers.get("x-idempotency-key"))
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+
     let body = payload.map(|p| p.0);
-    match state.workflow_service.execute(&name, body, mode).await {
+    match state
+        .workflow_service
+        .execute_with_meta(&name, body, mode, initiator, ikey)
+        .await
+    {
         Ok(val) => Ok(Json(val)),
         Err(e) => Err((
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -125,9 +152,28 @@ pub struct RejectActionPayload {
 /// GET /api/v1/runs — List recent durable runs
 pub async fn list_runs(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
 ) -> Result<Json<Vec<proto::models::WorkflowRun>>, (StatusCode, Json<Value>)> {
+    crate::auth::require_token(&headers)?;
     match state.workflow_service.list_runs(50).await {
-        Ok(runs) => Ok(Json(runs)),
+        Ok(runs) => {
+            let redaction = state.dynamic_route_service.secret_store().redaction();
+            let redacted_runs: Vec<proto::models::WorkflowRun> = runs
+                .into_iter()
+                .map(|mut r| {
+                    if let Some(res) = r.result {
+                        r.result = Some(redaction.redact_value(&res));
+                    }
+                    let mut redacted_vars = HashMap::new();
+                    for (k, v) in r.variables {
+                        redacted_vars.insert(k, redaction.redact_value(&v));
+                    }
+                    r.variables = redacted_vars;
+                    r
+                })
+                .collect();
+            Ok(Json(redacted_runs))
+        }
         Err(e) => Err((
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "error": "list_runs_failed", "message": e })),
@@ -138,7 +184,9 @@ pub async fn list_runs(
 /// GET /api/v1/runs/pending — List all runs waiting for human approval
 pub async fn list_pending_approvals(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
 ) -> Result<Json<Vec<proto::models::WorkflowRun>>, (StatusCode, Json<Value>)> {
+    crate::auth::require_token(&headers)?;
     match state.workflow_service.list_pending_approvals().await {
         Ok(runs) => Ok(Json(runs)),
         Err(e) => Err((
@@ -151,10 +199,23 @@ pub async fn list_pending_approvals(
 /// GET /api/v1/runs/:id — Get run status by ID
 pub async fn get_run(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     Path(id): Path<String>,
 ) -> Result<Json<proto::models::WorkflowRun>, (StatusCode, Json<Value>)> {
+    crate::auth::require_token(&headers)?;
     match state.workflow_service.get_run(&id).await {
-        Ok(Some(run)) => Ok(Json(run)),
+        Ok(Some(mut run)) => {
+            let redaction = state.dynamic_route_service.secret_store().redaction();
+            if let Some(res) = run.result {
+                run.result = Some(redaction.redact_value(&res));
+            }
+            let mut redacted_vars = HashMap::new();
+            for (k, v) in run.variables {
+                redacted_vars.insert(k, redaction.redact_value(&v));
+            }
+            run.variables = redacted_vars;
+            Ok(Json(run))
+        }
         Ok(None) => Err((
             StatusCode::NOT_FOUND,
             Json(json!({ "error": "not_found", "message": format!("Run '{}' not found", id) })),
@@ -217,8 +278,10 @@ pub async fn reject_run(
 /// POST /api/v1/runs/:id/cancel — Cancel a run
 pub async fn cancel_run(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     Path(id): Path<String>,
 ) -> Result<Json<proto::models::WorkflowRun>, (StatusCode, Json<Value>)> {
+    crate::auth::require_token(&headers)?;
     match state.workflow_service.cancel_run(&id).await {
         Ok(run) => Ok(Json(run)),
         Err(e) => Err((
