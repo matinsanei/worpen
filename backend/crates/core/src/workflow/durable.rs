@@ -1094,6 +1094,20 @@ impl DurableWorkflowEngine {
         }
     }
 
+    /// Helper to resolve variable or nested field path (e.g. `foo` or `foo.bar.baz`)
+    fn get_nested_var<'a>(&self, vars: &'a HashMap<String, Value>, path: &str) -> Option<&'a Value> {
+        if let Some(direct) = vars.get(path) {
+            return Some(direct);
+        }
+        let mut parts = path.split('.');
+        let root = parts.next()?;
+        let mut current = vars.get(root)?;
+        for part in parts {
+            current = current.get(part)?;
+        }
+        Some(current)
+    }
+
     /// Interpolate `{{var}}` variables in a string
     fn interpolate_string(&self, s: &str, vars: &HashMap<String, Value>) -> String {
         let re = regex::Regex::new(r"\{\{([^}]+)\}\}").unwrap();
@@ -1106,7 +1120,7 @@ impl DurableWorkflowEngine {
                 if var_name.starts_with("secret:") {
                     continue;
                 }
-                if let Some(val) = vars.get(var_name) {
+                if let Some(val) = self.get_nested_var(vars, var_name) {
                     let val_str = match val {
                         Value::String(st) => st.clone(),
                         other => other.to_string(),
@@ -1128,7 +1142,7 @@ impl DurableWorkflowEngine {
                     if inner.starts_with("secret:") {
                         return val.clone();
                     }
-                    if let Some(v) = vars.get(inner) {
+                    if let Some(v) = self.get_nested_var(vars, inner) {
                         return v.clone();
                     }
                 }
