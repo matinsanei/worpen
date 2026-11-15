@@ -19,6 +19,7 @@ dist-ssr
 *.rar
 *.key
 .worpen_audit.key
+demo_project/
 
 # Editor directories and files
 .vscode/*
