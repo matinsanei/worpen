@@ -603,6 +603,10 @@ pub async fn serve_stdio() -> Result<(), String> {
             }
         };
         let id = req.id.clone();
+        if req.id.is_none() || req.method.starts_with("notifications/") {
+            // In JSON-RPC 2.0 and MCP, notifications must never receive a response
+            continue;
+        }
         let resp = match req.method.as_str() {
             "initialize" => rpc_ok(
                 id,
